@@ -12,3 +12,4 @@ EcoCycleHub is a full-stack web application that streamlines industrial waste pi
 -Industry & Shop Interface<br>
     *Industry users can request waste pickups, track history, and manage profiles.<br>
     *Buyers can shop eco-friendly products made from recycled waste.
+
