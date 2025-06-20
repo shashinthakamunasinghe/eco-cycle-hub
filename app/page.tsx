@@ -1,8 +1,14 @@
-import Link from "next/link"
-import { Navbar } from "@/components/common/navbar"
-import { Slideshow } from "@/components/common/slideshow"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link";
+import { Navbar } from "@/components/Common/Navbar";
+import { Slideshow } from "@/components/Common/Slideshow";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Recycle,
   Truck,
@@ -22,7 +28,7 @@ import {
   Eye,
   Target,
   Heart,
-} from "lucide-react"
+} from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -69,9 +75,12 @@ export default function HomePage() {
             </div>
 
             <div className="text-center mt-8 text-white">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Connecting the Circular Economy</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                Connecting the Circular Economy
+              </h2>
               <p className="text-xl md:text-2xl opacity-90">
-                From waste to wealth, from industry to customer - we're building a sustainable future together
+                From waste to wealth, from industry to customer - we're building
+                a sustainable future together
               </p>
             </div>
           </div>
@@ -85,10 +94,12 @@ export default function HomePage() {
                 <Factory className="h-10 w-10 text-white" />
               </div>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Industry Waste Management</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Industry Waste Management
+            </h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Streamline your industrial waste management with our smart pickup system, real-time tracking, and
-              comprehensive dashboard.
+              Streamline your industrial waste management with our smart pickup
+              system, real-time tracking, and comprehensive dashboard.
             </p>
           </div>
 
@@ -99,7 +110,9 @@ export default function HomePage() {
                   <Truck className="h-6 w-6 text-green-600" />
                   <span>Smart Pickup Requests</span>
                 </CardTitle>
-                <CardDescription>Request waste pickups with automatic collector assignment</CardDescription>
+                <CardDescription>
+                  Request waste pickups with automatic collector assignment
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm text-gray-600">
@@ -116,7 +129,9 @@ export default function HomePage() {
                   <BarChart3 className="h-6 w-6 text-blue-600" />
                   <span>Real-Time Dashboard</span>
                 </CardTitle>
-                <CardDescription>Monitor your waste management activities</CardDescription>
+                <CardDescription>
+                  Monitor your waste management activities
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm text-gray-600">
@@ -133,7 +148,9 @@ export default function HomePage() {
                   <MapPin className="h-6 w-6 text-orange-600" />
                   <span>GPS Tracking</span>
                 </CardTitle>
-                <CardDescription>Track collectors and pickups in real-time</CardDescription>
+                <CardDescription>
+                  Track collectors and pickups in real-time
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm text-gray-600">
@@ -146,7 +163,11 @@ export default function HomePage() {
           </div>
 
           <div className="text-center">
-            <Button size="lg" className="bg-green-600 hover:bg-green-700" asChild>
+            <Button
+              size="lg"
+              className="bg-green-600 hover:bg-green-700"
+              asChild
+            >
               <Link href="/auth/login">Industry Portal</Link>
             </Button>
           </div>
@@ -161,10 +182,13 @@ export default function HomePage() {
                   <Store className="h-10 w-10 text-white" />
                 </div>
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">EcoCycle Marketplace</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                EcoCycle Marketplace
+              </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Shop eco-friendly products made from recycled materials. Support sustainability while getting quality
-                products for your garden and home.
+                Shop eco-friendly products made from recycled materials. Support
+                sustainability while getting quality products for your garden
+                and home.
               </p>
             </div>
 
@@ -175,7 +199,9 @@ export default function HomePage() {
                     <Leaf className="h-6 w-6 text-green-600" />
                     <span>Organic Fertilizers</span>
                   </CardTitle>
-                  <CardDescription>Premium compost and organic fertilizers</CardDescription>
+                  <CardDescription>
+                    Premium compost and organic fertilizers
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm text-gray-600">
@@ -192,7 +218,9 @@ export default function HomePage() {
                     <Recycle className="h-6 w-6 text-blue-600" />
                     <span>Garden Supplies</span>
                   </CardTitle>
-                  <CardDescription>Sustainable gardening products</CardDescription>
+                  <CardDescription>
+                    Sustainable gardening products
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm text-gray-600">
@@ -209,7 +237,9 @@ export default function HomePage() {
                     <ShoppingCart className="h-6 w-6 text-orange-600" />
                     <span>Easy Shopping</span>
                   </CardTitle>
-                  <CardDescription>Seamless online shopping experience</CardDescription>
+                  <CardDescription>
+                    Seamless online shopping experience
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm text-gray-600">
@@ -222,7 +252,11 @@ export default function HomePage() {
             </div>
 
             <div className="text-center">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
+              <Button
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700"
+                asChild
+              >
                 <Link href="/shop/products">Explore Shop Products</Link>
               </Button>
             </div>
@@ -233,10 +267,13 @@ export default function HomePage() {
         <section className="py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">About EcoCycle Hub</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                About EcoCycle Hub
+              </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                We're revolutionizing waste management by connecting industries with efficient collection services and
-                transforming waste into valuable products for consumers.
+                We're revolutionizing waste management by connecting industries
+                with efficient collection services and transforming waste into
+                valuable products for consumers.
               </p>
             </div>
 
@@ -250,8 +287,9 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600">
-                    To create a world where waste becomes a valuable resource, fostering a truly circular economy that
-                    benefits both businesses and the environment.
+                    To create a world where waste becomes a valuable resource,
+                    fostering a truly circular economy that benefits both
+                    businesses and the environment.
                   </p>
                 </CardContent>
               </Card>
@@ -265,8 +303,9 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600">
-                    To provide innovative waste management solutions that connect industries, collectors, and consumers
-                    in a sustainable ecosystem that reduces environmental impact.
+                    To provide innovative waste management solutions that
+                    connect industries, collectors, and consumers in a
+                    sustainable ecosystem that reduces environmental impact.
                   </p>
                 </CardContent>
               </Card>
@@ -280,8 +319,9 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600">
-                    Sustainability, innovation, transparency, and community. We believe in creating value for all
-                    stakeholders while protecting our planet for future generations.
+                    Sustainability, innovation, transparency, and community. We
+                    believe in creating value for all stakeholders while
+                    protecting our planet for future generations.
                   </p>
                 </CardContent>
               </Card>
@@ -293,9 +333,12 @@ export default function HomePage() {
         <section className="bg-gray-50 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose EcoCycle Hub?</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Why Choose EcoCycle Hub?
+              </h2>
               <p className="text-lg text-gray-600">
-                Advanced features for efficient waste management and sustainable shopping
+                Advanced features for efficient waste management and sustainable
+                shopping
               </p>
             </div>
 
@@ -304,9 +347,12 @@ export default function HomePage() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Users className="h-8 w-8 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Multi-Role Platform</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  Multi-Role Platform
+                </h3>
                 <p className="text-gray-600 text-sm">
-                  Separate dashboards for industries, collectors, admins, and customers
+                  Separate dashboards for industries, collectors, admins, and
+                  customers
                 </p>
               </div>
 
@@ -314,8 +360,12 @@ export default function HomePage() {
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Clock className="h-8 w-8 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Real-Time Updates</h3>
-                <p className="text-gray-600 text-sm">Live tracking of pickups, orders, and notifications</p>
+                <h3 className="text-lg font-semibold mb-2">
+                  Real-Time Updates
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Live tracking of pickups, orders, and notifications
+                </p>
               </div>
 
               <div className="text-center">
@@ -323,7 +373,9 @@ export default function HomePage() {
                   <Shield className="h-8 w-8 text-orange-600" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Secure Payments</h3>
-                <p className="text-gray-600 text-sm">Safe and secure transactions with Stripe integration</p>
+                <p className="text-gray-600 text-sm">
+                  Safe and secure transactions with Stripe integration
+                </p>
               </div>
 
               <div className="text-center">
@@ -331,7 +383,9 @@ export default function HomePage() {
                   <MapPin className="h-8 w-8 text-purple-600" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">GPS Integration</h3>
-                <p className="text-gray-600 text-sm">Advanced location tracking and route optimization</p>
+                <p className="text-gray-600 text-sm">
+                  Advanced location tracking and route optimization
+                </p>
               </div>
             </div>
           </div>
@@ -349,21 +403,34 @@ export default function HomePage() {
                   <span className="text-xl font-bold">EcoCycle Hub</span>
                 </div>
                 <p className="text-gray-400 mb-4">
-                  Smart waste management and sustainable marketplace for a greener future.
+                  Smart waste management and sustainable marketplace for a
+                  greener future.
                 </p>
 
                 {/* Social Media Icons */}
                 <div className="flex space-x-4">
-                  <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                  <a
+                    href="#"
+                    className="text-gray-400 hover:text-green-400 transition-colors"
+                  >
                     <Facebook className="h-5 w-5" />
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                  <a
+                    href="#"
+                    className="text-gray-400 hover:text-green-400 transition-colors"
+                  >
                     <Instagram className="h-5 w-5" />
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                  <a
+                    href="#"
+                    className="text-gray-400 hover:text-green-400 transition-colors"
+                  >
                     <Twitter className="h-5 w-5" />
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                  <a
+                    href="#"
+                    className="text-gray-400 hover:text-green-400 transition-colors"
+                  >
                     <Linkedin className="h-5 w-5" />
                   </a>
                 </div>
@@ -373,17 +440,26 @@ export default function HomePage() {
                 <h3 className="text-lg font-semibold mb-4">For Industries</h3>
                 <ul className="space-y-2 text-gray-400">
                   <li>
-                    <Link href="/industry/dashboard" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/industry/dashboard"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Dashboard
                     </Link>
                   </li>
                   <li>
-                    <Link href="/industry/request" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/industry/request"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Request Pickup
                     </Link>
                   </li>
                   <li>
-                    <Link href="/industry/history" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/industry/history"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Pickup History
                     </Link>
                   </li>
@@ -394,17 +470,26 @@ export default function HomePage() {
                 <h3 className="text-lg font-semibold mb-4">Marketplace</h3>
                 <ul className="space-y-2 text-gray-400">
                   <li>
-                    <Link href="/shop/products" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/shop/products"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Products
                     </Link>
                   </li>
                   <li>
-                    <Link href="/shop/cart" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/shop/cart"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Shopping Cart
                     </Link>
                   </li>
                   <li>
-                    <Link href="/shop/orders" className="hover:text-green-400 transition-colors">
+                    <Link
+                      href="/shop/orders"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Order History
                     </Link>
                   </li>
@@ -415,17 +500,26 @@ export default function HomePage() {
                 <h3 className="text-lg font-semibold mb-4">Company</h3>
                 <ul className="space-y-2 text-gray-400">
                   <li>
-                    <a href="#about" className="hover:text-green-400 transition-colors">
+                    <a
+                      href="#about"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       About Us
                     </a>
                   </li>
                   <li>
-                    <a href="#contact" className="hover:text-green-400 transition-colors">
+                    <a
+                      href="#contact"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Contact
                     </a>
                   </li>
                   <li>
-                    <a href="#privacy" className="hover:text-green-400 transition-colors">
+                    <a
+                      href="#privacy"
+                      className="hover:text-green-400 transition-colors"
+                    >
                       Privacy Policy
                     </a>
                   </li>
@@ -440,5 +534,5 @@ export default function HomePage() {
         </footer>
       </div>
     </div>
-  )
+  );
 }

@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useAuth } from "@/hooks/useAuth"
-import { Navbar } from "@/components/common/navbar"
-import { CollectorSidebar } from "@/components/collector/sidebar"
+import { Navbar } from "@/components/Common/Navbar"
+import { CollectorSidebar } from "@/components/Collector/Collectorsidebar"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
