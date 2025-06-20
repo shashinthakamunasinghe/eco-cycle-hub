@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useAuth } from "@/hooks/useAuth"
-import { Navbar } from "@/components/common/navbar"
-import { AdminSidebar } from "@/components/admin/sidebar"
+import { Navbar } from "@/components/Common/Navbar"
+import { AdminSidebar } from "@/components/Admin/Adminsidebar"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
