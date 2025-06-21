@@ -79,7 +79,7 @@ export default function HomePage() {
                 Connecting the Circular Economy
               </h2>
               <p className="text-xl md:text-2xl opacity-90">
-                From waste to wealth, from industry to customer - we're building
+                From waste to wealth, from industry to customer - we are building
                 a sustainable future together
               </p>
             </div>
@@ -168,7 +168,7 @@ export default function HomePage() {
               className="bg-green-600 hover:bg-green-700"
               asChild
             >
-              <Link href="/auth/login">Industry Portal</Link>
+              <Link href="/login">Industry Portal</Link>
             </Button>
           </div>
         </section>
@@ -271,7 +271,7 @@ export default function HomePage() {
                 About EcoCycle Hub
               </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                We're revolutionizing waste management by connecting industries
+                We are revolutionizing waste management by connecting industries
                 with efficient collection services and transforming waste into
                 valuable products for consumers.
               </p>

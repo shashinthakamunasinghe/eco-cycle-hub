@@ -42,7 +42,7 @@ export default function RegisterPage() {
         description: "Your account has been created successfully!",
       })
 
-      router.push("/auth/login")
+      router.push("/login")
     } catch (error) {
       toast({
         title: "Registration failed",
@@ -218,7 +218,7 @@ export default function RegisterPage() {
             <div className="mt-6 text-center">
               <span className="text-sm text-gray-600">
                 Already have an account?{" "}
-                <Link href="/auth/login" className="text-green-600 hover:text-green-500 font-medium">
+                <Link href="/login" className="text-green-600 hover:text-green-500 font-medium">
                   Sign in
                 </Link>
               </span>

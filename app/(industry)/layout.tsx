@@ -4,11 +4,11 @@ import type React from "react"
 
 import { useAuth } from "@/hooks/useAuth"
 import { Navbar } from "@/components/Common/Navbar"
-import { CollectorSidebar } from "@/components/Collector/Collectorsidebar"
+import { Sidebar } from "@/components/Industry/Industrysidebar"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
-export default function CollectorLayout({
+export default function IndustryLayout({
   children,
 }: {
   children: React.ReactNode
@@ -17,8 +17,8 @@ export default function CollectorLayout({
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "collector")) {
-      router.push("/auth/login")
+    if (!loading && (!user || user.role !== "industry")) {
+      router.push("/login")
     }
   }, [user, loading, router])
 
@@ -26,7 +26,7 @@ export default function CollectorLayout({
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
 
-  if (!user || user.role !== "collector") {
+  if (!user || user.role !== "industry") {
     return null
   }
 
@@ -34,8 +34,8 @@ export default function CollectorLayout({
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="flex pt-16">
-        <CollectorSidebar />
-        <main className="flex-1 ml-64 p-6 min-h-screen lg:ml-64 md:ml-0">{children}</main>
+        <Sidebar />
+        <main className="flex-1 ml-64 p-6 min-h-screen">{children}</main>
       </div>
     </div>
   )

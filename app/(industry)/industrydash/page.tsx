@@ -106,7 +106,7 @@ export default function IndustryDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <Button asChild>
-          <Link href="/industry/request">
+          <Link href="/request">
             <Plus className="mr-2 h-4 w-4" />
             New Request
           </Link>
@@ -197,14 +197,14 @@ export default function IndustryDashboard() {
               <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">No pickup requests yet.</p>
               <Button asChild className="mt-4">
-                <Link href="/industry/request">Create Your First Request</Link>
+                <Link href="/request">Create Your First Request</Link>
               </Button>
             </div>
           )}
           {recentRequests.length > 0 && (
             <div className="mt-4 text-center">
               <Button variant="outline" asChild>
-                <Link href="/industry/history">View All Requests</Link>
+                <Link href="/history">View All Requests</Link>
               </Button>
             </div>
           )}
@@ -219,19 +219,19 @@ export default function IndustryDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button className="w-full justify-start" asChild>
-              <Link href="/industry/request">
+              <Link href="/request">
                 <Plus className="mr-2 h-4 w-4" />
                 Request New Pickup
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/industry/history">
+              <Link href="/history">
                 <History className="mr-2 h-4 w-4" />
                 View Pickup History
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/industry/profile">
+              <Link href="/industry-profile">
                 <User className="mr-2 h-4 w-4" />
                 Update Profile
               </Link>

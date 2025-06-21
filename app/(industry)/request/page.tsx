@@ -92,7 +92,7 @@ export default function RequestPickupPage() {
         address: "",
       })
 
-      router.push("/industry/dashboard")
+      router.push("/industrydash")
     } catch (error) {
       toast({
         title: "Error",
