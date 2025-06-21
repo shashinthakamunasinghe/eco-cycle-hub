@@ -6,12 +6,12 @@ import { cn } from "@/lib/utils"
 import { ShoppingBag, ShoppingCart, Package, User, Heart, Star } from "lucide-react"
 
 const navigation = [
-  { name: "Products", href: "/shop/products", icon: ShoppingBag },
-  { name: "Cart", href: "/shop/cart", icon: ShoppingCart },
-  { name: "Orders", href: "/shop/orders", icon: Package },
-  { name: "Wishlist", href: "/shop/wishlist", icon: Heart },
-  { name: "Reviews", href: "/shop/reviews", icon: Star },
-  { name: "Profile", href: "/shop/profile", icon: User },
+  { name: "Products", href: "/products", icon: ShoppingBag },
+  { name: "Cart", href: "/cart", icon: ShoppingCart },
+  { name: "Orders", href: "/orders", icon: Package },
+  { name: "Wishlist", href: "/wishlist", icon: Heart },
+  { name: "Reviews", href: "/reviews", icon: Star },
+  { name: "Profile", href: "/customer-profile", icon: User },
 ]
 
 const categories = ["Fertilizers", "Garden Supplies", "Mulch", "Compost", "Seeds", "Tools"]
@@ -50,7 +50,7 @@ export function ShopSidebar() {
           {categories.map((category) => (
             <Link
               key={category}
-              href={`/shop/products?category=${category.toLowerCase()}`}
+              href={`/products?category=${category.toLowerCase()}`}
               className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-md transition-colors"
             >
               {category}

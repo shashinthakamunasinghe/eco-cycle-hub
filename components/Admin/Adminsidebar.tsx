@@ -9,15 +9,15 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
 const navigation = [
-  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Pickup Requests", href: "/admin/pickups", icon: Truck },
-  { name: "Products", href: "/admin/products", icon: Package },
-  { name: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { name: "Collectors", href: "/admin/collectors", icon: Truck },
-  { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Map View", href: "/admin/map", icon: MapPin },
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { name: "Notifications", href: "/admin/notifications", icon: Bell },
+  { name: "Dashboard", href: "/admindash", icon: LayoutDashboard },
+  { name: "Pickup Requests", href: "/industry-pickups", icon: Truck },
+  { name: "Products", href: "/add-products", icon: Package },
+  { name: "Orders", href: "/view-orders", icon: ShoppingCart },
+  { name: "Collectors", href: "/collectors", icon: Truck },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "Map View", href: "/admin-map", icon: MapPin },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Notifications", href: "/admin-notifications", icon: Bell },
 ]
 
 export function AdminSidebar() {
@@ -27,7 +27,7 @@ export function AdminSidebar() {
 
   const handleLogout = () => {
     logout()
-    router.push("/auth/login")
+    router.push("/login")
   }
 
   return (

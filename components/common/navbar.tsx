@@ -32,22 +32,18 @@ export function Navbar() {
   const dashboardLabel = getDashboardLabel()
   const isShopPage = pathname.startsWith("/shop")
   const isLandingPage = pathname === "/"
-  const isDashboard = !!dashboardLabel
-  const isAdminPage = pathname.startsWith("/admin")
-  const isCollectorPage = pathname.startsWith("/collector")
-  const isIndustryPage = pathname.startsWith("/industry")
 
   const getNotificationLink = () => {
-    if (pathname.startsWith("/admin")) return "/admin/notifications"
-    if (pathname.startsWith("/industry")) return "/industry/notifications"
-    if (pathname.startsWith("/collector")) return "/collector/notifications"
-    if (pathname.startsWith("/shop")) return "/shop/notifications"
+    if (pathname.startsWith("/admin")) return "/admin-notifications"
+    if (pathname.startsWith("/industry")) return "/industry-notifications"
+    if (pathname.startsWith("/collector")) return "/collector-notifications"
+    if (pathname.startsWith("/shop")) return "/shop-notifications"
     return "#"
   }
 
   const getProfileLink = () => {
-    if (pathname.startsWith("/shop")) return "/shop/profile"
-    if (user?.role) return `/${user.role}/profile`
+    if (pathname.startsWith("/shop")) return "/customer-profile"
+    if (user?.role) return `/${user.role}-profile`
     return "#"
   }
 
@@ -66,7 +62,7 @@ export function Navbar() {
       if (isShopPage) {
         router.push("/")
       } else {
-        router.push("/auth/login")
+        router.push("/login")
       }
     } catch (error) {
       console.error("Logout error:", error)
@@ -149,7 +145,7 @@ export function Navbar() {
               {user ? (
                 <>
                   <Button variant="ghost" size="icon" className="relative" asChild>
-                    <Link href="/shop/cart">
+                    <Link href="/cart">
                       <ShoppingCart className="h-5 w-5" />
                       <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
                         4
@@ -157,19 +153,19 @@ export function Navbar() {
                     </Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link href="/shop/orders">
+                    <Link href="/orders">
                       <Package className="h-4 w-4 mr-2" />
                       Orders
                     </Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link href="/shop/wishlist">
+                    <Link href="/wishlist">
                       <Heart className="h-4 w-4 mr-2" />
                       Wishlist
                     </Link>
                   </Button>
                   <Button variant="ghost" size="icon" className="relative" asChild>
-                    <Link href="/shop/notifications">
+                    <Link href="/shop-notifications">
                       <Bell className="h-5 w-5" />
                       <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
                         3
@@ -194,7 +190,7 @@ export function Navbar() {
                       </div>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link href="/shop/profile" className="flex items-center">
+                        <Link href="/customer-profile" className="flex items-center">
                           <User className="mr-2 h-4 w-4" />
                           Profile
                         </Link>
@@ -210,10 +206,10 @@ export function Navbar() {
               ) : (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link href="/auth/register?type=customer">Register</Link>
+                    <Link href="/register?type=customer">Register</Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link href="/auth/login">Login</Link>
+                    <Link href="/login">Login</Link>
                   </Button>
                 </>
               )}
@@ -279,7 +275,7 @@ export function Navbar() {
                 </DropdownMenuItem>
                 {user?.role === "admin" && (
                   <DropdownMenuItem asChild>
-                    <Link href="/admin/dashboard" className="flex items-center">
+                    <Link href="/admindash" className="flex items-center">
                       <Settings className="mr-2 h-4 w-4" />
                       Admin Dashboard
                     </Link>

@@ -316,7 +316,7 @@ export default function CollectorDashboard() {
           </div>
           <div className="mt-4 text-center">
             <Button variant="outline" asChild>
-              <Link href="/collector/pickups">View All Pickups</Link>
+              <Link href="/assigned-pickups">View All Pickups</Link>
             </Button>
           </div>
         </CardContent>
@@ -330,19 +330,19 @@ export default function CollectorDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button className="w-full justify-start" asChild>
-              <Link href="/collector/map">
+              <Link href="/collector-map">
                 <MapPin className="mr-2 h-4 w-4" />
                 View Map & Navigate
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/collector/pickups">
+              <Link href="/assigned-pickups">
                 <Package className="mr-2 h-4 w-4" />
                 Manage Pickups
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/collector/profile">
+              <Link href="/collector-profile">
                 <Truck className="mr-2 h-4 w-4" />
                 Update Vehicle Info
               </Link>

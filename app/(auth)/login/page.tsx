@@ -35,16 +35,16 @@ export default function LoginPage() {
       // Redirect based on role
       switch (user.role) {
         case "admin":
-          router.push("/admin/dashboard")
+          router.push("/admindash")
           break
         case "industry":
-          router.push("/industry/dashboard")
+          router.push("/industrydash")
           break
         case "collector":
-          router.push("/collector/dashboard")
+          router.push("/collectordash")
           break
         case "customer":
-          router.push("/shop/products")
+          router.push("/products")
           break
         default:
           router.push("/")
@@ -141,16 +141,16 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-6 text-center">
-              <span className="text-sm text-gray-600">Don't have an account? </span>
+              <span className="text-sm text-gray-600">Do not have an account? </span>
               <div className="flex space-x-2 mt-2">
                 <Button variant="outline" size="sm" asChild className="flex-1">
-                  <Link href="/auth/register?type=customer">
+                  <Link href="/register?type=customer">
                     <ShoppingBag className="h-4 w-4 mr-1" />
                     Customer
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild className="flex-1">
-                  <Link href="/auth/register?type=industry">
+                  <Link href="/register?type=industry">
                     <Users className="h-4 w-4 mr-1" />
                     Industry
                   </Link>

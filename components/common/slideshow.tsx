@@ -12,7 +12,7 @@ const slides = [
     subtitle: "Efficient industrial waste collection and recycling",
     image: "/placeholder.svg?height=400&width=800",
     cta: "Get Started",
-    link: "/auth/register",
+    link: "/register",
   },
   {
     id: 2,
@@ -20,7 +20,7 @@ const slides = [
     subtitle: "Shop sustainable products made from recycled materials",
     image: "/placeholder.svg?height=400&width=800",
     cta: "Shop Now",
-    link: "/shop/products",
+    link: "/products",
   },
   {
     id: 3,
