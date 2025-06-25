@@ -9,43 +9,43 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 
 const navigation = [
-  { name: "Dashboard", href: "/collector/dashboard", icon: LayoutDashboard },
-  { name: "Assigned Pickups", href: "/collector/pickups", icon: Package },
-  { name: "Map View", href: "/collector/map", icon: MapPin },
-  { name: "Profile", href: "/collector/profile", icon: User },
-  { name: "Notifications", href: "/collector/notifications", icon: Bell },
+  { name: "Dashboard", href: "/collectordash", icon: LayoutDashboard },
+  { name: "Assigned Pickups", href: "/assigned-pickups", icon: Package },
+  { name: "Map View", href: "/collector-map", icon: MapPin },
+  { name: "Profile", href: "/collector-profile", icon: User },
+  { name: "Notifications", href: "/collector-notifications", icon: Bell },
 ]
 
 export function CollectorSidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { logout } = useAuth()
-  const { toast } = useToast()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+  const { toast } = useToast();
 
   const handleLogout = async () => {
     try {
       // Clear all collector-related data
-      localStorage.removeItem("collectorProfile")
-      localStorage.removeItem("collectorPickups")
-      localStorage.removeItem("collectorNotifications")
-      localStorage.removeItem("collectorAvailable")
+      localStorage.removeItem("collectorProfile");
+      localStorage.removeItem("collectorPickups");
+      localStorage.removeItem("collectorNotifications");
+      localStorage.removeItem("collectorAvailable");
 
       // Call auth logout
-      await logout()
+      await logout();
 
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your collector account.",
-      })
+      });
 
       // Redirect to login
-      router.push("/auth/login")
+      router.push("/login");
     } catch (error) {
       toast({
         title: "Logout failed",
         description: "There was an error logging out. Please try again.",
         variant: "destructive",
-      })
+      });
     }
   }
 

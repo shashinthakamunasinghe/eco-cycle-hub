@@ -79,8 +79,8 @@ export default function HomePage() {
                 Connecting the Circular Economy
               </h2>
               <p className="text-xl md:text-2xl opacity-90">
-                From waste to wealth, from industry to customer - we're building
-                a sustainable future together
+                From waste to wealth, from industry to customer - we are
+                building a sustainable future together
               </p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function HomePage() {
               className="bg-green-600 hover:bg-green-700"
               asChild
             >
-              <Link href="/auth/login">Industry Portal</Link>
+              <Link href="/login">Industry Portal</Link>
             </Button>
           </div>
         </section>
@@ -257,7 +257,7 @@ export default function HomePage() {
                 className="bg-blue-600 hover:bg-blue-700"
                 asChild
               >
-                <Link href="/shop/products">Explore Shop Products</Link>
+                <Link href="/products">Explore Shop Products</Link>
               </Button>
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function HomePage() {
                 About EcoCycle Hub
               </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                We're revolutionizing waste management by connecting industries
+                We are revolutionizing waste management by connecting industries
                 with efficient collection services and transforming waste into
                 valuable products for consumers.
               </p>
@@ -441,7 +441,7 @@ export default function HomePage() {
                 <ul className="space-y-2 text-gray-400">
                   <li>
                     <Link
-                      href="/industry/dashboard"
+                      href="/industrydash"
                       className="hover:text-green-400 transition-colors"
                     >
                       Dashboard
@@ -449,7 +449,7 @@ export default function HomePage() {
                   </li>
                   <li>
                     <Link
-                      href="/industry/request"
+                      href="/request"
                       className="hover:text-green-400 transition-colors"
                     >
                       Request Pickup
@@ -457,7 +457,7 @@ export default function HomePage() {
                   </li>
                   <li>
                     <Link
-                      href="/industry/history"
+                      href="/history"
                       className="hover:text-green-400 transition-colors"
                     >
                       Pickup History
@@ -471,7 +471,7 @@ export default function HomePage() {
                 <ul className="space-y-2 text-gray-400">
                   <li>
                     <Link
-                      href="/shop/products"
+                      href="/products"
                       className="hover:text-green-400 transition-colors"
                     >
                       Products
@@ -479,7 +479,7 @@ export default function HomePage() {
                   </li>
                   <li>
                     <Link
-                      href="/shop/cart"
+                      href="/cart"
                       className="hover:text-green-400 transition-colors"
                     >
                       Shopping Cart
@@ -487,7 +487,7 @@ export default function HomePage() {
                   </li>
                   <li>
                     <Link
-                      href="/shop/orders"
+                      href="/orders"
                       className="hover:text-green-400 transition-colors"
                     >
                       Order History
@@ -528,7 +528,7 @@ export default function HomePage() {
             </div>
 
             <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-              <p>&copy; 2024 EcoCycle Hub. All rights reserved.</p>
+              <p>&copy; 2025 EcoCycle Hub. All rights reserved.</p>
             </div>
           </div>
         </footer>

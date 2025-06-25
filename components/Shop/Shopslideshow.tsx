@@ -11,7 +11,7 @@ const slides = [
     subtitle: "Limited time offer on all organic compost products",
     image: "/placeholder.svg?height=200&width=800",
     cta: "Shop Now",
-    link: "/shop/products?category=fertilizers",
+    link: "/products?category=fertilizers",
   },
   {
     id: 2,
@@ -19,7 +19,7 @@ const slides = [
     subtitle: "Made from 100% recycled materials",
     image: "/placeholder.svg?height=200&width=800",
     cta: "Explore",
-    link: "/shop/products?category=tools",
+    link: "/products?category=tools",
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ const slides = [
     subtitle: "Get your sustainable products delivered for free",
     image: "/placeholder.svg?height=200&width=800",
     cta: "Start Shopping",
-    link: "/shop/products",
+    link: "/products",
   },
 ]
 
