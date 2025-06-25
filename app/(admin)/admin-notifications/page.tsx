@@ -125,9 +125,11 @@ export default function AdminNotificationsPage() {
   }
 
   const resendNotification = (id: string) => {
+    // Find the notification to get its details for the toast message
+    const notification = notifications.find(n => n.id === id)
     toast({
       title: "Notification resent",
-      description: "The notification has been sent again.",
+      description: `The notification "${notification?.title}" has been sent again.`,
     })
   }
 

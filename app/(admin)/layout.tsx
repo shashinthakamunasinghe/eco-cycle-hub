@@ -1,33 +1,33 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useAuth } from "@/hooks/useAuth"
-import { Navbar } from "@/components/Common/Navbar"
-import { AdminSidebar } from "@/components/Admin/Adminsidebar"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useAuth } from "@/hooks/useAuth";
+import { Navbar } from "@/components/Common/Navbar";
+import { AdminSidebar } from "@/components/Admin/Adminsidebar";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "admin")) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [user, loading, router])
+  }, [user, loading, router]);
 
   if (loading) {
-    return <div>Loading...</div>
+    return <div>Loading...</div>;
   }
 
   if (!user || user.role !== "admin") {
-    return null
+    return null;
   }
 
   return (
@@ -38,5 +38,5 @@ export default function AdminLayout({
         <main className="flex-1 p-6 ml-64 mt-16">{children}</main>
       </div>
     </div>
-  )
+  );
 }

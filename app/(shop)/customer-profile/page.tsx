@@ -102,6 +102,7 @@ export default function ProfilePage() {
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      title="Upload avatar image"
                       onChange={handleAvatarUpload}
                     />
                   </label>

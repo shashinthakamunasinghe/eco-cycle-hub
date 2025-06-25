@@ -65,7 +65,7 @@ export default function WishlistPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Your wishlist is empty</h2>
           <p className="text-gray-600 mb-6">Save items you love for later!</p>
           <Button asChild>
-            <Link href="/shop/products">Browse Products</Link>
+            <Link href="/products">Browse Products</Link>
           </Button>
         </div>
       </div>

@@ -1,33 +1,37 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useAuth } from "@/hooks/useAuth"
-import { Navbar } from "@/components/Common/Navbar"
-import { Sidebar } from "@/components/Industry/Industrysidebar"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useAuth } from "@/hooks/useAuth";
+import { Navbar } from "@/components/Common/Navbar";
+import { Sidebar } from "@/components/Industry/Industrysidebar";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function IndustryLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "industry")) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [user, loading, router])
+  }, [user, loading, router]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   if (!user || user.role !== "industry") {
-    return null
+    return null;
   }
 
   return (
@@ -38,5 +42,5 @@ export default function IndustryLayout({
         <main className="flex-1 ml-64 p-6 min-h-screen">{children}</main>
       </div>
     </div>
-  )
+  );
 }

@@ -35,7 +35,7 @@ export default function AdminProfilePage() {
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
