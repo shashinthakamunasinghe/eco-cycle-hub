@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Navbar } from "@/components/common/navbar";
-import { Slideshow } from "@/components/common/slideshow";
+import { Navbar } from "@/components/Common/Navbar";
+import { Slideshow } from "@/components/Common/Slideshow";
 import { Button } from "@/components/ui/button";
 import {
   Card,
