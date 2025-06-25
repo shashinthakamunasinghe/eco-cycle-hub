@@ -98,7 +98,7 @@ export default function CartPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
           <p className="text-gray-600 mb-6">Add some eco-friendly products to get started!</p>
           <Button asChild>
-            <Link href="/shop/products">Continue Shopping</Link>
+            <Link href="/products">Continue Shopping</Link>
           </Button>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function CartPage() {
                 Proceed to Checkout
               </Button>
               <Button variant="outline" className="w-full" asChild>
-                <Link href="/shop/products">Continue Shopping</Link>
+                <Link href="/products">Continue Shopping</Link>
               </Button>
             </CardContent>
           </Card>

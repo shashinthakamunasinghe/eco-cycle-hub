@@ -68,13 +68,13 @@ export default function ProductsPage() {
         description: "Please login or register to add items to cart.",
         variant: "destructive",
       })
-      router.push("/auth/login")
+      router.push("/login")
       return
     }
 
     // Add to cart logic here
     const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
-    const existingItem = cartItems.find((item: any) => item.id === productId)
+    const existingItem = cartItems.find((item: { id: string; quantity: number }) => item.id === productId)
 
     if (existingItem) {
       existingItem.quantity += 1
@@ -98,14 +98,14 @@ export default function ProductsPage() {
         description: "Please login or register to add items to wishlist.",
         variant: "destructive",
       })
-      router.push("/auth/login")
+      router.push("/login")
       return
     }
 
     const wishlistItems = JSON.parse(localStorage.getItem("wishlistItems") || "[]")
     const product = mockProducts.find((p) => p.id === productId)
 
-    if (!wishlistItems.find((item: any) => item.id === productId)) {
+    if (!wishlistItems.find((item: { id: string }) => item.id === productId)) {
       wishlistItems.push(product)
       localStorage.setItem("wishlistItems", JSON.stringify(wishlistItems))
 
@@ -354,7 +354,7 @@ export default function ProductsPage() {
           <div className="text-white">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">Join the Circular Economy</h2>
             <p className="text-xl md:text-2xl opacity-90 mb-8">
-              Every product you purchase helps transform waste into valuable resources. Together, we're building a more
+              Every product you purchase helps transform waste into valuable resources. Together, we are building a more
               sustainable future.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
