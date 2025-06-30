@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
-import { User, MapPin, Camera, Save, Shield } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/useAuth"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { User, MapPin, Camera, Save, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 
 export default function ProfilePage() {
-  const { user } = useAuth()
-  const { toast } = useToast()
+  const { user } = useFirebaseAuth();
+  const { toast } = useToast();
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
@@ -25,7 +25,7 @@ export default function ProfilePage() {
     city: "",
     zipCode: "",
     avatar: "",
-  })
+  });
 
   useEffect(() => {
     if (user) {
@@ -37,34 +37,34 @@ export default function ProfilePage() {
         city: user.city || "",
         zipCode: user.zipCode || "",
         avatar: user.avatar || "",
-      })
+      });
     }
-  }, [user])
+  }, [user]);
 
   const handleInputChange = (field: string, value: string) => {
-    setProfileData((prev) => ({ ...prev, [field]: value }))
-  }
+    setProfileData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSaveProfile = () => {
     // Save profile data
-    localStorage.setItem("customerProfile", JSON.stringify(profileData))
+    localStorage.setItem("customerProfile", JSON.stringify(profileData));
     toast({
       title: "Profile updated",
       description: "Your profile has been updated successfully.",
-    })
-  }
+    });
+  };
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = (e) => {
-        const result = e.target?.result as string
-        setProfileData((prev) => ({ ...prev, avatar: result }))
-      }
-      reader.readAsDataURL(file)
+        const result = e.target?.result as string;
+        setProfileData((prev) => ({ ...prev, avatar: result }));
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -89,8 +89,13 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-6">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={profileData.avatar || "/placeholder.svg"} alt={profileData.name} />
-                    <AvatarFallback className="text-2xl">{profileData.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={profileData.avatar || "/placeholder.svg"}
+                      alt={profileData.name}
+                    />
+                    <AvatarFallback className="text-2xl">
+                      {profileData.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <label
                     htmlFor="avatar-upload"
@@ -167,7 +172,9 @@ export default function ProfilePage() {
                   <Input
                     id="address"
                     value={profileData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("address", e.target.value)
+                    }
                     placeholder="Enter your street address"
                   />
                 </div>
@@ -177,7 +184,9 @@ export default function ProfilePage() {
                     <Input
                       id="city"
                       value={profileData.city}
-                      onChange={(e) => handleInputChange("city", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("city", e.target.value)
+                      }
                       placeholder="Enter your city"
                     />
                   </div>
@@ -186,7 +195,9 @@ export default function ProfilePage() {
                     <Input
                       id="zipCode"
                       value={profileData.zipCode}
-                      onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("zipCode", e.target.value)
+                      }
                       placeholder="Enter your ZIP code"
                     />
                   </div>
@@ -213,15 +224,27 @@ export default function ProfilePage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" placeholder="Enter your current password" />
+                  <Input
+                    id="current-password"
+                    type="password"
+                    placeholder="Enter your current password"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" placeholder="Enter your new password" />
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Enter your new password"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" placeholder="Confirm your new password" />
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm your new password"
+                  />
                 </div>
               </div>
 
@@ -248,5 +271,5 @@ export default function ProfilePage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
