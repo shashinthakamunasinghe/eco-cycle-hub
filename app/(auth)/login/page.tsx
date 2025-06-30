@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Recycle, Users, ShoppingBag, Shield } from "lucide-react";
+import { Recycle, Users, ShoppingBag } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -131,45 +131,6 @@ export default function LoginPage() {
                 {loading ? "Signing in..." : "Sign in"}
               </Button>
             </form>
-
-            <div className="mt-6">
-              <div className="text-center text-sm text-gray-600 mb-4">
-                Demo credentials:
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Shield className="h-4 w-4 text-red-600" />
-                  <div>
-                    <div className="font-medium">Admin</div>
-                    <div className="text-gray-500">admin@ecocycle.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Users className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <div className="font-medium">Industry</div>
-                    <div className="text-gray-500">industry@example.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Recycle className="h-4 w-4 text-purple-600" />
-                  <div>
-                    <div className="font-medium">Collector</div>
-                    <div className="text-gray-500">collector@example.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <ShoppingBag className="h-4 w-4 text-green-600" />
-                  <div>
-                    <div className="font-medium">Customer</div>
-                    <div className="text-gray-500">customer@example.com</div>
-                  </div>
-                </div>
-              </div>
-              <div className="text-center text-xs text-gray-500 mt-2">
-                Password: <span className="font-mono">password</span>
-              </div>
-            </div>
 
             <div className="mt-6 text-center">
               <span className="text-sm text-gray-600">
