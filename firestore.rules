@@ -1,0 +1,76 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - Allow user creation and reading own data
+    match /users/{userId} {
+      // Allow users to create their own document during registration
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow users to read and update their own data
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // Allow admins to read all user data
+      allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Products collection
+    match /products/{productId} {
+      // Anyone can read products (for the shop)
+      allow read: if true;
+      // Only admins can create, update, delete products
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Users can read and create their own orders
+      allow read, create: if request.auth != null && 
+        resource.data.customerId == request.auth.uid;
+      // Users can update their own orders, admins can update any
+      allow update: if request.auth != null && 
+        (resource.data.customerId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      // Admins can read all orders
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Pickup requests collection
+    match /pickupRequests/{requestId} {
+      // Industry users can create and read their own requests
+      allow create, read: if request.auth != null && 
+        resource.data.industryId == request.auth.uid;
+      // Collectors and admins can read all requests
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['collector', 'admin'];
+      // Collectors can update requests (status changes)
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['collector', 'admin'];
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      // System can create notifications for users
+      allow create: if request.auth != null;
+      // Users can update their own notifications (mark as read)
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      // Admins can manage all notifications
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Allow development mode - REMOVE IN PRODUCTION
+    // Uncomment this for testing only
+    // match /{document=**} {
+    //   allow read, write: if true;
+    // }
+  }
+}

@@ -1,131 +1,167 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { mockUsers } from "@/lib/mock-data"
-import { User, Mail, Calendar, Search, UserPlus, Eye, Ban, MapPin } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { mockUsers } from "@/lib/mock-data";
+import {
+  User,
+  Mail,
+  Calendar,
+  Search,
+  UserPlus,
+  Eye,
+  Ban,
+  MapPin,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { userService } from "@/lib/firebase-services";
+import type { User as UserType } from "@/types";
 
 export default function AdminUsersPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
-  const { toast } = useToast()
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const { toast } = useToast();
+  const { register } = useFirebaseAuth();
 
-  // Add these state variables after the existing useState declarations
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [isConfirmSuspendOpen, setIsConfirmSuspendOpen] = useState(false)
-  const [userToSuspend, setUserToSuspend] = useState<any>(null)
+  // State variables
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [isConfirmSuspendOpen, setIsConfirmSuspendOpen] = useState(false);
+  const [userToSuspend, setUserToSuspend] = useState<UserType | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [newUserData, setNewUserData] = useState({
     name: "",
     email: "",
-    role: "customer",
+    role: "customer" as "admin" | "industry" | "collector" | "customer",
     password: "",
-  })
+    phone: "",
+    address: "",
+  });
 
-  // Add state for users list
-  const [usersList, setUsersList] = useState([
-    ...mockUsers,
-    {
-      id: "6",
-      email: "customer2@example.com",
-      name: "Alice Brown",
-      role: "customer" as const,
-      createdAt: new Date(Date.now() - 604800000),
-    },
-    {
-      id: "7",
-      email: "industry2@example.com",
-      name: "Tech Manufacturing Ltd",
-      role: "industry" as const,
-      location: { lat: 6.9147, lng: 79.8731 },
-      createdAt: new Date(Date.now() - 1209600000),
-    },
-  ])
+  // State for users list - start with mock data, later replace with Firebase data
+  const [usersList, setUsersList] = useState<UserType[]>(mockUsers);
 
   const getRoleColor = (role: string) => {
     switch (role) {
       case "admin":
-        return "bg-purple-100 text-purple-800"
+        return "bg-purple-100 text-purple-800";
       case "industry":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800";
       case "collector":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "customer":
-        return "bg-orange-100 text-orange-800"
+        return "bg-orange-100 text-orange-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
-  const suspendUser = (user: any) => {
-    setUserToSuspend(user)
-    setIsConfirmSuspendOpen(true)
-  }
+  const suspendUser = (user: UserType) => {
+    setUserToSuspend(user);
+    setIsConfirmSuspendOpen(true);
+  };
 
   const confirmSuspendUser = () => {
-    if (!userToSuspend) return
+    if (!userToSuspend) return;
 
-    setUsersList(usersList.filter((u) => u.id !== userToSuspend.id))
-    setIsConfirmSuspendOpen(false)
+    setUsersList(usersList.filter((u) => u.id !== userToSuspend.id));
+    setIsConfirmSuspendOpen(false);
 
     toast({
       title: "User suspended",
       description: `${userToSuspend.name} has been suspended and removed from the system.`,
       variant: "destructive",
-    })
-  }
+    });
+  };
 
-  const addUser = () => {
+  const addUser = async () => {
     if (!newUserData.name || !newUserData.email || !newUserData.password) {
       toast({
         title: "Error",
         description: "Please fill in all required fields.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    const newUser = {
-      id: (usersList.length + 1).toString(),
-      name: newUserData.name,
-      email: newUserData.email,
-      role: newUserData.role as any,
-      createdAt: new Date(),
-      avatar: "/placeholder.svg",
+    setLoading(true);
+    try {
+      // Create user with Firebase Authentication
+      console.log("🔄 Creating new user...", newUserData);
+
+      const newUser = await register(newUserData.email, newUserData.password, {
+        name: newUserData.name,
+        email: newUserData.email,
+        role: newUserData.role,
+        phone: newUserData.phone,
+        address: newUserData.address,
+        createdAt: new Date(),
+      });
+
+      // Update local state
+      setUsersList([...usersList, newUser]);
+      setIsAddUserDialogOpen(false);
+      setNewUserData({
+        name: "",
+        email: "",
+        role: "customer",
+        password: "",
+        phone: "",
+        address: "",
+      });
+
+      toast({
+        title: "User added successfully",
+        description: `${newUserData.name} has been created with role: ${newUserData.role}`,
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error creating user",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setUsersList([...usersList, newUser])
-    setIsAddUserDialogOpen(false)
-    setNewUserData({ name: "", email: "", role: "customer", password: "" })
-
-    toast({
-      title: "User added",
-      description: `${newUserData.name} has been added successfully.`,
-    })
-  }
-
-  const viewUserDetails = (user: any) => {
-    setCurrentUser(user)
-    setIsViewDialogOpen(true)
-  }
+  const viewUserDetails = (user: UserType) => {
+    setCurrentUser(user);
+    setIsViewDialogOpen(true);
+  };
 
   const filteredUsers = usersList.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "all" || user.role === roleFilter
-    return matchesSearch && matchesRole
-  })
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
 
   const userStats = {
     total: usersList.length,
@@ -133,14 +169,16 @@ export default function AdminUsersPage() {
     industry: usersList.filter((u) => u.role === "industry").length,
     collector: usersList.filter((u) => u.role === "collector").length,
     customer: usersList.filter((u) => u.role === "customer").length,
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-2">Manage platform users and their roles</p>
+          <p className="text-gray-600 mt-2">
+            Manage platform users and their roles
+          </p>
         </div>
         <Button onClick={() => setIsAddUserDialogOpen(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
@@ -158,25 +196,33 @@ export default function AdminUsersPage() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{userStats.admin}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {userStats.admin}
+            </div>
             <div className="text-sm text-gray-600">Admins</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{userStats.industry}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {userStats.industry}
+            </div>
             <div className="text-sm text-gray-600">Industries</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{userStats.collector}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {userStats.collector}
+            </div>
             <div className="text-sm text-gray-600">Collectors</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{userStats.customer}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {userStats.customer}
+            </div>
             <div className="text-sm text-gray-600">Customers</div>
           </CardContent>
         </Card>
@@ -217,13 +263,18 @@ export default function AdminUsersPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                    <AvatarImage
+                      src={user.avatar || "/placeholder.svg"}
+                      alt={user.name}
+                    />
                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center space-x-2 mb-1">
                       <h3 className="font-semibold">{user.name}</h3>
-                      <Badge className={getRoleColor(user.role)}>{user.role}</Badge>
+                      <Badge className={getRoleColor(user.role)}>
+                        {user.role}
+                      </Badge>
                     </div>
                     <div className="space-y-1 text-sm text-gray-600">
                       <div className="flex items-center space-x-2">
@@ -232,13 +283,16 @@ export default function AdminUsersPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
-                        <span>Joined {user.createdAt.toLocaleDateString()}</span>
+                        <span>
+                          Joined {user.createdAt.toLocaleDateString()}
+                        </span>
                       </div>
                       {user.location && (
                         <div className="flex items-center space-x-2">
                           <User className="h-4 w-4" />
                           <span>
-                            Location: {user.location.lat.toFixed(4)}, {user.location.lng.toFixed(4)}
+                            Location: {user.location.lat.toFixed(4)},{" "}
+                            {user.location.lng.toFixed(4)}
                           </span>
                         </div>
                       )}
@@ -246,11 +300,19 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => viewUserDetails(user)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => viewUserDetails(user)}
+                  >
                     <Eye className="h-4 w-4 mr-1" />
                     View
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={() => suspendUser(user)}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => suspendUser(user)}
+                  >
                     <Ban className="h-4 w-4 mr-1" />
                     Suspend
                   </Button>
@@ -264,7 +326,9 @@ export default function AdminUsersPage() {
       {filteredUsers.length === 0 && (
         <div className="text-center py-12">
           <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No users found matching your criteria.</p>
+          <p className="text-gray-500">
+            No users found matching your criteria.
+          </p>
         </div>
       )}
 
@@ -278,18 +342,25 @@ export default function AdminUsersPage() {
             <div className="space-y-4 py-4">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
+                  <AvatarImage
+                    src={currentUser.avatar || "/placeholder.svg"}
+                    alt={currentUser.name}
+                  />
                   <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
                   <h3 className="text-xl font-semibold">{currentUser.name}</h3>
-                  <Badge className={getRoleColor(currentUser.role)}>{currentUser.role}</Badge>
+                  <Badge className={getRoleColor(currentUser.role)}>
+                    {currentUser.role}
+                  </Badge>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Contact Information</h4>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
+                    Contact Information
+                  </h4>
                   <div className="p-3 border rounded-lg space-y-2">
                     <div className="flex items-center space-x-2">
                       <Mail className="h-4 w-4" />
@@ -297,13 +368,17 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-4 w-4" />
-                      <span className="text-sm">Joined {currentUser.createdAt.toLocaleDateString()}</span>
+                      <span className="text-sm">
+                        Joined {currentUser.createdAt.toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Account Information</h4>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
+                    Account Information
+                  </h4>
                   <div className="p-3 border rounded-lg space-y-2">
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4" />
@@ -316,7 +391,8 @@ export default function AdminUsersPage() {
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4" />
                         <span className="text-sm">
-                          Location: {currentUser.location.lat.toFixed(4)}, {currentUser.location.lng.toFixed(4)}
+                          Location: {currentUser.location.lat.toFixed(4)},{" "}
+                          {currentUser.location.lng.toFixed(4)}
                         </span>
                       </div>
                     )}
@@ -325,7 +401,9 @@ export default function AdminUsersPage() {
               </div>
 
               <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Activity Summary</h4>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">
+                  Activity Summary
+                </h4>
                 <div className="p-3 border rounded-lg">
                   {currentUser.role === "customer" && (
                     <div className="space-y-1">
@@ -352,14 +430,17 @@ export default function AdminUsersPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
                   Close
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    setIsViewDialogOpen(false)
-                    suspendUser(currentUser)
+                    setIsViewDialogOpen(false);
+                    suspendUser(currentUser);
                   }}
                 >
                   Suspend User
@@ -371,7 +452,10 @@ export default function AdminUsersPage() {
       </Dialog>
 
       {/* Confirm Suspend Dialog */}
-      <Dialog open={isConfirmSuspendOpen} onOpenChange={setIsConfirmSuspendOpen}>
+      <Dialog
+        open={isConfirmSuspendOpen}
+        onOpenChange={setIsConfirmSuspendOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Suspend User</DialogTitle>
@@ -379,11 +463,15 @@ export default function AdminUsersPage() {
           {userToSuspend && (
             <div className="py-4">
               <p className="mb-4">
-                Are you sure you want to suspend <span className="font-semibold">{userToSuspend.name}</span>? This
-                action will remove them from the system.
+                Are you sure you want to suspend{" "}
+                <span className="font-semibold">{userToSuspend.name}</span>?
+                This action will remove them from the system.
               </p>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsConfirmSuspendOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsConfirmSuspendOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button variant="destructive" onClick={confirmSuspendUser}>
@@ -407,7 +495,9 @@ export default function AdminUsersPage() {
               <Input
                 id="name"
                 value={newUserData.name}
-                onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, name: e.target.value })
+                }
                 placeholder="Enter full name"
               />
             </div>
@@ -417,7 +507,9 @@ export default function AdminUsersPage() {
                 id="email"
                 type="email"
                 value={newUserData.email}
-                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, email: e.target.value })
+                }
                 placeholder="Enter email address"
               />
             </div>
@@ -425,16 +517,17 @@ export default function AdminUsersPage() {
               <Label htmlFor="role">Role</Label>
               <Select
                 value={newUserData.role}
-                onValueChange={(value) => setNewUserData({ ...newUserData, role: value })}
+                onValueChange={(
+                  value: "admin" | "industry" | "collector"
+                ) => setNewUserData({ ...newUserData, role: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="industry">Industry</SelectItem>
                   <SelectItem value="collector">Collector</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -444,19 +537,60 @@ export default function AdminUsersPage() {
                 id="password"
                 type="password"
                 value={newUserData.password}
-                onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                placeholder="Enter password"
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, password: e.target.value })
+                }
+                placeholder="Enter password (min. 6 characters)"
+                minLength={6}
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={newUserData.phone}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, phone: e.target.value })
+                }
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div>
+              <Label htmlFor="address">Address (Optional)</Label>
+              <Input
+                id="address"
+                value={newUserData.address}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, address: e.target.value })
+                }
+                placeholder="Enter address"
               />
             </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsAddUserDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddUserDialogOpen(false);
+                  setNewUserData({
+                    name: "",
+                    email: "",
+                    role: "customer",
+                    password: "",
+                    phone: "",
+                    address: "",
+                  });
+                }}
+              >
                 Cancel
               </Button>
-              <Button onClick={addUser}>Add User</Button>
+              <Button onClick={addUser} disabled={loading}>
+                {loading ? "Creating..." : "Add User"}
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

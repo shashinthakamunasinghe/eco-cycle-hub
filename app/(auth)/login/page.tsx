@@ -1,64 +1,89 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { Recycle, Users, ShoppingBag, Shield } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Recycle, Users, ShoppingBag } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const router = useRouter()
-  const { toast } = useToast()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useFirebaseAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const user = await login(email, password)
+      const user = await login(email, password);
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.name}!`,
-      })
+      });
 
       // Redirect based on role
       switch (user.role) {
         case "admin":
-          router.push("/admindash")
-          break
+          router.push("/admindash");
+          break;
         case "industry":
-          router.push("/industrydash")
-          break
+          router.push("/industrydash");
+          break;
         case "collector":
-          router.push("/collectordash")
-          break
+          router.push("/collectordash");
+          break;
         case "customer":
-          router.push("/products")
-          break
+          router.push("/products");
+          break;
         default:
-          router.push("/")
+          router.push("/");
       }
     } catch (error) {
+      console.error("Login error details:", error);
+      let errorMessage = "Invalid email or password";
+
+      if (error instanceof Error) {
+        // Provide more specific error messages
+        if (error.message.includes("user-not-found")) {
+          errorMessage = "No account found with this email address";
+        } else if (error.message.includes("wrong-password")) {
+          errorMessage = "Incorrect password";
+        } else if (error.message.includes("invalid-email")) {
+          errorMessage = "Invalid email format";
+        } else if (error.message.includes("User data not found")) {
+          errorMessage =
+            "Account exists but user profile is incomplete. Please contact support.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       toast({
         title: "Login failed",
-        description: "Invalid email or password",
+        description: errorMessage,
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-500 via-emerald-600 to-teal-700 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -69,8 +94,12 @@ export default function LoginPage() {
             <div className="mx-auto mb-4 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
               <Recycle className="h-8 w-8 text-green-600" />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
-            <CardDescription className="text-gray-600 mt-2">Sign in to your EcoCycle Hub account</CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-gray-600 mt-2">
+              Sign in to your EcoCycle Hub account
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -103,45 +132,10 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6">
-              <div className="text-center text-sm text-gray-600 mb-4">Demo credentials:</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Shield className="h-4 w-4 text-red-600" />
-                  <div>
-                    <div className="font-medium">Admin</div>
-                    <div className="text-gray-500">admin@ecocycle.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Users className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <div className="font-medium">Industry</div>
-                    <div className="text-gray-500">industry@example.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <Recycle className="h-4 w-4 text-purple-600" />
-                  <div>
-                    <div className="font-medium">Collector</div>
-                    <div className="text-gray-500">collector@example.com</div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-2 rounded flex items-center space-x-2">
-                  <ShoppingBag className="h-4 w-4 text-green-600" />
-                  <div>
-                    <div className="font-medium">Customer</div>
-                    <div className="text-gray-500">customer@example.com</div>
-                  </div>
-                </div>
-              </div>
-              <div className="text-center text-xs text-gray-500 mt-2">
-                Password: <span className="font-mono">password</span>
-              </div>
-            </div>
-
             <div className="mt-6 text-center">
-              <span className="text-sm text-gray-600">Do not have an account? </span>
+              <span className="text-sm text-gray-600">
+                Do not have an account?{" "}
+              </span>
               <div className="flex space-x-2 mt-2">
                 <Button variant="outline" size="sm" asChild className="flex-1">
                   <Link href="/register?type=customer">
@@ -161,5 +155,5 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

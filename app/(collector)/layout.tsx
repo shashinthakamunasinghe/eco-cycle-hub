@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Navbar } from "@/components/common/navbar";
 import { CollectorSidebar } from "@/components/Collector/Collectorsidebar";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,7 @@ export default function CollectorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading } = useFirebaseAuth();
   const router = useRouter();
 
   useEffect(() => {
