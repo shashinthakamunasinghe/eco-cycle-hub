@@ -30,6 +30,7 @@ export interface PickupRequest {
   requestedAt: Date
   scheduledAt?: Date
   completedAt?: Date
+  cancelledAt?: Date
   notes?: string
 }
 
