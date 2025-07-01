@@ -7,11 +7,15 @@ import { Truck, Clock, CheckCircle, Package, TrendingUp, MapPin, Plus, History, 
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { industryRequestService } from "@/lib/firebase-services"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import type { PickupRequest } from "@/types"
 
 export default function IndustryDashboard() {
   const { toast } = useToast()
+  const { user } = useFirebaseAuth()
   const [location, setLocation] = useState("Colombo, Sri Lanka")
-  const [recentRequests, setRecentRequests] = useState<any[]>([])
+  const [recentRequests, setRecentRequests] = useState<PickupRequest[]>([])
   const [stats, setStats] = useState({
     totalRequests: 0,
     pendingRequests: 0,
@@ -19,39 +23,41 @@ export default function IndustryDashboard() {
     totalWaste: 0,
   })
 
-  // Load requests from localStorage
-  const loadRequests = () => {
-    const savedRequests = JSON.parse(localStorage.getItem("industryRequests") || "[]")
-    setRecentRequests(savedRequests.slice(0, 3)) // Show only latest 3
+  // Load requests from Firestore
+  const loadRequests = async () => {
+    if (!user?.id) return
 
-    // Calculate stats
-    const total = savedRequests.length
-    const pending = savedRequests.filter((r: any) => r.status === "pending").length
-    const completed = savedRequests.filter((r: any) => r.status === "completed").length
-    const totalWeight = savedRequests.reduce((sum: number, r: any) => sum + (r.weight || 0), 0)
+    try {
+      const requests = await industryRequestService.getRequestsByIndustry(user.id)
+      setRecentRequests(requests.slice(0, 3)) // Show only latest 3
 
-    setStats({
-      totalRequests: total,
-      pendingRequests: pending,
-      completedRequests: completed,
-      totalWaste: totalWeight,
-    })
+      // Calculate stats
+      const total = requests.length
+      const pending = requests.filter((r) => r.status === "pending").length
+      const completed = requests.filter((r) => r.status === "completed").length
+      const totalWeight = requests.reduce((sum, r) => sum + (r.weight || 0), 0)
+
+      setStats({
+        totalRequests: total,
+        pendingRequests: pending,
+        completedRequests: completed,
+        totalWaste: totalWeight,
+      })
+    } catch (error) {
+      console.error("Error loading requests:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load requests. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   useEffect(() => {
-    loadRequests()
-
-    // Listen for storage changes
-    const handleStorageChange = () => {
+    if (user?.id) {
       loadRequests()
     }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [])
+  }, [user?.id])
 
   const getStatusColor = (status: string) => {
     switch (status) {
