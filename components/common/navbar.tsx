@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export function Navbar() {
-  const { user, logout: authLogout } = useAuth();
+  const { user, logout: authLogout } = useFirebaseAuth();
   const pathname = usePathname();
   const router = useRouter();
   const getDashboardLabel = () => {

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +11,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { MapPin, Package } from "lucide-react"
+import { industryRequestService } from "@/lib/firebase-services"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import type { PickupRequest, User } from "@/types"
 
 export default function RequestPickupPage() {
   const [formData, setFormData] = useState({
@@ -19,10 +21,15 @@ export default function RequestPickupPage() {
     weight: "",
     notes: "",
     address: "",
+    location: {
+      lat: 0,
+      lng: 0,
+    },
   })
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useFirebaseAuth()
 
   const wasteTypes = [
     "Organic Waste",
@@ -34,69 +41,47 @@ export default function RequestPickupPage() {
     "Mixed Waste",
   ]
 
-  const saveRequestToStorage = (requestData: any) => {
-    const existingRequests = JSON.parse(localStorage.getItem("industryRequests") || "[]")
-    const newRequest = {
-      id: `REQ-${Date.now()}`,
-      wasteType: requestData.wasteType,
-      weight: Number.parseInt(requestData.weight),
-      status: "pending",
-      requestedAt: new Date().toISOString(),
-      address: requestData.address,
-      notes: requestData.notes,
-      collectorName: null,
-      completedAt: null,
-      cancelledAt: null,
-    }
-
-    const updatedRequests = [newRequest, ...existingRequests]
-    localStorage.setItem("industryRequests", JSON.stringify(updatedRequests))
-
-    // Trigger a storage event to update other components
-    window.dispatchEvent(new Event("storage"))
-
-    return newRequest
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!formData.wasteType || !formData.weight || !formData.address) {
+    if (!user || !user.id) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: "Error",
+        description: "You must be logged in to submit a request",
         variant: "destructive",
       })
       return
     }
 
-    setLoading(true)
-
     try {
-      // Save request to localStorage
-      const newRequest = saveRequestToStorage(formData)
+      setLoading(true)
+      const requestData: Omit<PickupRequest, "id"> = {
+        industryId: user.id,
+        industryName: user.name || "",
+        wasteType: formData.wasteType,
+        weight: Number.parseInt(formData.weight),
+        status: "pending",
+        location: {
+          lat: formData.location.lat,
+          lng: formData.location.lng,
+          address: formData.address,
+        },
+        notes: formData.notes,
+        requestedAt: new Date(),
+      }
 
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await industryRequestService.createRequest(requestData)
 
       toast({
-        title: "Pickup request submitted",
-        description: `Your pickup request (${newRequest.id}) has been submitted successfully. You will be notified when a collector is assigned.`,
-      })
-
-      // Reset form
-      setFormData({
-        wasteType: "",
-        weight: "",
-        notes: "",
-        address: "",
+        title: "Success",
+        description: "Your pickup request has been submitted",
       })
 
       router.push("/industrydash")
     } catch (error) {
+      console.error("Error submitting request:", error)
       toast({
         title: "Error",
-        description: "Failed to submit pickup request. Please try again.",
+        description: "Failed to submit request. Please try again.",
         variant: "destructive",
       })
     } finally {
