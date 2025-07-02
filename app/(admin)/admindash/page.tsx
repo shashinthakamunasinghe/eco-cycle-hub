@@ -73,10 +73,10 @@ export default function AdminDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <div className="flex space-x-2">
           <Button variant="outline" asChild>
-            <Link href="/admin/map">View Map</Link>
+            <Link href="/admin-map">View Map</Link>
           </Button>
           <Button asChild>
-            <Link href="/admin/pickups">Manage Pickups</Link>
+            <Link href="/industry-pickups">Manage Pickups</Link>
           </Button>
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
             </div>
             <div className="mt-4">
               <Button variant="outline" className="w-full" asChild>
-                <Link href="/admin/notifications">View All Activity</Link>
+                <Link href="/admin-notifications">View All Activity</Link>
               </Button>
             </div>
           </CardContent>
@@ -190,25 +190,25 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button className="w-full justify-start" asChild>
-              <Link href="/admin/pickups">
+              <Link href="/industry-pickups">
                 <Truck className="mr-2 h-4 w-4" />
                 Assign Pickup Requests
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/admin/products">
+              <Link href="/add-products">
                 <Package className="mr-2 h-4 w-4" />
                 Manage Products
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/admin/collectors">
+              <Link href="/collectors">
                 <Users className="mr-2 h-4 w-4" />
                 Manage Collectors
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/admin/map">
+              <Link href="/admin-map">
                 <MapPin className="mr-2 h-4 w-4" />
                 View Live Map
               </Link>
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-gray-600">Some requests have been waiting for over 2 hours</p>
               </div>
               <Button size="sm" asChild>
-                <Link href="/admin/pickups">Assign Now</Link>
+                <Link href="/industry-pickups">Assign Now</Link>
               </Button>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-gray-600">May need to contact these collectors</p>
               </div>
               <Button size="sm" variant="outline" asChild>
-                <Link href="/admin/collectors">View Details</Link>
+                <Link href="/collectors">View Details</Link>
               </Button>
             </div>
           </div>
