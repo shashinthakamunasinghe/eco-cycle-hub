@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   title: "EcoCycle Hub - Smart Waste Management",
   description:
     "Efficient industrial waste management and eco-friendly product marketplace",
-  generator: "v0.dev",
 };
 
 export default function RootLayout({
