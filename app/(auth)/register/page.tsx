@@ -137,7 +137,8 @@ export default function RegisterPage() {
 
   return (
     <div
-      className={`min-h-screen bg-gradient-to-br ${accountInfo.bgGradient} flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8`}
+      className="relative min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{backgroundImage:"url('/spexels-ekaterina-bolovtsova-7307672.jpg')"}}
     >
       <div className="absolute inset-0 bg-black/20"></div>
       <div className="relative z-10 w-full max-w-md">
