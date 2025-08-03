@@ -141,15 +141,66 @@ export const orderService = {
 
 // Pickup Request operations
 export const pickupService = {
-  async getPickupRequests(): Promise<PickupRequest[]> {
+  async getAllPickupRequests(): Promise<PickupRequest[]> {
+    const q = query(
+      collection(db, "pickupRequests"),
+      orderBy("requestedAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        requestedAt: data.requestedAt?.toDate() || new Date(),
+        scheduledAt: data.scheduledAt?.toDate(),
+        completedAt: data.completedAt?.toDate(),
+        cancelledAt: data.cancelledAt?.toDate(),
+      } as PickupRequest;
+    });
+  },
+
+  async getPickupRequestsByStatus(
+    status: PickupRequest["status"]
+  ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
       orderBy("createdAt", "desc")
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as PickupRequest)
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        requestedAt: data.requestedAt?.toDate() || new Date(),
+        scheduledAt: data.scheduledAt?.toDate(),
+        completedAt: data.completedAt?.toDate(),
+        cancelledAt: data.cancelledAt?.toDate(),
+      } as PickupRequest;
+    });
+  },
+
+  async getPickupRequestsByIndustry(
+    industryId: string
+  ): Promise<PickupRequest[]> {
+    const q = query(
+      collection(db, "pickupRequests"),
+      where("industryId", "==", industryId),
+      orderBy("requestedAt", "desc")
     );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        requestedAt: data.requestedAt?.toDate() || new Date(),
+        scheduledAt: data.scheduledAt?.toDate(),
+        completedAt: data.completedAt?.toDate(),
+        cancelledAt: data.cancelledAt?.toDate(),
+      } as PickupRequest;
+    });
   },
 
   async getPickupRequestsByCollector(
@@ -157,13 +208,21 @@ export const pickupService = {
   ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
-      where("assignedCollector", "==", collectorId),
-      orderBy("createdAt", "desc")
+      where("collectorId", "==", collectorId),
+      orderBy("requestedAt", "desc")
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as PickupRequest)
-    );
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        requestedAt: data.requestedAt?.toDate() || new Date(),
+        scheduledAt: data.scheduledAt?.toDate(),
+        completedAt: data.completedAt?.toDate(),
+        cancelledAt: data.cancelledAt?.toDate(),
+      } as PickupRequest;
+    });
   },
 
   async createPickupRequest(
@@ -171,29 +230,82 @@ export const pickupService = {
   ): Promise<string> {
     const docRef = await addDoc(collection(db, "pickupRequests"), {
       ...request,
-      createdAt: Timestamp.now(),
+      requestedAt: Timestamp.fromDate(request.requestedAt),
+      scheduledAt: request.scheduledAt
+        ? Timestamp.fromDate(request.scheduledAt)
+        : null,
+      completedAt: request.completedAt
+        ? Timestamp.fromDate(request.completedAt)
+        : null,
+      cancelledAt: request.cancelledAt
+        ? Timestamp.fromDate(request.cancelledAt)
+        : null,
     });
     return docRef.id;
   },
 
-  async updatePickupStatus(
+  async updatePickupRequest(
+    id: string,
+    updates: Partial<PickupRequest>
+  ): Promise<void> {
+    const docRef = doc(db, "pickupRequests", id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: Record<string, any> = { ...updates };
+
+    // Convert dates to Firestore Timestamps
+    if (updateData.scheduledAt) {
+      updateData.scheduledAt = Timestamp.fromDate(
+        updateData.scheduledAt as Date
+      );
+    }
+    if (updateData.completedAt) {
+      updateData.completedAt = Timestamp.fromDate(
+        updateData.completedAt as Date
+      );
+    }
+    if (updateData.cancelledAt) {
+      updateData.cancelledAt = Timestamp.fromDate(
+        updateData.cancelledAt as Date
+      );
+    }
+
+    await updateDoc(docRef, updateData);
+  },
+
+  async assignCollector(
+    id: string,
+    collectorId: string,
+    collectorName: string
+  ): Promise<void> {
+    const docRef = doc(db, "pickupRequests", id);
+    await updateDoc(docRef, {
+      collectorId,
+      collectorName,
+      status: "assigned",
+      scheduledAt: Timestamp.now(),
+    });
+  },
+
+  async updateStatus(
     id: string,
     status: PickupRequest["status"]
   ): Promise<void> {
     const docRef = doc(db, "pickupRequests", id);
-    await updateDoc(docRef, {
-      status,
-      updatedAt: Timestamp.now(),
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: Record<string, any> = { status };
+
+    if (status === "completed") {
+      updateData.completedAt = Timestamp.now();
+    } else if (status === "cancelled") {
+      updateData.cancelledAt = Timestamp.now();
+    }
+
+    await updateDoc(docRef, updateData);
   },
 
-  async assignCollector(id: string, collectorId: string): Promise<void> {
+  async deletePickupRequest(id: string): Promise<void> {
     const docRef = doc(db, "pickupRequests", id);
-    await updateDoc(docRef, {
-      assignedCollector: collectorId,
-      status: "assigned",
-      updatedAt: Timestamp.now(),
-    });
+    await deleteDoc(docRef);
   },
 };
 
@@ -246,39 +358,5 @@ export const notificationService = {
     );
 
     await Promise.all(updatePromises);
-  },
-};
-
-// Industry Request operations
-export const industryRequestService = {
-  async createRequest(request: Omit<PickupRequest, "id">): Promise<string> {
-    const docRef = await addDoc(collection(db, "industryRequests"), {
-      ...request,
-      createdAt: Timestamp.now(),
-      status: "pending",
-    });
-    return docRef.id;
-  },
-
-  async getRequestsByIndustry(industryId: string): Promise<PickupRequest[]> {
-    const q = query(
-      collection(db, "industryRequests"),
-      where("industryId", "==", industryId),
-      orderBy("createdAt", "desc")
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as PickupRequest)
-    );
-  },
-
-  async updateRequest(id: string, data: Partial<PickupRequest>): Promise<void> {
-    const docRef = doc(db, "industryRequests", id);
-    await updateDoc(docRef, data);
-  },
-
-  async deleteRequest(id: string): Promise<void> {
-    const docRef = doc(db, "industryRequests", id);
-    await deleteDoc(docRef);
   },
 };

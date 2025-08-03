@@ -1,85 +1,108 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Truck, Clock, CheckCircle, Package, TrendingUp, MapPin, Plus, History, User } from "lucide-react"
-import Link from "next/link"
-import { useState, useEffect } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { industryRequestService } from "@/lib/firebase-services"
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
-import type { PickupRequest } from "@/types"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Truck,
+  Clock,
+  CheckCircle,
+  Package,
+  TrendingUp,
+  MapPin,
+  Plus,
+  History,
+  User,
+} from "lucide-react";
+import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { pickupService } from "@/lib/firebase-services";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import type { PickupRequest } from "@/types";
 
 export default function IndustryDashboard() {
-  const { toast } = useToast()
-  const { user } = useFirebaseAuth()
-  const [location, setLocation] = useState("Colombo, Sri Lanka")
-  const [recentRequests, setRecentRequests] = useState<PickupRequest[]>([])
+  const { toast } = useToast();
+  const { user } = useFirebaseAuth();
+  const [location, setLocation] = useState("Colombo, Sri Lanka");
+  const [recentRequests, setRecentRequests] = useState<PickupRequest[]>([]);
   const [stats, setStats] = useState({
     totalRequests: 0,
     pendingRequests: 0,
     completedRequests: 0,
     totalWaste: 0,
-  })
+  });
 
   // Load requests from Firestore
-  const loadRequests = async () => {
-    if (!user?.id) return
+  const loadRequests = useCallback(async () => {
+    if (!user?.id) return;
 
     try {
-      const requests = await industryRequestService.getRequestsByIndustry(user.id)
-      setRecentRequests(requests.slice(0, 3)) // Show only latest 3
+      const requests = await pickupService.getPickupRequestsByIndustry(user.id);
+      setRecentRequests(requests.slice(0, 3)); // Show only latest 3
 
       // Calculate stats
-      const total = requests.length
-      const pending = requests.filter((r) => r.status === "pending").length
-      const completed = requests.filter((r) => r.status === "completed").length
-      const totalWeight = requests.reduce((sum, r) => sum + (r.weight || 0), 0)
+      const total = requests.length;
+      const pending = requests.filter(
+        (r: PickupRequest) => r.status === "pending"
+      ).length;
+      const completed = requests.filter(
+        (r: PickupRequest) => r.status === "completed"
+      ).length;
+      const totalWeight = requests.reduce(
+        (sum: number, r: PickupRequest) => sum + (r.weight || 0),
+        0
+      );
 
       setStats({
         totalRequests: total,
         pendingRequests: pending,
         completedRequests: completed,
         totalWaste: totalWeight,
-      })
+      });
     } catch (error) {
-      console.error("Error loading requests:", error)
+      console.error("Error loading requests:", error);
       toast({
         title: "Error",
         description: "Failed to load requests. Please try again.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  }, [user?.id, toast]);
 
   useEffect(() => {
     if (user?.id) {
-      loadRequests()
+      loadRequests();
     }
-  }, [user?.id])
+  }, [user?.id, loadRequests]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "assigned":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800";
       case "on-way":
-        return "bg-purple-100 text-purple-800"
+        return "bg-purple-100 text-purple-800";
       case "completed":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "cancelled":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
   const updateLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        (_position) => {
           // Mock reverse geocoding with random locations
           const locations = [
             "Colombo 03, Sri Lanka",
@@ -87,25 +110,26 @@ export default function IndustryDashboard() {
             "Galle, Sri Lanka",
             "Negombo, Sri Lanka",
             "Matara, Sri Lanka",
-          ]
-          const newLocation = locations[Math.floor(Math.random() * locations.length)]
-          setLocation(newLocation)
+          ];
+          const newLocation =
+            locations[Math.floor(Math.random() * locations.length)];
+          setLocation(newLocation);
 
           toast({
             title: "Location updated",
             description: `Your location has been updated to ${newLocation}`,
-          })
+          });
         },
-        (error) => {
+        (_error) => {
           toast({
             title: "Location error",
             description: "Unable to get your location. Using default location.",
             variant: "destructive",
-          })
-        },
-      )
+          });
+        }
+      );
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -123,7 +147,9 @@ export default function IndustryDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Requests
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -141,7 +167,9 @@ export default function IndustryDashboard() {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pendingRequests}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {stats.pendingRequests}
+            </div>
             <p className="text-xs text-muted-foreground">Awaiting assignment</p>
           </CardContent>
         </Card>
@@ -152,8 +180,12 @@ export default function IndustryDashboard() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.completedRequests}</div>
-            <p className="text-xs text-muted-foreground">Successfully collected</p>
+            <div className="text-2xl font-bold text-green-600">
+              {stats.completedRequests}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Successfully collected
+            </p>
           </CardContent>
         </Card>
 
@@ -163,7 +195,9 @@ export default function IndustryDashboard() {
             <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalWaste} kg</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {stats.totalWaste} kg
+            </div>
             <p className="text-xs text-muted-foreground">Total collected</p>
           </CardContent>
         </Card>
@@ -173,13 +207,18 @@ export default function IndustryDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Pickup Requests</CardTitle>
-          <CardDescription>Your latest waste pickup requests and their status</CardDescription>
+          <CardDescription>
+            Your latest waste pickup requests and their status
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {recentRequests.length > 0 ? (
             <div className="space-y-4">
               {recentRequests.map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                       <Package className="h-5 w-5 text-green-600" />
@@ -192,8 +231,12 @@ export default function IndustryDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <Badge className={getStatusColor(request.status)}>{request.status.replace("-", " ")}</Badge>
-                    <div className="text-sm text-gray-500">{new Date(request.requestedAt).toLocaleDateString()}</div>
+                    <Badge className={getStatusColor(request.status)}>
+                      {request.status.replace("-", " ")}
+                    </Badge>
+                    <div className="text-sm text-gray-500">
+                      {new Date(request.requestedAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -254,7 +297,9 @@ export default function IndustryDashboard() {
               <MapPin className="h-5 w-5 text-green-600" />
               <span className="text-sm">Auto-location enabled</span>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Current location: {location}</p>
+            <p className="text-sm text-gray-600 mb-4">
+              Current location: {location}
+            </p>
             <Button variant="outline" size="sm" onClick={updateLocation}>
               Update Location
             </Button>
@@ -262,5 +307,5 @@ export default function IndustryDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
