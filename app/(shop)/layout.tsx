@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { Navbar } from "@/components/Common/Navbar";
+import { Navbar } from "@/components/common/navbar";
 import { ShopSlideshow } from "@/components/Shop/Shopslideshow";
 
 export default function ShopLayout({

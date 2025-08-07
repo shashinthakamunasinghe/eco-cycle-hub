@@ -1,12 +1,19 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useAuth } from "@/hooks/useAuth"
-import { cn } from "@/lib/utils"
-import { LayoutDashboard, MapPin, Package, Bell, LogOut, User } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  MapPin,
+  Package,
+  Bell,
+  LogOut,
+  User,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const navigation = [
   { name: "Dashboard", href: "/collectordash", icon: LayoutDashboard },
@@ -14,12 +21,12 @@ const navigation = [
   { name: "Map View", href: "/collector-map", icon: MapPin },
   { name: "Profile", href: "/collector-profile", icon: User },
   { name: "Notifications", href: "/collector-notifications", icon: Bell },
-]
+];
 
 export function CollectorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout } = useFirebaseAuth();
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -47,27 +54,29 @@ export function CollectorSidebar() {
         variant: "destructive",
       });
     }
-  }
+  };
 
   return (
     <div className="fixed left-0 top-16 bottom-0 w-64 bg-white shadow-sm border-r overflow-y-auto lg:block md:hidden">
       <nav className="px-3 py-6 h-full flex flex-col">
         <div className="flex-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
                   "flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 transition-colors",
-                  isActive ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isActive
+                    ? "bg-blue-100 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
               >
                 <item.icon className="mr-3 h-5 w-5" />
                 {item.name}
               </Link>
-            )
+            );
           })}
         </div>
 
@@ -83,5 +92,5 @@ export function CollectorSidebar() {
         </div>
       </nav>
     </div>
-  )
+  );
 }

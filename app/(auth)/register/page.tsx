@@ -1,21 +1,34 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
-import { MapPin, Recycle, Users, ShoppingBag } from "lucide-react"
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { MapPin, Recycle, Users, ShoppingBag } from "lucide-react";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 
 export default function RegisterPage() {
-  const searchParams = useSearchParams()
-  const accountType = searchParams.get("type") || "customer"
+  const searchParams = useSearchParams();
+  const accountType = searchParams.get("type") || "customer";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -24,62 +37,74 @@ export default function RegisterPage() {
     role: accountType,
     phone: "",
     address: "",
-  })
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
+  });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { register } = useFirebaseAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      // Mock registration
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Use Firebase registration
+      await register(formData.email, formData.password, {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role as "admin" | "industry" | "collector" | "customer",
+        phone: formData.phone,
+        address: formData.address,
+        createdAt: new Date(),
+      });
 
       toast({
         title: "Registration successful",
         description: "Your account has been created successfully!",
-      })
+      });
 
-      router.push("/login")
+      router.push("/login");
     } catch (error) {
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
-        description: "Something went wrong. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           // Mock reverse geocoding
-          const mockAddress = "123 Industrial Avenue, Colombo 03, Sri Lanka"
-          handleInputChange("address", mockAddress)
+          const mockAddress = "123 Industrial Avenue, Colombo 03, Sri Lanka";
+          handleInputChange("address", mockAddress);
           toast({
             title: "Location detected",
             description: "Your current location has been automatically filled.",
-          })
+          });
         },
         (error) => {
           toast({
             title: "Location error",
             description: "Unable to get your location. Please enter manually.",
             variant: "destructive",
-          })
-        },
-      )
+          });
+        }
+      );
     }
-  }
+  };
 
   const getAccountTypeInfo = () => {
     switch (accountType) {
@@ -89,29 +114,31 @@ export default function RegisterPage() {
           description: "Register your company to request waste pickup services",
           icon: <Users className="h-8 w-8 text-blue-600" />,
           bgGradient: "from-blue-500 to-indigo-600",
-        }
+        };
       case "customer":
         return {
           title: "Join EcoCycle Hub",
-          description: "Shop eco-friendly products made from recycled materials",
+          description:
+            "Shop eco-friendly products made from recycled materials",
           icon: <ShoppingBag className="h-8 w-8 text-green-600" />,
           bgGradient: "from-green-500 to-emerald-600",
-        }
+        };
       default:
         return {
           title: "Join EcoCycle Hub",
           description: "Create your account to get started",
           icon: <Recycle className="h-8 w-8 text-green-600" />,
           bgGradient: "from-green-500 to-emerald-600",
-        }
+        };
     }
-  }
+  };
 
-  const accountInfo = getAccountTypeInfo()
+  const accountInfo = getAccountTypeInfo();
 
   return (
     <div
-      className={`min-h-screen bg-gradient-to-br ${accountInfo.bgGradient} flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8`}
+      className="relative min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{backgroundImage:"url('/spexels-ekaterina-bolovtsova-7307672.jpg')"}}
     >
       <div className="absolute inset-0 bg-black/20"></div>
       <div className="relative z-10 w-full max-w-md">
@@ -120,20 +147,30 @@ export default function RegisterPage() {
             <div className="mx-auto mb-4 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
               {accountInfo.icon}
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">{accountInfo.title}</CardTitle>
-            <CardDescription className="text-gray-600 mt-2">{accountInfo.description}</CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              {accountInfo.title}
+            </CardTitle>
+            <CardDescription className="text-gray-600 mt-2">
+              {accountInfo.description}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">{accountType === "industry" ? "Company Name" : "Full Name"}</Label>
+                <Label htmlFor="name">
+                  {accountType === "industry" ? "Company Name" : "Full Name"}
+                </Label>
                 <Input
                   id="name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   required
-                  placeholder={accountType === "industry" ? "Enter company name" : "Enter your full name"}
+                  placeholder={
+                    accountType === "industry"
+                      ? "Enter company name"
+                      : "Enter your full name"
+                  }
                   className="bg-white/80"
                 />
               </div>
@@ -155,7 +192,9 @@ export default function RegisterPage() {
                   id="password"
                   type="password"
                   value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   required
                   placeholder="Create a password"
                   className="bg-white/80"
@@ -175,7 +214,9 @@ export default function RegisterPage() {
                     <SelectItem value="collector">Collector</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Account type cannot be changed after registration</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Account type cannot be changed after registration
+                </p>
               </div>
 
               <div>
@@ -196,18 +237,27 @@ export default function RegisterPage() {
                     id="address"
                     type="text"
                     value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("address", e.target.value)
+                    }
                     placeholder="Enter your address"
                     className="bg-white/80"
                   />
                   {accountType === "industry" && (
-                    <Button type="button" variant="outline" size="icon" onClick={getCurrentLocation}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={getCurrentLocation}
+                    >
                       <MapPin className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
                 {accountType === "industry" && (
-                  <p className="text-sm text-gray-500 mt-1">Click the map icon to auto-detect location</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Click the map icon to auto-detect location
+                  </p>
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
@@ -218,7 +268,10 @@ export default function RegisterPage() {
             <div className="mt-6 text-center">
               <span className="text-sm text-gray-600">
                 Already have an account?{" "}
-                <Link href="/login" className="text-green-600 hover:text-green-500 font-medium">
+                <Link
+                  href="/login"
+                  className="text-green-600 hover:text-green-500 font-medium"
+                >
                   Sign in
                 </Link>
               </span>
@@ -227,5 +280,5 @@ export default function RegisterPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
