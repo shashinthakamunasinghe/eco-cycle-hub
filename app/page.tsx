@@ -36,7 +36,8 @@ export default function HomePage() {
       {/* Background with overlay */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-blue-400/20 to-emerald-400/20"></div>
-        <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] bg-cover bg-center opacity-10"></div>
+        <div className="absolute inset-0 bg-[url('/Translation-blog.png?height=1080&width=1920')] bg-cover bg-center opacity-10"></div>
+
       </div>
 
       <div className="relative z-10">

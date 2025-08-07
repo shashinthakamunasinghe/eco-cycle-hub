@@ -48,6 +48,7 @@ export default function AdminUsersPage() {
   const [isConfirmSuspendOpen, setIsConfirmSuspendOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingUsers, setFetchingUsers] = useState(true);
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [newUserData, setNewUserData] = useState({
@@ -59,8 +60,34 @@ export default function AdminUsersPage() {
     address: "",
   });
 
-  // State for users list - start with mock data, later replace with Firebase data
-  const [usersList, setUsersList] = useState<UserType[]>(mockUsers);
+  // State for users list - fetch from Firestore
+  const [usersList, setUsersList] = useState<UserType[]>([]);
+
+  // Fetch users from Firestore on component mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setFetchingUsers(true);
+        console.log("🔄 Fetching users from Firestore...");
+        const users = await userService.getAllUsers();
+        console.log("✅ Users fetched successfully:", users.length);
+        setUsersList(users);
+      } catch (error) {
+        console.error("❌ Error fetching users:", error);
+        toast({
+          title: "Error fetching users",
+          description: "Failed to load users from database. Please try again.",
+          variant: "destructive",
+        });
+        // Fallback to mock data if Firestore fails
+        setUsersList(mockUsers);
+      } finally {
+        setFetchingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, [toast]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -190,14 +217,16 @@ export default function AdminUsersPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">{userStats.total}</div>
+            <div className="text-2xl font-bold">
+              {fetchingUsers ? "..." : userStats.total}
+            </div>
             <div className="text-sm text-gray-600">Total Users</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {userStats.admin}
+              {fetchingUsers ? "..." : userStats.admin}
             </div>
             <div className="text-sm text-gray-600">Admins</div>
           </CardContent>
@@ -205,7 +234,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-blue-600">
-              {userStats.industry}
+              {fetchingUsers ? "..." : userStats.industry}
             </div>
             <div className="text-sm text-gray-600">Industries</div>
           </CardContent>
@@ -213,7 +242,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {userStats.collector}
+              {fetchingUsers ? "..." : userStats.collector}
             </div>
             <div className="text-sm text-gray-600">Collectors</div>
           </CardContent>
@@ -221,7 +250,7 @@ export default function AdminUsersPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-orange-600">
-              {userStats.customer}
+              {fetchingUsers ? "..." : userStats.customer}
             </div>
             <div className="text-sm text-gray-600">Customers</div>
           </CardContent>
@@ -257,7 +286,13 @@ export default function AdminUsersPage() {
 
       {/* Users List */}
       <div className="space-y-4">
-        {filteredUsers.map((user) => (
+        {fetchingUsers ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading users...</p>
+          </div>
+        ) : (
+          filteredUsers.map((user) => (
           <Card key={user.id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -284,7 +319,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
                         <span>
-                          Joined {user.createdAt.toLocaleDateString()}
+                          Joined {user.createdAt instanceof Date ? user.createdAt.toLocaleDateString() : 'Unknown'}
                         </span>
                       </div>
                       {user.location && (
@@ -320,10 +355,11 @@ export default function AdminUsersPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
 
-      {filteredUsers.length === 0 && (
+      {!fetchingUsers && filteredUsers.length === 0 && (
         <div className="text-center py-12">
           <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500">
@@ -369,7 +405,7 @@ export default function AdminUsersPage() {
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-4 w-4" />
                       <span className="text-sm">
-                        Joined {currentUser.createdAt.toLocaleDateString()}
+                        Joined {currentUser.createdAt instanceof Date ? currentUser.createdAt.toLocaleDateString() : 'Unknown'}
                       </span>
                     </div>
                   </div>
