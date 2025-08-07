@@ -287,7 +287,7 @@ export function Navbar() {
     );
   }
 
-  // Admin, Collector, Industry Navbar (Left-aligned)
+  // Admin, Collector, Industry Navbar (Aligned-left)
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-white/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

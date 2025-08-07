@@ -248,3 +248,37 @@ export const notificationService = {
     await Promise.all(updatePromises);
   },
 };
+
+// Industry Request operations
+export const industryRequestService = {
+  async createRequest(request: Omit<PickupRequest, "id">): Promise<string> {
+    const docRef = await addDoc(collection(db, "industryRequests"), {
+      ...request,
+      createdAt: Timestamp.now(),
+      status: "pending",
+    });
+    return docRef.id;
+  },
+
+  async getRequestsByIndustry(industryId: string): Promise<PickupRequest[]> {
+    const q = query(
+      collection(db, "industryRequests"),
+      where("industryId", "==", industryId),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as PickupRequest)
+    );
+  },
+
+  async updateRequest(id: string, data: Partial<PickupRequest>): Promise<void> {
+    const docRef = doc(db, "industryRequests", id);
+    await updateDoc(docRef, data);
+  },
+
+  async deleteRequest(id: string): Promise<void> {
+    const docRef = doc(db, "industryRequests", id);
+    await deleteDoc(docRef);
+  },
+};
