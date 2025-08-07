@@ -84,10 +84,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-300 via-emerald-400 to-teal-600 relative overflow-hidden">
       <div className="absolute inset-0 bg-[url('/login-bg.svg')] bg-cover bg-no-repeat opacity-10"></div>
       <div className="relative z-10 w-full max-w-md p-6 sm:p-8">
-        <Card className="backdrop-blur-lg bg-white/80 shadow-xl border-2 border-black rounded-2xl p-6 transition-transform hover:scale-[1.01] duration-300">
+        <Card className="backdrop-blur-lg bg-white/80 shadow-2xl border-2 border-green-700 rounded-2xl p-6 transition-transform hover:scale-[1.01] duration-300">
           <CardHeader className="text-center space-y-2">
-            <div className="mx-auto w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg">
-              <Recycle className="h-7 w-7 text-green-600" />
+            <div className="mx-auto w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-green-700">
+              <Recycle className="h-7 w-7 text-green-600 " />
             </div>
             <CardTitle className="text-3xl font-semibold text-gray-800">
               Welcome Back

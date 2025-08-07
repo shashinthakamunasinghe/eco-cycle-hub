@@ -10,7 +10,7 @@ const slides = [
     id: 1,
     title: "Smart Waste Management",
     subtitle: "Efficient industrial waste collection and recycling",
-    image: "/placeholder.svg?height=400&width=800",
+    image: "/ChatGPT Image Aug 7, 2025, 04_48_15 PM.png",
     cta: "Get Started",
     link: "/register",
   },
@@ -18,7 +18,7 @@ const slides = [
     id: 2,
     title: "Eco-Friendly Products",
     subtitle: "Shop sustainable products made from recycled materials",
-    image: "/placeholder.svg?height=400&width=800",
+    image: "/image.png",
     cta: "Shop Now",
     link: "/products",
   },
@@ -26,7 +26,7 @@ const slides = [
     id: 3,
     title: "Real-Time Tracking",
     subtitle: "Track your waste pickups and orders in real-time",
-    image: "/placeholder.svg?height=400&width=800",
+    image: "/ChatGPT Image Aug 7, 2025, 04_40_08 PM.png",
     cta: "Learn More",
     link: "#features",
   },
@@ -63,8 +63,8 @@ export function Slideshow() {
             transform: `translateX(${(index - currentSlide) * 100}%)`,
           }}
         >
-          <div className="relative h-full">
-            <Image src={slide.image || "/placeholder.svg"} alt={slide.title} fill className="object-cover" />
+          <div className="relative w-full h-96 md:h-[500px]">
+            <Image src={slide.image || "/placeholder.svg"} alt={slide.title} fill priority sizes="100vw" className="object-cover" />
             <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
               <div className="text-center text-white px-4">
                 <h2 className="text-3xl md:text-5xl font-bold mb-4 animate-fade-in">{slide.title}</h2>
