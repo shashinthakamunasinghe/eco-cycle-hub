@@ -21,64 +21,47 @@ import type {
   Notification,
 } from "@/types";
 
-// User operations
-export const userService = {
-  async getUser(id: string): Promise<User | null> {
-    const docRef = doc(db, "users", id);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? (docSnap.data() as User) : null;
-  },
-
-  async getAllUsers(): Promise<User[]> {
-    const querySnapshot = await getDocs(collection(db, "users"));
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as User)
-    );
-  },
-
-  async getUsersByRole(role: User["role"]): Promise<User[]> {
-    const q = query(collection(db, "users"), where("role", "==", role));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as User)
-    );
-  },
-
-  async updateUser(id: string, data: Partial<User>): Promise<void> {
-    const docRef = doc(db, "users", id);
-    await updateDoc(docRef, data);
-  },
-};
-
 // Product operations
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
     const querySnapshot = await getDocs(collection(db, "products"));
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Product)
-    );
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as Product;
+    });
   },
 
   async getProduct(id: string): Promise<Product | null> {
     const docRef = doc(db, "products", id);
     const docSnap = await getDoc(docRef);
-    return docSnap.exists()
-      ? ({ id: docSnap.id, ...docSnap.data() } as Product)
-      : null;
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate(),
+    } as unknown as Product;
   },
 
   async addProduct(product: Omit<Product, "id">): Promise<string> {
     const docRef = await addDoc(collection(db, "products"), {
       ...product,
       createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     });
     return docRef.id;
   },
 
-  async updateProduct(id: string, data: Partial<Product>): Promise<void> {
+  async updateProduct(id: string, product: Partial<Product>): Promise<void> {
     const docRef = doc(db, "products", id);
     await updateDoc(docRef, {
-      ...data,
+      ...product,
       updatedAt: Timestamp.now(),
     });
   },
@@ -94,9 +77,64 @@ export const productService = {
       where("category", "==", category)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Product)
-    );
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as Product;
+    });
+  },
+};
+
+// User operations
+export const userService = {
+  async getUser(id: string): Promise<User | null> {
+    const docRef = doc(db, "users", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+
+    const data = docSnap.data();
+    return {
+      ...data,
+      id: docSnap.id,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate(),
+    } as unknown as User;
+  },
+
+  async getAllUsers(): Promise<User[]> {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as User;
+    });
+  },
+
+  async getUsersByRole(role: User["role"]): Promise<User[]> {
+    const q = query(collection(db, "users"), where("role", "==", role));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as User;
+    });
+  },
+
+  async updateUser(id: string, data: Partial<User>): Promise<void> {
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, data);
   },
 };
 
