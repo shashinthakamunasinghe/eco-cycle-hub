@@ -49,8 +49,25 @@ export default function AdminProductsPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const products = await productService.getAllProducts();
-        setProducts(products);
+        const fetchedProducts = await productService.getAllProducts();
+        
+        // Check for duplicate IDs and make them unique
+        const productMap = new Map<string, boolean>();
+        const uniqueProducts: Product[] = [];
+        
+        fetchedProducts.forEach((product, index) => {
+          if (!productMap.has(product.id)) {
+            productMap.set(product.id, true);
+            uniqueProducts.push(product);
+          } else {
+            // Create a new unique ID for duplicate
+            const uniqueId = `${product.id}-${index}`;
+            console.log(`Admin: Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`);
+            uniqueProducts.push({ ...product, id: uniqueId });
+          }
+        });
+        
+        setProducts(uniqueProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
         toast({
@@ -383,7 +400,7 @@ export default function AdminProductsPage() {
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={i}
+                        key={`admin-star-${product.id}-${i}`}
                         className={`h-4 w-4 ${
                           i < Math.floor(product.rating)
                             ? "text-yellow-400 fill-current"

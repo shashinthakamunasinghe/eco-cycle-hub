@@ -48,7 +48,24 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
       try {
         const fetchedProducts = await productService.getAllProducts();
-        setProducts(fetchedProducts);
+        
+        // Check for duplicate IDs and make them unique
+        const productMap = new Map<string, boolean>();
+        const uniqueProducts: Product[] = [];
+        
+        fetchedProducts.forEach((product, index) => {
+          if (!productMap.has(product.id)) {
+            productMap.set(product.id, true);
+            uniqueProducts.push(product);
+          } else {
+            // Create a new unique ID for duplicate
+            const uniqueId = `${product.id}-${index}`;
+            console.log(`Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`);
+            uniqueProducts.push({ ...product, id: uniqueId });
+          }
+        });
+        
+        setProducts(uniqueProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
         toast({
@@ -224,6 +241,11 @@ export default function ProductsPage() {
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {(() => {
+          // Debug products IDs
+          console.log("Rendering products with IDs:", sortedProducts.map(p => p.id));
+          return null;
+        })()}
         {sortedProducts.map((product) => (
           <Card
             key={product.id}
@@ -290,7 +312,7 @@ export default function ProductsPage() {
                               <div className="flex items-center">
                                 {[...Array(5)].map((_, i) => (
                                   <Star
-                                    key={i}
+                                    key={`detail-star-${product.id}-${i}`}
                                     className={`h-4 w-4 ${
                                       i < Math.floor(product.rating)
                                         ? "text-yellow-400 fill-current"
@@ -356,7 +378,7 @@ export default function ProductsPage() {
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={i}
+                        key={`card-star-${product.id}-${i}`}
                         className={`h-4 w-4 ${
                           i < Math.floor(product.rating)
                             ? "text-yellow-400 fill-current"

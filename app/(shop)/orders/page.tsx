@@ -25,8 +25,18 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
 
   useEffect(() => {
+    // Get orders from localStorage and filter out any invalid orders
     const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
-    setOrders(customerOrders)
+    const validOrders = customerOrders.filter((order: Order) => {
+      // Only include orders that have items and a total value greater than 0
+      return order.total && order.total > 0 && order.items && order.items.length > 0;
+    });
+    
+        // If we filtered out some orders, update localStorage to only contain valid orders
+    if (validOrders.length !== customerOrders.length) {
+      localStorage.setItem("customerOrders", JSON.stringify(validOrders));
+      console.log(`Removed ${customerOrders.length - validOrders.length} invalid or zero-value orders`);
+    }    setOrders(validOrders)
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -67,46 +77,29 @@ export default function OrdersPage() {
 
       <div className="space-y-6">
         {orders.map((order) => (
-          <Card key={order.id}>
-            <CardHeader>
-              <div className="flex justify-between items-start">
+          <Card key={order.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-center">
                 <div>
                   <CardTitle className="text-lg">Order {order.id}</CardTitle>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(order.createdAt).toLocaleDateString()}</span>
-                    </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                     <Badge className={getStatusColor(order.status)}>
                       {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                     </Badge>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">{order.items.length} items</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ${(order.total || 0).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-gray-600">{order.items?.length || 0} items</p>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {order.items.slice(0, 3).map((item, index) => (
-                    <div key={index} className="relative w-12 h-12">
-                      <Image
-                        src={item.image || "/placeholder.svg"}
-                        alt={item.name}
-                        fill
-                        className="object-cover rounded"
-                      />
-                    </div>
-                  ))}
-                  {order.items.length > 3 && (
-                    <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-sm font-medium">
-                      +{order.items.length - 3}
-                    </div>
-                  )}
-                </div>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -149,7 +142,7 @@ export default function OrdersPage() {
                                 <p className="font-medium">{item.name}</p>
                                 <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                               </div>
-                              <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                              <p className="font-medium">${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</p>
                             </div>
                           ))}
                         </div>
@@ -159,19 +152,24 @@ export default function OrdersPage() {
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span>Subtotal</span>
-                            <span>${order.subtotal.toFixed(2)}</span>
+                            <span>${(order.subtotal || 0).toFixed(2)}</span>
                           </div>
+                          
+                          {/* Only show shipping details in the dialog */}
                           <div className="flex justify-between">
                             <span>Shipping</span>
-                            <span>{order.shipping === 0 ? "Free" : `$${order.shipping.toFixed(2)}`}</span>
+                            <span>{order.shipping === 0 ? "Free" : `$${(order.shipping || 0).toFixed(2)}`}</span>
                           </div>
+                          
+                          {/* Only show tax details in the dialog */}
                           <div className="flex justify-between">
                             <span>Tax</span>
-                            <span>${order.tax.toFixed(2)}</span>
+                            <span>${(order.tax !== undefined ? order.tax : 0).toFixed(2)}</span>
                           </div>
+                          
                           <div className="flex justify-between font-bold text-lg border-t pt-2">
                             <span>Total</span>
-                            <span>${order.total.toFixed(2)}</span>
+                            <span>${(order.total || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
