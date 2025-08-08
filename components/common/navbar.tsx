@@ -17,14 +17,29 @@ import {
   Recycle,
   ShoppingCart,
   Package,
-  Heart,
   ArrowLeft,
   Settings,
   LogOut,
 } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+// Cart counter component
+function CartItemCount() {
+  const { cartCount } = useCart();
+  
+  if (cartCount === 0) {
+    return null;
+  }
+  
+  return (
+    <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
+      {cartCount > 99 ? '99+' : cartCount}
+    </span>
+  );
+}
 
 export function Navbar() {
   const { user, logout: authLogout } = useFirebaseAuth();
@@ -43,7 +58,6 @@ export function Navbar() {
       "/cart",
       "/products",
       "/orders",
-      "/wishlist",
       "/customer-profile",
       "/shop-notifications",
     ];
@@ -191,21 +205,13 @@ export function Navbar() {
                   >
                     <Link href="/cart">
                       <ShoppingCart className="h-5 w-5" />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
-                        4
-                      </span>
+                      <CartItemCount />
                     </Link>
                   </Button>
                   <Button variant="ghost" asChild>
                     <Link href="/orders">
                       <Package className="h-4 w-4 mr-2" />
                       Orders
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/wishlist">
-                      <Heart className="h-4 w-4 mr-2" />
-                      Wishlist
                     </Link>
                   </Button>
                   <Button

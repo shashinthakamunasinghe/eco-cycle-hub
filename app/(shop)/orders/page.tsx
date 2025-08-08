@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Package, Eye, Calendar } from "lucide-react"
+import { Package, Eye, Calendar, ShieldAlert } from "lucide-react"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
 
 interface Order {
   id: string
@@ -19,25 +20,47 @@ interface Order {
   total: number
   status: string
   createdAt: string
+  userEmail?: string
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
+  const { user } = useFirebaseAuth();
 
   useEffect(() => {
     // Get orders from localStorage and filter out any invalid orders
     const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
+    
+    // Filter for valid orders
     const validOrders = customerOrders.filter((order: Order) => {
       // Only include orders that have items and a total value greater than 0
       return order.total && order.total > 0 && order.items && order.items.length > 0;
     });
     
-        // If we filtered out some orders, update localStorage to only contain valid orders
+    // If we filtered out some orders, update localStorage to only contain valid orders
     if (validOrders.length !== customerOrders.length) {
       localStorage.setItem("customerOrders", JSON.stringify(validOrders));
       console.log(`Removed ${customerOrders.length - validOrders.length} invalid or zero-value orders`);
-    }    setOrders(validOrders)
-  }, [])
+    }
+    
+    // Filter for current user's orders only
+    if (user && user.email) {
+      const userOrders = validOrders.filter((order: Order) => {
+        // If order has userEmail field, check if it matches current user
+        if (order.userEmail) {
+          return order.userEmail === user.email;
+        }
+        // For backward compatibility with orders that don't have userEmail field
+        // (these old orders won't be displayed to any user)
+        return false;
+      });
+      
+      setOrders(userOrders);
+    } else {
+      // No user logged in or no email available
+      setOrders([]);
+    }
+  }, [user])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -60,12 +83,25 @@ export default function OrdersPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No orders yet</h2>
-          <p className="text-gray-600 mb-6">Start shopping to see your orders here!</p>
-          <Button asChild>
-            <Link href="/shop/products">Start Shopping</Link>
-          </Button>
+          {user ? (
+            <>
+              <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">No orders yet</h2>
+              <p className="text-gray-600 mb-6">You haven't placed any orders yet. Start shopping to see your orders here!</p>
+              <Button asChild>
+                <Link href="/products">Continue Shopping</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <ShieldAlert className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Please log in</h2>
+              <p className="text-gray-600 mb-6">You need to be logged in to view your orders.</p>
+              <Button asChild>
+                <Link href="/login">Log In</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     )

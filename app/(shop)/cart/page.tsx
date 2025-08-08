@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { getStripe } from "@/lib/stripe"
@@ -8,41 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react"
+import { Trash2, Plus, Minus, ShoppingBag, LogIn } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-
-interface CartItem {
-  id: string
-  name: string
-  price: number
-  image: string
-  quantity: number
-  stock: number
-}
+import { useCart } from "@/contexts/CartContext"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { useRouter } from "next/navigation"
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const { cartItems, updateQuantity, removeFromCart } = useCart()
   const { toast } = useToast()
-
-  useEffect(() => {
-    const items = JSON.parse(localStorage.getItem("cartItems") || "[]")
-    setCartItems(items)
-  }, [])
-
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity < 1) return
-
-    const updatedItems = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: Math.min(newQuantity, item.stock) } : item,
-    )
-    setCartItems(updatedItems)
-    localStorage.setItem("cartItems", JSON.stringify(updatedItems))
-  }
+  const { user } = useFirebaseAuth()
+  const router = useRouter()
 
   const removeItem = (id: string, name: string) => {
-    const updatedItems = cartItems.filter((item) => item.id !== id)
-    setCartItems(updatedItems)
-    localStorage.setItem("cartItems", JSON.stringify(updatedItems))
+    removeFromCart(id)
     toast({
       title: "Item removed",
       description: `${name} has been removed from your cart.`,
@@ -55,6 +33,17 @@ export default function CartPage() {
   const total = subtotal + shipping + tax
 
   const handleCheckout = async () => {
+    // Check if user is logged in
+    if (!user || !user.email) {
+      toast({
+        title: "Login Required",
+        description: "Please login before proceeding to checkout.",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+
     if (cartItems.length === 0) {
       toast({
         title: "Cart is empty",
@@ -66,6 +55,14 @@ export default function CartPage() {
 
     try {
       console.log("Starting checkout process");
+      
+      // Save user info in localStorage for order association
+      if (user) {
+        const userInfo = {
+          email: user.email
+        };
+        localStorage.setItem("userInfo", JSON.stringify(userInfo));
+      }
       
       // Process cart items to ensure proper URLs for Stripe
       const processedCartItems = cartItems.map(item => {
@@ -89,7 +86,8 @@ export default function CartPage() {
         subtotal,
         shipping,
         tax,
-        total
+        total,
+        userEmail: user.email // Include user email in order data
       }
       
       console.log(`Sending order data: ${cartItems.length} items, total: $${total.toFixed(2)}`);
@@ -289,7 +287,14 @@ export default function CartPage() {
                 <p className="text-sm text-gray-600">Add ${(50 - subtotal).toFixed(2)} more for free shipping!</p>
               )}
               <Button className="w-full" onClick={handleCheckout} disabled={cartItems.length === 0}>
-                Proceed to Stripe Checkout
+                {user ? (
+                  <>Proceed to Stripe Checkout</>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Login to Checkout
+                  </>
+                )}
               </Button>
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/products">Continue Shopping</Link>

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, ShoppingBag } from "lucide-react"
+import { useCart } from "@/contexts/CartContext"
 
 // Define cart item interface for type safety
 interface CartItem {
@@ -22,6 +23,7 @@ export default function SuccessPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [orderNumber, setOrderNumber] = useState("")
+  const { clearCart } = useCart()
 
   const success = searchParams.get("success")
   const sessionId = searchParams.get("session_id")
@@ -70,9 +72,20 @@ export default function SuccessPage() {
           image: item.image || "/placeholder.svg"
         }));
         
-        // Create order object with all required fields
-        // The subtotal is the price of items only (without shipping/tax)
-        // The total includes subtotal + shipping + tax
+        // Get the current user info from localStorage
+        const userInfo = localStorage.getItem("userInfo");
+        let userEmail = "";
+        
+        if (userInfo) {
+          try {
+            const parsedUserInfo = JSON.parse(userInfo);
+            userEmail = parsedUserInfo.email || "";
+          } catch (e) {
+            console.error("Failed to parse user info:", e);
+          }
+        }
+        
+        // Create order object with all required fields and user email
         const order = {
           id: newOrderId,
           items: validatedItems,
@@ -82,7 +95,8 @@ export default function SuccessPage() {
           subtotal: subtotal,  // Price of items only
           shipping: shipping,  // Shipping cost
           tax: tax,            // Tax amount
-          total: total         // Total with shipping and tax
+          total: total,        // Total with shipping and tax
+          userEmail: userEmail // Associate with the logged-in user
         }
         
         // Only save the order if it has items and a total value greater than 0
@@ -96,7 +110,7 @@ export default function SuccessPage() {
         }
         
         // Clear cart
-        localStorage.removeItem("cartItems")
+        clearCart()
         
         setIsLoading(false)
       } catch (error) {

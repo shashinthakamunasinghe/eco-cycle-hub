@@ -32,6 +32,7 @@ import { Star, ShoppingCart, Heart, Search, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { productService } from "@/lib/firebase-services";
+import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/types";
 
 export default function ProductsPage() {
@@ -111,6 +112,8 @@ export default function ProductsPage() {
     }
   });
 
+  const { addToCart: addItemToCart } = useCart();
+  
   const addToCart = (productId: string, productName: string) => {
     if (!user) {
       toast({
@@ -122,62 +125,29 @@ export default function ProductsPage() {
       return;
     }
 
-    // Add to cart logic here
-    const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
-    const existingItem = cartItems.find(
-      (item: { id: string; quantity: number }) => item.id === productId
-    );
-
-    if (existingItem) {
-      existingItem.quantity += 1;
-    } else {
-      const product = products.find((p) => p.id === productId);
-      if (product) {
-        cartItems.push({ ...product, quantity: 1 });
-      }
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      addItemToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image || "/placeholder.svg",
+        quantity: 1,
+        stock: product.stock
+      });
+      
+      toast({
+        title: "Added to cart",
+        description: `${productName} has been added to your cart.`,
+      });
     }
-
-    localStorage.setItem("cartItems", JSON.stringify(cartItems));
-
-    toast({
-      title: "Added to cart",
-      description: `${productName} has been added to your cart.`,
-    });
   };
 
+  // Removed wishlist functionality
   const addToWishlist = (productId: string, productName: string) => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login or register to add items to wishlist.",
-        variant: "destructive",
-      });
-      router.push("/login");
-      return;
-    }
-
-    const wishlistItems = JSON.parse(
-      localStorage.getItem("wishlistItems") || "[]"
-    );
-    const product = products.find((p) => p.id === productId);
-
-    if (
-      product &&
-      !wishlistItems.find((item: { id: string }) => item.id === productId)
-    ) {
-      wishlistItems.push(product);
-      localStorage.setItem("wishlistItems", JSON.stringify(wishlistItems));
-
-      toast({
-        title: "Added to wishlist",
-        description: `${productName} has been added to your wishlist.`,
-      });
-    } else {
-      toast({
-        title: "Already in wishlist",
-        description: `${productName} is already in your wishlist.`,
-      });
-    }
+    // Function left as a placeholder to avoid breaking existing UI elements
+    // This will be removed in future updates
+    console.log("Wishlist functionality has been removed");
   };
 
   return (
@@ -261,16 +231,7 @@ export default function ProductsPage() {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute top-2 right-2">
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-8 w-8 bg-white/80 hover:bg-white"
-                    onClick={() => addToWishlist(product.id, product.name)}
-                  >
-                    <Heart className="h-4 w-4" />
-                  </Button>
-                </div>
+                {/* Wishlist button removed */}
                 {product.stock < 10 && (
                   <Badge className="absolute top-2 left-2 bg-red-500">
                     Low Stock
@@ -344,16 +305,7 @@ export default function ProductsPage() {
                                 <ShoppingCart className="h-4 w-4 mr-2" />
                                 Add to Cart
                               </Button>
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={() =>
-                                  addToWishlist(product.id, product.name)
-                                }
-                              >
-                                <Heart className="h-4 w-4 mr-2" />
-                                Add to Wishlist
-                              </Button>
+                              {/* Wishlist button removed */}
                             </div>
                           </div>
                         </div>

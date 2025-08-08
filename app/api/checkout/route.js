@@ -20,7 +20,7 @@ export async function POST(request) {
     
     // Get cart data from request body
     const body = await request.json();
-    const { items, shipping, tax } = body;
+    const { items, shipping, tax, userEmail } = body;
     
     console.log("App Router API: Request body:", JSON.stringify({
       itemsCount: items?.length,
@@ -121,6 +121,7 @@ export async function POST(request) {
         line_items: lineItems,
         metadata: {
           orderTime: new Date().toISOString(),
+          userEmail: userEmail || ''
         },
         success_url: `${origin}/orders/success?success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/cart/cancel`,
