@@ -1,4 +1,4 @@
-]["use client"
+"use client"
 
 import type React from "react"
 
@@ -12,10 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { User, MapPin, Camera, Save, Shield } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/useAuth"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user } = useFirebaseAuth()
   const { toast } = useToast()
   const [profileData, setProfileData] = useState({
     name: "",
@@ -34,8 +34,8 @@ export default function ProfilePage() {
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
-        city: user.city || "",
-        zipCode: user.zipCode || "",
+        city: "",
+        zipCode: "",
         avatar: user.avatar || "",
       })
     }
