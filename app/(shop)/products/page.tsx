@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -28,19 +28,38 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { mockProducts } from "@/lib/mock-data";
 import { Star, ShoppingCart, Heart, Search, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { productService } from "@/lib/firebase-services";
+import type { Product } from "@/types";
 
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
   const { user } = useFirebaseAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const fetchedProducts = await productService.getAllProducts();
+        setProducts(fetchedProducts);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load products. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -52,7 +71,7 @@ export default function ProductsPage() {
     { value: "seeds", label: "Seeds" },
   ];
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const filteredProducts = products.filter((product) => {
     const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -95,8 +114,10 @@ export default function ProductsPage() {
     if (existingItem) {
       existingItem.quantity += 1;
     } else {
-      const product = mockProducts.find((p) => p.id === productId);
-      cartItems.push({ ...product, quantity: 1 });
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        cartItems.push({ ...product, quantity: 1 });
+      }
     }
 
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
@@ -121,9 +142,12 @@ export default function ProductsPage() {
     const wishlistItems = JSON.parse(
       localStorage.getItem("wishlistItems") || "[]"
     );
-    const product = mockProducts.find((p) => p.id === productId);
+    const product = products.find((p) => p.id === productId);
 
-    if (!wishlistItems.find((item: { id: string }) => item.id === productId)) {
+    if (
+      product &&
+      !wishlistItems.find((item: { id: string }) => item.id === productId)
+    ) {
       wishlistItems.push(product);
       localStorage.setItem("wishlistItems", JSON.stringify(wishlistItems));
 
