@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Package, MapPin, Clock, User, Search } from "lucide-react";
+import { Package, MapPin, Clock, User as UserIcon, Search, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -20,8 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { pickupService } from "@/lib/firebase-services";
-import type { PickupRequest } from "@/types";
+import { pickupService, collectorService } from "@/lib/firebase-services";
+import type { PickupRequest, User } from "@/types";
 
 export default function AdminPickupsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,31 +33,59 @@ export default function AdminPickupsPage() {
   );
 
   const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([]);
+  const [availableCollectors, setAvailableCollectors] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load requests from Firestore
+  // Load requests and collectors from Firestore
   useEffect(() => {
-    const loadRequests = async () => {
+    const loadData = async () => {
       try {
-        const requests = await pickupService.getAllPickupRequests();
+        setIsLoading(true);
+        const [requests, collectors] = await Promise.all([
+          pickupService.getAllPickupRequests(),
+          collectorService.getAvailableCollectors()
+        ]);
         setPickupRequests(requests);
+        setAvailableCollectors(collectors);
       } catch (error) {
-        console.error("Error loading requests:", error);
+        console.error("Error loading data:", error);
         toast({
           title: "Error",
-          description: "Failed to load pickup requests. Please try again.",
+          description: "Failed to load data. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadRequests();
+    loadData();
   }, [toast]);
 
-  const availableCollectors = [
-    { id: "3", name: "John Collector", isAvailable: true },
-    { id: "4", name: "Jane Smith", isAvailable: false },
-    { id: "5", name: "Mike Johnson", isAvailable: true },
-  ];
+  const refreshData = async () => {
+    try {
+      setIsLoading(true);
+      const [requests, collectors] = await Promise.all([
+        pickupService.getAllPickupRequests(),
+        collectorService.getAvailableCollectors()
+      ]);
+      setPickupRequests(requests);
+      setAvailableCollectors(collectors);
+      toast({
+        title: "Data refreshed",
+        description: "Successfully updated pickup requests and available collectors.",
+      });
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const assignCollector = async (pickupId: string, collectorId: string) => {
     const collector = availableCollectors.find((c) => c.id === collectorId);
@@ -83,10 +111,19 @@ export default function AdminPickupsPage() {
         )
       );
 
+      // Refresh available collectors to get updated availability
+      const updatedCollectors = await collectorService.getAvailableCollectors();
+      setAvailableCollectors(updatedCollectors);
+
       toast({
         title: "Collector assigned",
         description: `${collector.name} has been assigned to this pickup request.`,
       });
+
+      // Close the dialog if it's open
+      if (isViewDialogOpen) {
+        setIsViewDialogOpen(false);
+      }
     } catch (error) {
       console.error("Error assigning collector:", error);
       toast({
@@ -153,6 +190,19 @@ export default function AdminPickupsPage() {
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="secondary">{filteredRequests.length} requests</Badge>
+          <Badge variant="outline" className="text-green-600 border-green-200">
+            {availableCollectors.filter(c => c.isAvailable).length} available collectors
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshData}
+            disabled={isLoading}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
         </div>
       </div>
 
@@ -185,8 +235,42 @@ export default function AdminPickupsPage() {
       </div>
 
       {/* Pickup Requests List */}
-      <div className="space-y-4">
-        {filteredRequests.map((request) => (
+      {isLoading ? (
+        <div className="space-y-4">
+          {/* Loading skeleton */}
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="h-6 bg-gray-200 rounded w-48"></div>
+                      <div className="h-5 bg-gray-200 rounded w-16"></div>
+                      <div className="h-5 bg-gray-200 rounded w-16"></div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-40"></div>
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-36"></div>
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col space-y-2 ml-4">
+                    <div className="h-8 bg-gray-200 rounded w-32"></div>
+                    <div className="h-8 bg-gray-200 rounded w-24"></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredRequests.map((request) => (
           <Card key={request.id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
@@ -226,7 +310,7 @@ export default function AdminPickupsPage() {
                       </div>
                       {request.collectorName && (
                         <div className="flex items-center space-x-2">
-                          <User className="h-4 w-4" />
+                          <UserIcon className="h-4 w-4" />
                           <span>Collector: {request.collectorName}</span>
                         </div>
                       )}
@@ -245,24 +329,42 @@ export default function AdminPickupsPage() {
 
                 <div className="flex flex-col space-y-2 ml-4">
                   {request.status === "pending" && (
-                    <Select
-                      onValueChange={(value) =>
-                        assignCollector(request.id, value)
-                      }
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Assign Collector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCollectors
-                          .filter((c) => c.isAvailable)
-                          .map((collector) => (
-                            <SelectItem key={collector.id} value={collector.id}>
-                              {collector.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      {availableCollectors.filter((c) => c.isAvailable).length > 0 ? (
+                        <Select
+                          onValueChange={(value) =>
+                            assignCollector(request.id, value)
+                          }
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Assign Collector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCollectors
+                              .filter((c) => c.isAvailable)
+                              .map((collector) => (
+                                <SelectItem key={collector.id} value={collector.id}>
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>{collector.name}</span>
+                                    <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                      {collector.truckCapacity && (
+                                        <span>
+                                          {collector.currentLoad || 0}/{collector.truckCapacity}kg
+                                        </span>
+                                      )}
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Button variant="outline" size="sm" disabled>
+                          No Available Collectors
+                        </Button>
+                      )}
+                    </>
                   )}
                   <Button
                     size="sm"
@@ -275,15 +377,16 @@ export default function AdminPickupsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
 
-      {filteredRequests.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">
-            No pickup requests found matching your criteria.
-          </p>
+          {filteredRequests.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">
+                No pickup requests found matching your criteria.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -381,7 +484,7 @@ export default function AdminPickupsPage() {
                   <div className="p-3 border rounded-lg">
                     {currentPickup.collectorName ? (
                       <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
+                        <UserIcon className="h-4 w-4" />
                         <span className="text-sm">
                           {currentPickup.collectorName}
                         </span>
@@ -403,24 +506,42 @@ export default function AdminPickupsPage() {
                   Close
                 </Button>
                 {currentPickup.status === "pending" && (
-                  <Select
-                    onValueChange={(value) =>
-                      assignCollector(currentPickup.id, value)
-                    }
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Assign Collector" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCollectors
-                        .filter((c) => c.isAvailable)
-                        .map((collector) => (
-                          <SelectItem key={collector.id} value={collector.id}>
-                            {collector.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <>
+                    {availableCollectors.filter((c) => c.isAvailable).length > 0 ? (
+                      <Select
+                        onValueChange={(value) =>
+                          assignCollector(currentPickup.id, value)
+                        }
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="Assign Collector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCollectors
+                            .filter((c) => c.isAvailable)
+                            .map((collector) => (
+                              <SelectItem key={collector.id} value={collector.id}>
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{collector.name}</span>
+                                  <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                    {collector.truckCapacity && (
+                                      <span>
+                                        {collector.currentLoad || 0}/{collector.truckCapacity}kg
+                                      </span>
+                                    )}
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Button variant="outline" disabled>
+                        No Available Collectors
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
