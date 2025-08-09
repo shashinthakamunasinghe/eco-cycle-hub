@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "build": "next build",
+    "postbuild": "node -e \"const fs=require('fs');const path=require('path');const cp=(s,d)=>{fs.cpSync(s,d,{recursive:true,force:true});};const dst=path.join('.next','standalone');if(fs.existsSync('public'))cp('public',path.join(dst,'public'));const staticSrc=path.join('.next','static');const staticDst=path.join(dst,'.next','static');if(fs.existsSync(staticSrc)){fs.mkdirSync(path.dirname(staticDst),{recursive:true});cp(staticSrc,staticDst);}console.log('Standalone artifact prepared at',dst);\"",
     "start": "next start",
     "lint": "next lint"
   },
