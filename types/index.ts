@@ -75,6 +75,14 @@ export interface CollectorProfile {
   emergencyContact: string
   workingHours: string
   specializations: string[]
+  // Admin dashboard specific fields
+  isAvailable?: boolean
+  currentLoad?: number
+  assignedRequests?: string[]
+  currentLocation?: {
+    lat: number
+    lng: number
+  }
   createdAt?: Date
   updatedAt?: Date
 }

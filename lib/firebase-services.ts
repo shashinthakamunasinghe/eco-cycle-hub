@@ -12,7 +12,8 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import type {
   User,
   Product,
@@ -149,7 +150,7 @@ export const orderService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -157,7 +158,7 @@ export const orderService = {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -189,8 +190,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id, // Ensure Firestore document ID takes precedence
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -210,8 +211,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -232,8 +233,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -247,21 +248,23 @@ export const pickupService = {
   ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
-      where("collectorId", "==", collectorId),
-      orderBy("requestedAt", "desc")
+      where("collectorId", "==", collectorId)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
+    const pickups = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
         cancelledAt: data.cancelledAt?.toDate(),
       } as PickupRequest;
     });
+    
+    // Sort in memory instead of requiring an index
+    return pickups.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
   },
 
   async createPickupRequest(
@@ -359,7 +362,7 @@ export const notificationService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Notification)
+      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
     );
   },
 
@@ -416,6 +419,99 @@ export const collectorService = {
     });
   },
 
+  async addNewCollector(collectorData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    vehicleCapacity: number;
+    address?: string;
+    vehicleType?: string;
+    vehicleModel?: string;
+    licenseNumber?: string;
+    experience?: string;
+    emergencyContact?: string;
+    workingHours?: string;
+    specializations?: string[];
+  }): Promise<string> {
+    try {
+      console.log("🔧 Firebase Service: Creating collector...", {
+        email: collectorData.email,
+        name: collectorData.name,
+        hasPassword: !!collectorData.password,
+        passwordLength: collectorData.password?.length
+      });
+
+      // Create Firebase Authentication account first
+      console.log("📡 Creating Firebase Auth account...");
+      const authResult = await createUserWithEmailAndPassword(
+        auth,
+        collectorData.email,
+        collectorData.password
+      );
+      
+      const userId = authResult.user.uid;
+      console.log("✅ Firebase Auth account created:", userId);
+
+      // Create user document in Firestore with the same UID
+      console.log("📄 Creating Firestore user document...");
+      const { setDoc } = await import("firebase/firestore");
+      await setDoc(doc(db, "users", userId), {
+        id: userId,
+        name: collectorData.name,
+        email: collectorData.email,
+        phone: collectorData.phone,
+        role: "collector",
+        address: collectorData.address || "",
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      console.log("✅ Firestore user document created");
+
+      // Create collector profile with the same ID
+      console.log("📋 Creating collector profile...");
+      const collectorProfileData = {
+        id: userId,
+        name: collectorData.name,
+        email: collectorData.email,
+        phone: collectorData.phone,
+        address: collectorData.address || "",
+        licenseNumber: collectorData.licenseNumber || "",
+        vehicleType: collectorData.vehicleType || "Truck",
+        vehicleModel: collectorData.vehicleModel || "",
+        vehicleCapacity: collectorData.vehicleCapacity,
+        experience: collectorData.experience || "0-1 years",
+        status: "active",
+        rating: 0,
+        completedPickups: 0,
+        joinedDate: new Date().toISOString(),
+        emergencyContact: collectorData.emergencyContact || "",
+        workingHours: collectorData.workingHours || "9 AM - 5 PM",
+        specializations: collectorData.specializations || [],
+        isAvailable: true,
+        currentLoad: 0,
+        assignedRequests: [],
+        currentLocation: { lat: 6.9271, lng: 79.8612 }, // Default Colombo location
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
+
+      const collectorDocRef = doc(db, "collectorProfiles", userId);
+      await setDoc(collectorDocRef, collectorProfileData);
+      console.log("✅ Collector profile created");
+
+      console.log("🎉 Collector creation completed successfully:", userId);
+      return userId;
+    } catch (error) {
+      console.error("❌ Error creating collector:", {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as { code?: string })?.code
+      });
+      throw error;
+    }
+  },
+
   async createCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
     const docRef = doc(db, "collectorProfiles", collectorId);
     await updateDoc(docRef, {
@@ -445,5 +541,29 @@ export const collectorService = {
         updatedAt: Timestamp.now(),
       });
     }
+  },
+
+  async getAllCollectorProfiles(): Promise<CollectorProfile[]> {
+    const querySnapshot = await getDocs(collection(db, "collectorProfiles"));
+    return querySnapshot.docs.map(
+      (doc) => ({ ...doc.data(), id: doc.id } as CollectorProfile)
+    );
+  },
+
+  async getCollectorsWithUserData(): Promise<Array<CollectorProfile & { userInfo?: User }>> {
+    // Get all collector profiles
+    const collectorProfiles = await this.getAllCollectorProfiles();
+    
+    // Get all users with collector role
+    const collectorUsers = await userService.getUsersByRole("collector");
+    
+    // Merge the data
+    return collectorProfiles.map(profile => {
+      const userInfo = collectorUsers.find(user => user.id === profile.id);
+      return {
+        ...profile,
+        userInfo
+      };
+    });
   },
 };
