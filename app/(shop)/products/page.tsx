@@ -59,7 +59,7 @@ export default function ProductsPage() {
       }
     };
     fetchProducts();
-  }, []);
+  }, [toast]);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -224,9 +224,9 @@ export default function ProductsPage() {
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {sortedProducts.map((product) => (
+        {sortedProducts.map((product, idx) => (
           <Card
-            key={product.id}
+            key={`${product.id}-${idx}`}
             className="group hover:shadow-lg transition-shadow"
             onMouseEnter={() => setHoveredProduct(product.id)}
             onMouseLeave={() => setHoveredProduct(null)}
@@ -290,7 +290,7 @@ export default function ProductsPage() {
                               <div className="flex items-center">
                                 {[...Array(5)].map((_, i) => (
                                   <Star
-                                    key={i}
+                                    key={`dialog-star-${product.id}-${i}`}
                                     className={`h-4 w-4 ${
                                       i < Math.floor(product.rating)
                                         ? "text-yellow-400 fill-current"
@@ -356,7 +356,7 @@ export default function ProductsPage() {
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={i}
+                        key={`card-star-${product.id}-${i}`}
                         className={`h-4 w-4 ${
                           i < Math.floor(product.rating)
                             ? "text-yellow-400 fill-current"
