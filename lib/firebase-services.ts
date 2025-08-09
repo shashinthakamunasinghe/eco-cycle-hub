@@ -19,6 +19,7 @@ import type {
   Order,
   PickupRequest,
   Notification,
+  CollectorProfile,
 } from "@/types";
 
 // User operations
@@ -246,5 +247,53 @@ export const notificationService = {
     );
 
     await Promise.all(updatePromises);
+  },
+};
+
+// Collector Profile operations
+export const collectorService = {
+  async getCollectorProfile(collectorId: string): Promise<CollectorProfile | null> {
+    const docRef = doc(db, "collectorProfiles", collectorId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as CollectorProfile : null;
+  },
+
+  async updateCollectorProfile(collectorId: string, profileData: Partial<CollectorProfile>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", collectorId);
+    await updateDoc(docRef, {
+      ...profileData,
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async createCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", collectorId);
+    await updateDoc(docRef, {
+      ...profileData,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async setCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", collectorId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      // Update existing profile
+      await updateDoc(docRef, {
+        ...profileData,
+        updatedAt: Timestamp.now(),
+      });
+    } else {
+      // Create new profile
+      const { setDoc } = await import("firebase/firestore");
+      await setDoc(docRef, {
+        ...profileData,
+        id: collectorId,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
   },
 };

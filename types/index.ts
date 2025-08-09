@@ -48,6 +48,29 @@ export interface Collector {
   assignedRequests: string[]
 }
 
+export interface CollectorProfile {
+  id: string
+  name: string
+  email: string
+  phone: string
+  address: string
+  licenseNumber: string
+  vehicleType: string
+  vehicleModel: string
+  vehicleCapacity: number
+  experience: string
+  status: string
+  rating: number
+  completedPickups: number
+  avatar?: string
+  joinedDate: string
+  emergencyContact: string
+  workingHours: string
+  specializations: string[]
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 export interface Product {
   id: string
   name: string
