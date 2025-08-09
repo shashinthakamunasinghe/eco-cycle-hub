@@ -63,7 +63,7 @@ export function Navbar() {
 
   const getProfileLink = () => {
     if (isShopRoute()) return "/customer-profile";
-    if (user?.role) return `/${user.role}-profile`;
+    if (user?.role) return "/${user.role}-profile";
     return "#";
   };
 
@@ -97,16 +97,16 @@ export function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left side - Features and How it Works */}
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-4">
               <Link
                 href="#features"
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
               >
                 Features
               </Link>
               <Link
                 href="#how-it-works"
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
               >
                 How it Works
               </Link>
@@ -125,16 +125,16 @@ export function Navbar() {
             </div>
 
             {/* Right side - About and Contact */}
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-4">
               <Link
                 href="#about"
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
               >
                 About
               </Link>
               <Link
                 href="#contact"
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
               >
                 Contact
               </Link>
@@ -376,6 +376,6 @@ export function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
-  );
+    </nav>
+  );
 }

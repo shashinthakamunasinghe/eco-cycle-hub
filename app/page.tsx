@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Navbar } from "@/components/common/navbar";
+import { Navbar}  from "@/components/common/navbar";
 import { Slideshow } from "@/components/common/slideshow";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,14 +36,16 @@ export default function HomePage() {
       {/* Background with overlay */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-blue-400/20 to-emerald-400/20"></div>
-        <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] bg-cover bg-center opacity-10"></div>
+        <div className="absolute inset-0 bg-[url('/Translation-blog.png?height=1080&width=1920')] bg-cover bg-center opacity-10"></div>
+
       </div>
 
       <div className="relative z-10">
         <Navbar />
 
         {/* Hero Section with Slideshow */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+         
+        <section className="max-w-15xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-12">
           <Slideshow />
         </section>
 
@@ -85,6 +87,8 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+
 
         {/* Industry Dashboard Section */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -264,7 +268,7 @@ export default function HomePage() {
         </section>
 
         {/* About Section */}
-        <section className="py-16">
+        <section id="about" className="py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -330,7 +334,7 @@ export default function HomePage() {
         </section>
 
         {/* Features Section */}
-        <section className="bg-gray-50 py-16">
+        <section id="features" className="bg-gray-50 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">

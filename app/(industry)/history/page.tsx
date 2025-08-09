@@ -1,127 +1,338 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Search, Calendar, MapPin, Truck, X, CheckCircle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Package,
+  Search,
+  Calendar,
+  MapPin,
+  Truck,
+  X,
+  CheckCircle,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { pickupService } from "@/lib/firebase-services";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import type { PickupRequest } from "@/types";
 
 export default function PickupHistoryPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const { toast } = useToast()
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const { toast } = useToast();
+  const { user } = useFirebaseAuth();
 
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentPickup, setCurrentPickup] = useState<any>(null)
-  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false)
-  const [pickupToCancel, setPickupToCancel] = useState<any>(null)
-  const [pickupHistory, setPickupHistory] = useState<any[]>([])
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentPickup, setCurrentPickup] = useState<PickupRequest | null>(
+    null
+  );
+  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
+  const [pickupToCancel, setPickupToCancel] = useState<PickupRequest | null>(
+    null
+  );
+  const [pickupHistory, setPickupHistory] = useState<PickupRequest[]>([]);
 
-  // Load requests from localStorage
-  const loadRequests = () => {
-    const savedRequests = JSON.parse(localStorage.getItem("industryRequests") || "[]")
-    setPickupHistory(savedRequests)
-  }
+  // Filter pickups based on search term and status
+  const filteredPickups = pickupHistory.filter((item) => {
+    const matchesSearch =
+      item.wasteType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.status.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (statusFilter === "all") {
+      return matchesSearch;
+    }
+    return matchesSearch && item.status === statusFilter;
+  });
+
+  // Load requests from Firestore
+  const loadRequests = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const requests = await pickupService.getPickupRequestsByIndustry(user.id);
+      setPickupHistory(requests);
+    } catch (error) {
+      console.error("Error loading requests:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load request history. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [user?.id, toast]);
+
+  const handleCancelRequest = async (request: PickupRequest) => {
+    if (!request.id) return;
+
+    try {
+      await pickupService.updatePickupRequest(request.id, {
+        status: "cancelled",
+        cancelledAt: new Date(),
+      });
+
+      toast({
+        title: "Success",
+        description: "Request cancelled successfully",
+      });
+
+      loadRequests(); // Reload the requests
+      setIsConfirmCancelOpen(false);
+      setPickupToCancel(null);
+    } catch (error) {
+      console.error("Error cancelling request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel request. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
-    loadRequests()
-
-    // Listen for storage changes
-    const handleStorageChange = () => {
-      loadRequests()
+    if (user?.id) {
+      loadRequests();
     }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [])
+  }, [user?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "assigned":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800";
       case "on-way":
-        return "bg-purple-100 text-purple-800"
+        return "bg-purple-100 text-purple-800";
       case "completed":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "cancelled":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "on-way":
-        return <Truck className="h-4 w-4" />
+        return <Truck className="h-4 w-4" />;
       case "completed":
-        return <CheckCircle className="h-4 w-4" />
+        return <CheckCircle className="h-4 w-4" />;
       case "cancelled":
-        return <X className="h-4 w-4" />
+        return <X className="h-4 w-4" />;
       default:
-        return <Package className="h-4 w-4" />
+        return <Package className="h-4 w-4" />;
     }
-  }
+  };
 
-  const filteredHistory = pickupHistory.filter((item) => {
-    const matchesSearch =
-      item.wasteType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const viewPickupDetails = (pickup: PickupRequest) => {
+    setCurrentPickup(pickup);
+    setIsViewDialogOpen(true);
+  };
 
-  const viewPickupDetails = (pickup: any) => {
-    setCurrentPickup(pickup)
-    setIsViewDialogOpen(true)
-  }
+  const confirmCancelPickup = (pickup: PickupRequest) => {
+    setPickupToCancel(pickup);
+    setIsConfirmCancelOpen(true);
+  };
 
-  const confirmCancelPickup = (pickup: any) => {
-    setPickupToCancel(pickup)
-    setIsConfirmCancelOpen(true)
-  }
+  const cancelPickupConfirmed = async () => {
+    if (!pickupToCancel) return;
 
-  const cancelPickupConfirmed = () => {
-    if (!pickupToCancel) return
+    try {
+      await pickupService.updatePickupRequest(pickupToCancel.id, {
+        status: "cancelled",
+        cancelledAt: new Date(),
+      });
 
-    // Update the request status to cancelled
-    const updatedRequests = pickupHistory.map((request) =>
-      request.id === pickupToCancel.id
-        ? { ...request, status: "cancelled", cancelledAt: new Date().toISOString() }
-        : request,
-    )
+      toast({
+        title: "Pickup cancelled",
+        description: `Request ${pickupToCancel.id} has been cancelled successfully.`,
+      });
 
-    // Save back to localStorage
-    localStorage.setItem("industryRequests", JSON.stringify(updatedRequests))
-    setPickupHistory(updatedRequests)
+      await loadRequests(); // Refresh the list from Firestore
+      setIsConfirmCancelOpen(false);
+      setPickupToCancel(null);
+    } catch (error) {
+      console.error("Error cancelling pickup:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel request. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
-    // Trigger storage event for other components
-    window.dispatchEvent(new Event("storage"))
+  // Render functions
+  const renderPickupList = () => {
+    return filteredPickups.map((item) => (
+      <Card key={item.id} className="mb-4">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-5 w-5 text-gray-500" />
+                <span className="font-medium">{item.wasteType}</span>
+                <Badge
+                  variant="secondary"
+                  className={getStatusColor(item.status)}
+                >
+                  {item.status}
+                </Badge>
+              </div>
 
-    setIsConfirmCancelOpen(false)
-    setPickupToCancel(null)
+              <div className="space-y-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>{new Date(item.requestedAt).toLocaleString()}</span>
+                </div>
 
-    toast({
-      title: "Pickup cancelled",
-      description: `Request ${pickupToCancel.id} has been cancelled successfully.`,
-    })
-  }
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>{item.location.address}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  <span>{item.collectorName || "Not assigned"}</span>
+                </div>
+
+                {item.cancelledAt && (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <X className="h-4 w-4" />
+                    <span>
+                      Cancelled: {new Date(item.cancelledAt).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCurrentPickup(item);
+                  setIsViewDialogOpen(true);
+                }}
+              >
+                View Details
+              </Button>
+
+              {item.status === "pending" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setPickupToCancel(item);
+                    setIsConfirmCancelOpen(true);
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ));
+  };
+
+  // Render pickup details dialog
+  const renderPickupDetailsDialog = () => {
+    if (!currentPickup) return null;
+
+    return (
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pickup Request Details</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">Status Information</h4>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <strong>Current Status:</strong>{" "}
+                  <Badge
+                    variant="secondary"
+                    className={getStatusColor(currentPickup.status)}
+                  >
+                    {currentPickup.status}
+                  </Badge>
+                </div>
+                <div>
+                  <strong>Requested:</strong>{" "}
+                  {new Date(currentPickup.requestedAt).toLocaleString()}
+                </div>
+                {currentPickup.completedAt && (
+                  <div>
+                    <strong>Completed:</strong>{" "}
+                    {new Date(currentPickup.completedAt).toLocaleString()}
+                  </div>
+                )}
+                {currentPickup.cancelledAt && (
+                  <div className="text-red-500">
+                    <strong>Cancelled:</strong>{" "}
+                    {new Date(currentPickup.cancelledAt).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">Pickup Details</h4>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <strong>Waste Type:</strong> {currentPickup.wasteType}
+                </div>
+                <div>
+                  <strong>Weight:</strong> {currentPickup.weight} kg
+                </div>
+                <div>
+                  <strong>Address:</strong> {currentPickup.location.address}
+                </div>
+                <div>
+                  <strong>Collector:</strong>{" "}
+                  {currentPickup.collectorName || "Not assigned"}
+                </div>
+                {currentPickup.notes && (
+                  <div>
+                    <strong>Notes:</strong> {currentPickup.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Pickup History</h1>
-        <p className="text-gray-600 mt-2">View and manage your waste pickup requests</p>
+        <p className="text-gray-600 mt-2">
+          View and manage your waste pickup requests
+        </p>
       </div>
 
       {/* Filters */}
@@ -153,73 +364,9 @@ export default function PickupHistoryPage() {
       </div>
 
       {/* History List */}
-      <div className="space-y-4">
-        {filteredHistory.map((item) => (
-          <Card key={item.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    {getStatusIcon(item.status)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="text-lg font-semibold">{item.wasteType}</h3>
-                      <Badge className={getStatusColor(item.status)}>{item.status.replace("-", " ")}</Badge>
-                    </div>
-                    <div className="space-y-1 text-sm text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <Package className="h-4 w-4" />
-                        <span>
-                          {item.weight} kg • {item.id}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4" />
-                        <span>{item.address}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>Requested: {new Date(item.requestedAt).toLocaleString()}</span>
-                      </div>
-                      {item.completedAt && (
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>Completed: {new Date(item.completedAt).toLocaleString()}</span>
-                        </div>
-                      )}
-                      {item.cancelledAt && (
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>Cancelled: {new Date(item.cancelledAt).toLocaleString()}</span>
-                        </div>
-                      )}
-                      {item.collectorName && (
-                        <div className="flex items-center space-x-2">
-                          <Truck className="h-4 w-4" />
-                          <span>Collector: {item.collectorName}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col space-y-2">
-                  {item.status === "pending" && (
-                    <Button size="sm" variant="destructive" onClick={() => confirmCancelPickup(item)}>
-                      Cancel
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => viewPickupDetails(item)}>
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <div className="space-y-4">{renderPickupList()}</div>
 
-      {filteredHistory.length === 0 && (
+      {filteredPickups.length === 0 && (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500">
@@ -231,73 +378,7 @@ export default function PickupHistoryPage() {
       )}
 
       {/* View Details Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Pickup Request Details</DialogTitle>
-          </DialogHeader>
-          {currentPickup && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Request Information</h4>
-                  <div className="p-3 border rounded-lg space-y-2">
-                    <p>
-                      <strong>Request ID:</strong> {currentPickup.id}
-                    </p>
-                    <p>
-                      <strong>Waste Type:</strong> {currentPickup.wasteType}
-                    </p>
-                    <p>
-                      <strong>Weight:</strong> {currentPickup.weight} kg
-                    </p>
-                    <p>
-                      <strong>Status:</strong>{" "}
-                      <Badge className={getStatusColor(currentPickup.status)}>{currentPickup.status}</Badge>
-                    </p>
-                    <p>
-                      <strong>Requested:</strong> {new Date(currentPickup.requestedAt).toLocaleString()}
-                    </p>
-                    {currentPickup.completedAt && (
-                      <p>
-                        <strong>Completed:</strong> {new Date(currentPickup.completedAt).toLocaleString()}
-                      </p>
-                    )}
-                    {currentPickup.cancelledAt && (
-                      <p>
-                        <strong>Cancelled:</strong> {new Date(currentPickup.cancelledAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Location & Collector</h4>
-                  <div className="p-3 border rounded-lg space-y-2">
-                    <p>
-                      <strong>Address:</strong> {currentPickup.address}
-                    </p>
-                    {currentPickup.collectorName && (
-                      <p>
-                        <strong>Collector:</strong> {currentPickup.collectorName}
-                      </p>
-                    )}
-                    {currentPickup.notes && (
-                      <p>
-                        <strong>Notes:</strong> {currentPickup.notes}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {renderPickupDetailsDialog()}
 
       {/* Confirm Cancel Dialog */}
       <Dialog open={isConfirmCancelOpen} onOpenChange={setIsConfirmCancelOpen}>
@@ -308,14 +389,19 @@ export default function PickupHistoryPage() {
           {pickupToCancel && (
             <div className="py-4">
               <p className="mb-4">
-                Are you sure you want to cancel the pickup request <strong>{pickupToCancel.id}</strong> for{" "}
+                Are you sure you want to cancel the pickup request{" "}
+                <strong>{pickupToCancel.id}</strong> for{" "}
                 <strong>{pickupToCancel.wasteType}</strong>?
               </p>
               <p className="text-sm text-gray-600 mb-4">
-                The request will be marked as cancelled but will remain in your history.
+                The request will be marked as cancelled but will remain in your
+                history.
               </p>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsConfirmCancelOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsConfirmCancelOpen(false)}
+                >
                   No, Keep Request
                 </Button>
                 <Button variant="destructive" onClick={cancelPickupConfirmed}>
@@ -327,5 +413,5 @@ export default function PickupHistoryPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

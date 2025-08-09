@@ -1,51 +1,59 @@
 export interface User {
-  id: string
-  email: string
-  name: string
-  role: "admin" | "industry" | "collector" | "customer"
-  avatar?: string
-  phone?: string
-  address?: string
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "industry" | "collector" | "customer";
+  avatar?: string;
+  phone?: string;
+  address?: string;
   location?: {
-    lat: number
-    lng: number
-  }
-  createdAt: Date
+    lat: number;
+    lng: number;
+  };
+  createdAt: Date;
 }
 
 export interface PickupRequest {
-  id: string
-  industryId: string
-  industryName: string
-  wasteType: string
-  weight: number
+  id: string;
+  industryId: string;
+  industryName: string;
+  wasteType: string;
+  weight: number;
   location: {
-    lat: number
-    lng: number
-    address: string
-  }
-  status: "pending" | "assigned" | "on-way" | "picked-up" | "completed" | "cancelled"
-  collectorId?: string
-  collectorName?: string
-  requestedAt: Date
-  scheduledAt?: Date
-  completedAt?: Date
-  notes?: string
+    lat: number;
+    lng: number;
+    address: string;
+  };
+  status:
+    | "pending"
+    | "assigned"
+    | "on-way"
+    | "picked-up"
+    | "completed"
+    | "cancelled";
+  collectorId?: string;
+  collectorName?: string;
+  priority: "high" | "medium" | "low";
+  requestedAt: Date;
+  scheduledAt?: Date;
+  completedAt?: Date;
+  cancelledAt?: Date;
+  notes?: string;
 }
 
 export interface Collector {
-  id: string
-  name: string
-  email: string
-  phone: string
-  isAvailable: boolean
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  isAvailable: boolean;
   currentLocation?: {
-    lat: number
-    lng: number
-  }
-  truckCapacity: number
-  currentLoad: number
-  assignedRequests: string[]
+    lat: number;
+    lng: number;
+  };
+  truckCapacity: number;
+  currentLoad: number;
+  assignedRequests: string[];
 }
 
 export interface CollectorProfile {
@@ -72,42 +80,42 @@ export interface CollectorProfile {
 }
 
 export interface Product {
-  id: string
-  name: string
-  description: string
-  price: number
-  category: string
-  image: string
-  stock: number
-  rating: number
-  reviews: number
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+  stock: number;
+  rating: number;
+  reviews: number;
 }
 
 export interface Order {
-  id: string
-  customerId: string
-  customerName: string
-  items: OrderItem[]
-  total: number
-  status: "processing" | "shipped" | "delivered" | "cancelled"
-  shippingAddress: string
-  createdAt: Date
-  deliveredAt?: Date
+  id: string;
+  customerId: string;
+  customerName: string;
+  items: OrderItem[];
+  total: number;
+  status: "processing" | "shipped" | "delivered" | "cancelled";
+  shippingAddress: string;
+  createdAt: Date;
+  deliveredAt?: Date;
 }
 
 export interface OrderItem {
-  productId: string
-  productName: string
-  quantity: number
-  price: number
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
 }
 
 export interface Notification {
-  id: string
-  userId: string
-  title: string
-  message: string
-  type: "info" | "success" | "warning" | "error"
-  read: boolean
-  createdAt: Date
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  read: boolean;
+  createdAt: Date;
 }
