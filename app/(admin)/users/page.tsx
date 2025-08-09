@@ -23,6 +23,7 @@ import {
   Eye,
   Ban,
   MapPin,
+  Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -47,6 +48,8 @@ export default function AdminUsersPage() {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isConfirmSuspendOpen, setIsConfirmSuspendOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<UserType | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(true);
 
@@ -120,6 +123,43 @@ export default function AdminUsersPage() {
       description: `${userToSuspend.name} has been suspended and removed from the system.`,
       variant: "destructive",
     });
+  };
+
+  const handleDeleteUser = (user: UserType) => {
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      setLoading(true);
+      console.log("🗑️ Deleting user:", userToDelete.id);
+      
+      // Delete from Firestore
+      await userService.deleteUser(userToDelete.id);
+      
+      // Update local state
+      setUsersList(usersList.filter((u) => u.id !== userToDelete.id));
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+      
+      toast({
+        title: "User deleted",
+        description: `${userToDelete.name} has been permanently deleted from the system.`,
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error("❌ Error deleting user:", error);
+      toast({
+        title: "Error deleting user",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addUser = async () => {
@@ -350,6 +390,14 @@ export default function AdminUsersPage() {
                   >
                     <Ban className="h-4 w-4 mr-1" />
                     Suspend
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteUser(user)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
                   </Button>
                 </div>
               </div>
@@ -625,6 +673,53 @@ export default function AdminUsersPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Delete User</DialogTitle>
+          </DialogHeader>
+          {userToDelete && (
+            <div className="py-4">
+              <div className="flex items-center space-x-3 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                <Trash2 className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-800">Permanent Deletion</p>
+                  <p className="text-sm text-red-600">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="mb-4">
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold">{userToDelete.name}</span>? All associated data will be removed
+                from the system.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDeleteUser} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Permanently
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

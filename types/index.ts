@@ -10,6 +10,15 @@ export interface User {
     lat: number;
     lng: number;
   };
+  // Collector-specific properties
+  isAvailable?: boolean;
+  currentLocation?: {
+    lat: number;
+    lng: number;
+  };
+  truckCapacity?: number;
+  currentLoad?: number;
+  assignedRequests?: string[];
   createdAt: Date;
 }
 
