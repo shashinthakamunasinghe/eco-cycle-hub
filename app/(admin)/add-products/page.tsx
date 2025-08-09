@@ -61,7 +61,7 @@ export default function AdminProductsPage() {
       }
     };
     fetchProducts();
-  }, []);
+  }, [toast]);
 
   const categories = [
     "all",
@@ -353,8 +353,11 @@ export default function AdminProductsPage() {
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProducts.map((product) => (
-          <Card key={product.id} className="hover:shadow-lg transition-shadow">
+        {filteredProducts.map((product, idx) => (
+          <Card
+            key={`${product.id}-${idx}`}
+            className="hover:shadow-lg transition-shadow"
+          >
             <CardHeader className="p-0">
               <div className="relative aspect-square overflow-hidden rounded-t-lg">
                 <Image
@@ -383,7 +386,7 @@ export default function AdminProductsPage() {
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={i}
+                        key={`admin-card-star-${product.id}-${i}`}
                         className={`h-4 w-4 ${
                           i < Math.floor(product.rating)
                             ? "text-yellow-400 fill-current"
