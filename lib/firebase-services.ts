@@ -12,7 +12,8 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import type {
   User,
   Product,
@@ -414,6 +415,99 @@ export const collectorService = {
       ...profileData,
       updatedAt: Timestamp.now(),
     });
+  },
+
+  async addNewCollector(collectorData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    vehicleCapacity: number;
+    address?: string;
+    vehicleType?: string;
+    vehicleModel?: string;
+    licenseNumber?: string;
+    experience?: string;
+    emergencyContact?: string;
+    workingHours?: string;
+    specializations?: string[];
+  }): Promise<string> {
+    try {
+      console.log("🔧 Firebase Service: Creating collector...", {
+        email: collectorData.email,
+        name: collectorData.name,
+        hasPassword: !!collectorData.password,
+        passwordLength: collectorData.password?.length
+      });
+
+      // Create Firebase Authentication account first
+      console.log("📡 Creating Firebase Auth account...");
+      const authResult = await createUserWithEmailAndPassword(
+        auth,
+        collectorData.email,
+        collectorData.password
+      );
+      
+      const userId = authResult.user.uid;
+      console.log("✅ Firebase Auth account created:", userId);
+
+      // Create user document in Firestore with the same UID
+      console.log("📄 Creating Firestore user document...");
+      const { setDoc } = await import("firebase/firestore");
+      await setDoc(doc(db, "users", userId), {
+        id: userId,
+        name: collectorData.name,
+        email: collectorData.email,
+        phone: collectorData.phone,
+        role: "collector",
+        address: collectorData.address || "",
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      console.log("✅ Firestore user document created");
+
+      // Create collector profile with the same ID
+      console.log("📋 Creating collector profile...");
+      const collectorProfileData = {
+        id: userId,
+        name: collectorData.name,
+        email: collectorData.email,
+        phone: collectorData.phone,
+        address: collectorData.address || "",
+        licenseNumber: collectorData.licenseNumber || "",
+        vehicleType: collectorData.vehicleType || "Truck",
+        vehicleModel: collectorData.vehicleModel || "",
+        vehicleCapacity: collectorData.vehicleCapacity,
+        experience: collectorData.experience || "0-1 years",
+        status: "active",
+        rating: 0,
+        completedPickups: 0,
+        joinedDate: new Date().toISOString(),
+        emergencyContact: collectorData.emergencyContact || "",
+        workingHours: collectorData.workingHours || "9 AM - 5 PM",
+        specializations: collectorData.specializations || [],
+        isAvailable: true,
+        currentLoad: 0,
+        assignedRequests: [],
+        currentLocation: { lat: 6.9271, lng: 79.8612 }, // Default Colombo location
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
+
+      const collectorDocRef = doc(db, "collectorProfiles", userId);
+      await setDoc(collectorDocRef, collectorProfileData);
+      console.log("✅ Collector profile created");
+
+      console.log("🎉 Collector creation completed successfully:", userId);
+      return userId;
+    } catch (error) {
+      console.error("❌ Error creating collector:", {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as { code?: string })?.code
+      });
+      throw error;
+    }
   },
 
   async createCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {

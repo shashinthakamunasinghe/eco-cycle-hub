@@ -10,6 +10,7 @@ import { Truck, MapPin, Phone, Mail, Search, UserPlus, Eye, Ban, Loader2 } from 
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { collectorService } from "@/lib/firebase-services"
 import type { CollectorProfile, User as UserType } from "@/types"
@@ -31,7 +32,13 @@ export default function AdminCollectorsPage() {
     name: "",
     email: "",
     phone: "",
+    address: "",
     vehicleCapacity: "",
+    vehicleType: "Truck",
+    vehicleModel: "",
+    licenseNumber: "",
+    experience: "0-1 years",
+    emergencyContact: "",
     password: "",
     confirmPassword: "",
   })
@@ -86,7 +93,7 @@ export default function AdminCollectorsPage() {
     }
   }
 
-  const handleAddCollector = () => {
+  const handleAddCollector = async () => {
     if (newCollector.password !== newCollector.confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -96,56 +103,77 @@ export default function AdminCollectorsPage() {
       return
     }
 
-    if (!newCollector.name || !newCollector.email || !newCollector.phone || !newCollector.vehicleCapacity) {
+    if (!newCollector.name || !newCollector.email || !newCollector.phone || !newCollector.vehicleCapacity || !newCollector.address || !newCollector.password) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields including password.",
         variant: "destructive",
       })
       return
     }
 
-    const newCollectorObj: CollectorWithUser = {
-      id: (collectors.length + 1).toString(),
-      name: newCollector.name,
-      email: newCollector.email,
-      phone: newCollector.phone,
-      address: "",
-      licenseNumber: "",
-      vehicleType: "Truck",
-      vehicleModel: "",
-      vehicleCapacity: Number.parseInt(newCollector.vehicleCapacity),
-      experience: "",
-      status: "active",
-      rating: 0,
-      completedPickups: 0,
-      joinedDate: new Date().toISOString(),
-      emergencyContact: "",
-      workingHours: "9 AM - 5 PM",
-      specializations: [],
-      isAvailable: true,
-      currentLocation: { lat: 6.9271, lng: 79.8612 },
-      currentLoad: 0,
-      assignedRequests: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    try {
+      setLoading(true)
+      
+      console.log("🔧 Admin: Creating new collector...", {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        vehicleCapacity: newCollector.vehicleCapacity,
+        hasPassword: !!newCollector.password
+      });
+      
+      // Add collector to Firebase
+      await collectorService.addNewCollector({
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        password: newCollector.password,
+        vehicleCapacity: Number.parseInt(newCollector.vehicleCapacity),
+        address: newCollector.address,
+        vehicleType: newCollector.vehicleType,
+        vehicleModel: newCollector.vehicleModel,
+        licenseNumber: newCollector.licenseNumber,
+        experience: newCollector.experience,
+        emergencyContact: newCollector.emergencyContact,
+        workingHours: "9 AM - 5 PM",
+        specializations: [],
+      })
+
+      // Reload collectors from Firebase to get the updated list
+      await loadCollectors()
+
+      setIsAddDialogOpen(false)
+      setNewCollector({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        vehicleCapacity: "",
+        vehicleType: "Truck",
+        vehicleModel: "",
+        licenseNumber: "",
+        experience: "0-1 years",
+        emergencyContact: "",
+        password: "",
+        confirmPassword: "",
+      })
+
+      toast({
+        title: "Collector added successfully",
+        description: `${newCollector.name} has been registered as a collector.`,
+      })
+    } catch (error) {
+      console.error("Error adding collector:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add collector. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    setCollectors([...collectors, newCollectorObj])
-    setIsAddDialogOpen(false)
-    setNewCollector({
-      name: "",
-      email: "",
-      phone: "",
-      vehicleCapacity: "",
-      password: "",
-      confirmPassword: "",
-    })
-
-    toast({
-      title: "Collector added",
-      description: `${newCollector.name} has been registered as a collector.`,
-    })
   }
 
   const handleViewCollector = (collector: CollectorWithUser) => {
@@ -192,6 +220,7 @@ export default function AdminCollectorsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Collector Management</h1>
+          <p className="text-gray-600">Manage {filteredCollectors.length} collector{filteredCollectors.length !== 1 ? 's' : ''}</p>
           <p className="text-gray-600 mt-2">Manage waste collectors and their assignments</p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -201,7 +230,7 @@ export default function AdminCollectorsPage() {
               Add Collector
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Register New Collector</DialogTitle>
             </DialogHeader>
@@ -245,6 +274,38 @@ export default function AdminCollectorsPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newCollector.address}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="Enter address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicleType">Vehicle Type</Label>
+                <Select value={newCollector.vehicleType} onValueChange={(value) => setNewCollector((prev) => ({ ...prev, vehicleType: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Truck">Truck</SelectItem>
+                    <SelectItem value="Van">Van</SelectItem>
+                    <SelectItem value="Pickup">Pickup</SelectItem>
+                    <SelectItem value="Motorcycle">Motorcycle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="licenseNumber">License Number</Label>
+                <Input
+                  id="licenseNumber"
+                  value={newCollector.licenseNumber}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, licenseNumber: e.target.value }))}
+                  placeholder="Enter driving license number"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -264,8 +325,15 @@ export default function AdminCollectorsPage() {
                   placeholder="Confirm password"
                 />
               </div>
-              <Button onClick={handleAddCollector} className="w-full mt-4">
-                Register Collector
+              <Button onClick={handleAddCollector} disabled={loading} className="w-full mt-4">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Register Collector"
+                )}
               </Button>
             </div>
           </DialogContent>
