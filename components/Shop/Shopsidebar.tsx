@@ -14,7 +14,7 @@ const navigation = [
   { name: "Profile", href: "/customer-profile", icon: User },
 ]
 
-const categories = ["Fertilizers", "Garden Supplies", "Mulch", "Compost", "Seeds", "Tools"]
+const categories = ["Fertilizers", "Garden Supplies", "Mulch", "Compost", "Seeds",]
 
 export function ShopSidebar() {
   const pathname = usePathname()
