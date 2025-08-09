@@ -446,4 +446,28 @@ export const collectorService = {
       });
     }
   },
+
+  async getAllCollectorProfiles(): Promise<CollectorProfile[]> {
+    const querySnapshot = await getDocs(collection(db, "collectorProfiles"));
+    return querySnapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as CollectorProfile)
+    );
+  },
+
+  async getCollectorsWithUserData(): Promise<Array<CollectorProfile & { userInfo?: User }>> {
+    // Get all collector profiles
+    const collectorProfiles = await this.getAllCollectorProfiles();
+    
+    // Get all users with collector role
+    const collectorUsers = await userService.getUsersByRole("collector");
+    
+    // Merge the data
+    return collectorProfiles.map(profile => {
+      const userInfo = collectorUsers.find(user => user.id === profile.id);
+      return {
+        ...profile,
+        userInfo
+      };
+    });
+  },
 };
