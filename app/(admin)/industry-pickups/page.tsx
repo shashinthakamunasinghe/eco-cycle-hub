@@ -10,14 +10,38 @@ import { Package, MapPin, Clock, User, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+type PickupStatus = "pending" | "assigned" | "on-way" | "completed" | "cancelled"
+type PickupPriority = "high" | "medium" | "low"
+
+type Pickup = {
+  id: string
+  industryName: string
+  industryId: string
+  wasteType: string
+  weight: number
+  status: PickupStatus
+  address: string
+  requestedAt: string
+  collectorId: string | null
+  collectorName: string | null
+  priority: PickupPriority
+  completedAt?: string
+}
+
+type Collector = {
+  id: string
+  name: string
+  isAvailable: boolean
+}
+
 export default function AdminPickupsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const { toast } = useToast()
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentPickup, setCurrentPickup] = useState<any>(null)
+  const [currentPickup, setCurrentPickup] = useState<Pickup | null>(null)
 
-  const [pickupRequests, setPickupRequests] = useState([
+  const [pickupRequests, setPickupRequests] = useState<Pickup[]>([
     {
       id: "1",
       industryName: "Green Industries Ltd",
@@ -73,7 +97,7 @@ export default function AdminPickupsPage() {
     },
   ])
 
-  const availableCollectors = [
+  const availableCollectors: Collector[] = [
     { id: "3", name: "John Collector", isAvailable: true },
     { id: "4", name: "Jane Smith", isAvailable: false },
     { id: "5", name: "Mike Johnson", isAvailable: true },
@@ -83,10 +107,10 @@ export default function AdminPickupsPage() {
     const collector = availableCollectors.find((c) => c.id === collectorId)
 
     // Update the pickup request status and assign collector
-    setPickupRequests(
-      pickupRequests.map((request) =>
+    setPickupRequests((prev) =>
+      prev.map((request) =>
         request.id === pickupId
-          ? { ...request, status: "assigned", collectorId, collectorName: collector?.name }
+          ? { ...request, status: "assigned", collectorId, collectorName: collector?.name ?? null }
           : request,
       ),
     )
@@ -97,7 +121,7 @@ export default function AdminPickupsPage() {
     })
   }
 
-  const viewPickupDetails = (pickup: any) => {
+  const viewPickupDetails = (pickup: Pickup) => {
     setCurrentPickup(pickup)
     setIsViewDialogOpen(true)
   }
@@ -183,8 +207,8 @@ export default function AdminPickupsPage() {
 
       {/* Pickup Requests List */}
       <div className="space-y-4">
-        {filteredRequests.map((request) => (
-          <Card key={request.id} className="hover:shadow-md transition-shadow">
+        {filteredRequests.map((request, idx) => (
+          <Card key={`${request.id}-${idx}`} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
