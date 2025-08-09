@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Truck, Package, CheckCircle, MapPin, Battery, Navigation } from "lucide-react"
+import { Truck, Package, CheckCircle, MapPin, Battery, Navigation, User } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -199,6 +199,9 @@ export default function CollectorDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Collector Dashboard</h1>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-full p-2.5 shadow-lg">
+              <User className="h-4 w-4 text-white" />
+            </div>
             <Label htmlFor="availability">Available for pickups</Label>
             <Switch id="availability" checked={isAvailable} onCheckedChange={handleAvailabilityChange} />
           </div>
