@@ -11,12 +11,13 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
 import { pickupService, collectorService } from "@/lib/firebase-services"
-import type { PickupRequest } from "@/types"
+import type { PickupRequest, CollectorProfile } from "@/types"
 
 export default function CollectorDashboard() {
   const [isAvailable, setIsAvailable] = useState(true)
   const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [collectorProfile, setCollectorProfile] = useState<CollectorProfile | null>(null)
   const { toast } = useToast()
   const { user } = useFirebaseAuth()
 
@@ -36,20 +37,42 @@ export default function CollectorDashboard() {
 
   useEffect(() => {
     const loadPickups = async () => {
-      console.log("🔄 Loading pickups for user:", user?.id, user?.email);
+      console.log("🔄 Loading collector profile and pickups for user:", user?.id, user?.email);
       
-      if (!user?.id) {
-        console.log("❌ No user ID found, skipping pickup load");
+      if (!user?.id || !user?.email) {
+        console.log("❌ No user ID or email found, skipping pickup load");
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true)
-        console.log("📡 Fetching pickups for collector:", user.id);
         
-        // Get all pickup requests assigned to this collector
-        const pickups = await pickupService.getPickupRequestsByCollector(user.id)
+        // First, get the collector profile for this user
+        console.log("📡 Fetching collector profile for email:", user.email);
+        const allCollectors = await collectorService.getAllCollectorProfiles();
+        const userCollectorProfile = allCollectors.find(c => c.email === user.email);
+        
+        if (!userCollectorProfile) {
+          console.log("❌ No collector profile found for user email:", user.email);
+          toast({
+            title: "Profile not found",
+            description: "No collector profile found for your account",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        console.log("✅ Found collector profile:", { 
+          id: userCollectorProfile.id, 
+          name: userCollectorProfile.name, 
+          email: userCollectorProfile.email 
+        });
+        setCollectorProfile(userCollectorProfile);
+        
+        // Now get pickups using the collector profile ID
+        console.log("📡 Fetching pickups for collector ID:", userCollectorProfile.id);
+        const pickups = await pickupService.getPickupRequestsByCollector(userCollectorProfile.id)
         console.log("📦 Raw pickups from Firebase:", pickups);
         
         // Filter to show only active pickups (not completed or cancelled)
@@ -103,9 +126,9 @@ export default function CollectorDashboard() {
     try {
       setIsAvailable(available)
       
-      // Update collector availability in Firebase
-      if (user?.id) {
-        await collectorService.updateCollectorProfile(user.id, {
+      // Update collector availability in Firebase using collector profile ID
+      if (collectorProfile?.id) {
+        await collectorService.updateCollectorProfile(collectorProfile.id, {
           isAvailable: available,
         })
       }
@@ -225,9 +248,14 @@ export default function CollectorDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Collector Dashboard</h1>
-          {user && (
+          {user && collectorProfile && (
             <p className="text-sm text-gray-600 mt-1">
-              Logged in as: {user.name} ({user.email}) - ID: {user.id}
+              Logged in as: {collectorProfile.name} ({user.email}) - Collector ID: {collectorProfile.id}
+            </p>
+          )}
+          {user && !collectorProfile && (
+            <p className="text-sm text-gray-600 mt-1">
+              Logged in as: {user.name} ({user.email}) - User ID: {user.id}
             </p>
           )}
         </div>

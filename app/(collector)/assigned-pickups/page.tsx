@@ -7,77 +7,121 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Package, MapPin, Navigation, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { pickupService, collectorService } from "@/lib/firebase-services"
+import type { CollectorProfile } from "@/types"
+import type { PickupRequest as FirebasePickupRequest } from "@/types"
 
 interface PickupRequest {
   id: string
   industryName: string
   wasteType: string
   weight: number
-  status: "assigned" | "on-way" | "picked-up" | "completed"
-  address: string
-  distance: string
+  status: "assigned" | "on-way" | "picked-up" | "completed" | "pending" | "cancelled"
+  location: {
+    address: string
+    lat: number
+    lng: number
+  }
   priority: "high" | "medium" | "low"
-  requestedAt: string
-  coordinates?: { lat: number; lng: number }
+  requestedAt: Date | string
+  scheduledAt?: Date | string
+  collectorId?: string
+  collectorName?: string
 }
 
 export default function CollectorPickupsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [pickups, setPickups] = useState<PickupRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const { user } = useFirebaseAuth()
   const { toast } = useToast()
 
   useEffect(() => {
-    // Load pickup requests from localStorage
-    const savedPickups = localStorage.getItem("collectorPickups")
-    if (savedPickups) {
-      setPickups(JSON.parse(savedPickups))
+    const loadPickups = async () => {
+      if (!user?.email) return
+
+      try {
+        // Get collector profile by email
+        const collectors = await collectorService.getAllCollectorProfiles()
+        const collectorProfile = collectors.find((c: CollectorProfile) => c.email === user.email)
+        
+        if (!collectorProfile) {
+          console.log('No collector profile found for user:', user.email)
+          setLoading(false)
+          return
+        }
+
+        // Get assigned pickups for this collector
+        const allPickups = await pickupService.getAllPickupRequests()
+        const assignedPickups = allPickups.filter(
+          (pickup: FirebasePickupRequest) => pickup.collectorId === collectorProfile.id && 
+          ['assigned', 'on-way', 'picked-up'].includes(pickup.status)
+        )
+
+        setPickups(assignedPickups)
+      } catch (error) {
+        console.error('Error loading pickups:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load assigned pickups",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [])
 
-  const updateStatus = (id: string, newStatus: "assigned" | "on-way" | "picked-up" | "completed") => {
-    const updatedPickups = pickups.map((pickup) => (pickup.id === id ? { ...pickup, status: newStatus } : pickup))
-    setPickups(updatedPickups)
-    localStorage.setItem("collectorPickups", JSON.stringify(updatedPickups))
+    loadPickups()
+  }, [user, toast])
 
-    // Also update in industry requests
-    const industryRequests = localStorage.getItem("industryRequests")
-    if (industryRequests) {
-      const requests = JSON.parse(industryRequests)
-      const updatedRequests = requests.map((req: any) =>
-        req.id === id ? { ...req, status: newStatus, updatedAt: new Date().toISOString() } : req,
+  const updateStatus = async (id: string, newStatus: "assigned" | "on-way" | "picked-up" | "completed") => {
+    try {
+      await pickupService.updateStatus(id, newStatus)
+      
+      // Update local state
+      const updatedPickups = pickups.map((pickup) => 
+        pickup.id === id ? { ...pickup, status: newStatus } : pickup
       )
-      localStorage.setItem("industryRequests", JSON.stringify(updatedRequests))
-    }
+      setPickups(updatedPickups)
 
-    const statusMessages = {
-      "on-way": "started your journey",
-      "picked-up": "marked as picked up",
-      completed: "completed successfully",
-    }
+      const statusMessages: Record<string, string> = {
+        "on-way": "started your journey",
+        "picked-up": "marked as picked up",
+        "completed": "completed successfully",
+      }
 
-    toast({
-      title: "Status updated",
-      description: `Pickup has been ${statusMessages[newStatus] || "updated"}.`,
-    })
+      toast({
+        title: "Status updated",
+        description: `Pickup has been ${statusMessages[newStatus] || "updated"}.`,
+      })
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update pickup status",
+        variant: "destructive"
+      })
+    }
   }
 
   const navigateToLocation = (pickup: PickupRequest) => {
-    if (pickup.coordinates) {
-      const { lat, lng } = pickup.coordinates
+    if (pickup.location?.lat && pickup.location?.lng) {
+      const { lat, lng } = pickup.location
       const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
       window.open(googleMapsUrl, "_blank")
       toast({
         title: "Navigation started",
         description: `Opening Google Maps navigation to ${pickup.industryName}`,
       })
-    } else {
+    } else if (pickup.location?.address) {
       // Fallback to address search
-      const encodedAddress = encodeURIComponent(pickup.address)
+      const encodedAddress = encodeURIComponent(pickup.location.address)
       const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
       window.open(googleMapsUrl, "_blank")
       toast({
         title: "Navigation started",
-        description: `Opening Google Maps search for ${pickup.address}`,
+        description: `Opening Google Maps search for ${pickup.location.address}`,
       })
     }
   }
@@ -98,6 +142,23 @@ export default function CollectorPickupsPage() {
   }
 
   const filteredPickups = pickups.filter((pickup) => statusFilter === "all" || pickup.status === statusFilter)
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Assigned Pickups</h1>
+            <p className="text-gray-600 mt-2">Loading your pickup assignments...</p>
+          </div>
+        </div>
+        <div className="text-center py-12">
+          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-500">Loading pickups...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -139,11 +200,11 @@ export default function CollectorPickupsPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <MapPin className="h-4 w-4" />
-                      <span>{pickup.address}</span>
+                      <span>{pickup.location.address}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Navigation className="h-4 w-4" />
-                      <span>{pickup.distance} away</span>
+                      <span>Distance: Calculating...</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4" />
