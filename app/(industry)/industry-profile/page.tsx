@@ -1,50 +1,126 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { MapPin, Upload, Building } from "lucide-react"
+import { MapPin } from "lucide-react"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 export default function IndustryProfilePage() {
+  const { user } = useFirebaseAuth()
   const [formData, setFormData] = useState({
-    companyName: "Green Industries Ltd",
-    email: "industry@example.com",
-    phone: "+94771234567",
-    address: "123 Industrial Avenue, Colombo 03",
-    website: "www.greenindustries.lk",
-    description: "Leading manufacturer of eco-friendly products with a commitment to sustainable practices.",
-    contactPerson: "John Manager",
-    wasteTypes: "Organic Waste, Plastic Waste, Paper Waste",
+    companyName: "",
+    email: "",
+    phone: "",
+    address: "",
+    description: "",
+    contactPerson: "",
+    wasteTypes: "",
+    businessRegNumber: "",
+    industryType: "",
+    operatingHours: "",
+    certifications: "",
+    annualWasteVolume: "",
   })
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string>("/placeholder.svg")
+  // Load industry profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) return
+
+      try {
+        const industryDoc = await getDoc(doc(db, "industryProfiles", user.id))
+        if (industryDoc.exists()) {
+          const data = industryDoc.data()
+          setFormData({
+            companyName: data.companyName || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            address: data.address || "",
+            description: data.description || "",
+            contactPerson: data.contactPerson || "",
+            wasteTypes: data.wasteTypes || "",
+            businessRegNumber: data.businessRegNumber || "",
+            industryType: data.industryType || "",
+            operatingHours: data.operatingHours || "",
+            certifications: data.certifications || "",
+            annualWasteVolume: data.annualWasteVolume || "",
+          })
+        }
+      } catch (error) {
+        console.error("Error loading industry profile:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load profile data.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    loadProfile()
+  }, [user?.id, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("Form submitted. User:", user)
+    console.log("Form data:", formData)
+    
+    if (!user?.id) {
+      console.log("No user ID found")
+      toast({
+        title: "Authentication Error",
+        description: "Please log in to update your profile.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Prepare the update data for industryProfiles collection
+      const updateData = {
+        companyName: formData.companyName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        description: formData.description,
+        contactPerson: formData.contactPerson,
+        wasteTypes: formData.wasteTypes,
+        businessRegNumber: formData.businessRegNumber,
+        industryType: formData.industryType,
+        operatingHours: formData.operatingHours,
+        certifications: formData.certifications,
+        annualWasteVolume: formData.annualWasteVolume,
+        userId: user.id,
+        updatedAt: new Date(),
+        createdAt: new Date() // Will be ignored if document already exists
+      }
 
+      console.log("Updating industry profile with data:", updateData)
+
+      // Save to industryProfiles collection
+      const industryRef = doc(db, "industryProfiles", user.id)
+      await setDoc(industryRef, updateData, { merge: true })
+
+      console.log("Industry profile updated successfully")
       toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+        title: "Success",
+        description: "Industry profile updated successfully",
       })
     } catch (error) {
+      console.error("Industry profile update error:", error)
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: `Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       })
     } finally {
@@ -56,14 +132,34 @@ export default function IndustryProfilePage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateLocation = () => {
+  const updateLocation = async () => {
+    if (!user?.id) return
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          toast({
-            title: "Location updated",
-            description: "Your location has been updated successfully.",
-          })
+        async (position) => {
+          try {
+            const industryRef = doc(db, "industryProfiles", user.id)
+            await updateDoc(industryRef, {
+              location: {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              },
+              updatedAt: new Date()
+            })
+
+            toast({
+              title: "Location updated",
+              description: "Your location has been updated successfully.",
+            })
+          } catch (error) {
+            console.error("Error updating location:", error)
+            toast({
+              title: "Error",
+              description: "Failed to update location. Please try again.",
+              variant: "destructive",
+            })
+          }
         },
         (error) => {
           toast({
@@ -82,34 +178,21 @@ export default function IndustryProfilePage() {
     }
   }
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setLogoFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setLogoPreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-
-      toast({
-        title: "Logo uploaded",
-        description: "Company logo has been updated successfully.",
-      })
-    }
-  }
-
   const handleCancel = () => {
     // Reset form to original values
     setFormData({
-      companyName: "Green Industries Ltd",
-      email: "industry@example.com",
-      phone: "+94771234567",
-      address: "123 Industrial Avenue, Colombo 03",
-      website: "www.greenindustries.lk",
-      description: "Leading manufacturer of eco-friendly products with a commitment to sustainable practices.",
-      contactPerson: "John Manager",
-      wasteTypes: "Organic Waste, Plastic Waste, Paper Waste",
+      companyName: "",
+      email: "",
+      phone: "",
+      address: "",
+      description: "",
+      contactPerson: "",
+      wasteTypes: "",
+      businessRegNumber: "",
+      industryType: "",
+      operatingHours: "",
+      certifications: "",
+      annualWasteVolume: "",
     })
 
     toast({
@@ -125,34 +208,7 @@ export default function IndustryProfilePage() {
         <p className="text-gray-600 mt-2">Manage your company information and settings</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Profile Picture */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Company Logo</CardTitle>
-            <CardDescription>Upload your company logo</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="w-24 h-24">
-              <AvatarImage src={logoPreview || "/placeholder.svg"} alt="Company Logo" />
-              <AvatarFallback>
-                <Building className="h-12 w-12" />
-              </AvatarFallback>
-            </Avatar>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleLogoUpload}
-              style={{ display: "none" }}
-              id="logo-upload"
-            />
-            <Button variant="outline" size="sm" onClick={() => document.getElementById("logo-upload")?.click()}>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Logo
-            </Button>
-          </CardContent>
-        </Card>
-
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Location Info */}
         <Card>
           <CardHeader>
@@ -250,6 +306,27 @@ export default function IndustryProfilePage() {
               </div>
             </div>
 
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="businessRegNumber">Business Registration Number</Label>
+                <Input
+                  id="businessRegNumber"
+                  value={formData.businessRegNumber}
+                  onChange={(e) => handleInputChange("businessRegNumber", e.target.value)}
+                  placeholder="e.g., BRC123456789"
+                />
+              </div>
+              <div>
+                <Label htmlFor="industryType">Industry Type</Label>
+                <Input
+                  id="industryType"
+                  value={formData.industryType}
+                  onChange={(e) => handleInputChange("industryType", e.target.value)}
+                  placeholder="e.g., Manufacturing, Textile, Food Processing"
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="address">Company Address</Label>
               <Input
@@ -260,15 +337,25 @@ export default function IndustryProfilePage() {
               />
             </div>
 
-            <div>
-              <Label htmlFor="website">Website</Label>
-              <Input
-                id="website"
-                type="url"
-                value={formData.website}
-                onChange={(e) => handleInputChange("website", e.target.value)}
-                placeholder="https://www.example.com"
-              />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="operatingHours">Operating Hours</Label>
+                <Input
+                  id="operatingHours"
+                  value={formData.operatingHours}
+                  onChange={(e) => handleInputChange("operatingHours", e.target.value)}
+                  placeholder="e.g., Monday - Friday: 8:00 AM - 6:00 PM"
+                />
+              </div>
+              <div>
+                <Label htmlFor="annualWasteVolume">Annual Waste Volume</Label>
+                <Input
+                  id="annualWasteVolume"
+                  value={formData.annualWasteVolume}
+                  onChange={(e) => handleInputChange("annualWasteVolume", e.target.value)}
+                  placeholder="e.g., 500-1000 tons"
+                />
+              </div>
             </div>
 
             <div>
@@ -278,6 +365,16 @@ export default function IndustryProfilePage() {
                 value={formData.wasteTypes}
                 onChange={(e) => handleInputChange("wasteTypes", e.target.value)}
                 placeholder="e.g., Organic Waste, Plastic Waste, Paper Waste"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="certifications">Environmental Certifications</Label>
+              <Input
+                id="certifications"
+                value={formData.certifications}
+                onChange={(e) => handleInputChange("certifications", e.target.value)}
+                placeholder="e.g., ISO 14001, ISO 9001, LEED Certification"
               />
             </div>
 
