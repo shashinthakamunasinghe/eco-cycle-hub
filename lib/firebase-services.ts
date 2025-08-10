@@ -12,28 +12,51 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import type {
   User,
   Product,
   Order,
   PickupRequest,
   Notification,
+  CollectorProfile,
 } from "@/types";
 
 // Product operations
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
     const querySnapshot = await getDocs(collection(db, "products"));
-    return querySnapshot.docs.map((doc) => {
+    
+    // Create a map to track unique IDs
+    const idMap = new Map<string, boolean>();
+    const products: Product[] = [];
+    
+    querySnapshot.docs.forEach((doc, index) => {
       const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate(),
-      } as unknown as Product;
+      const id = doc.id;
+      
+      if (!idMap.has(id)) {
+        idMap.set(id, true);
+        products.push({
+          id: id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as unknown as Product);
+      } else {
+        console.warn(`Found duplicate product ID in Firebase: ${id}`);
+        // Add with modified ID to avoid React key conflicts
+        products.push({
+          id: `${id}-${index}`,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as unknown as Product);
+      }
     });
+    
+    return products;
   },
 
   async getProduct(id: string): Promise<Product | null> {
@@ -159,7 +182,7 @@ export const orderService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -167,7 +190,7 @@ export const orderService = {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -199,8 +222,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id, // Ensure Firestore document ID takes precedence
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -220,8 +243,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -242,8 +265,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -257,21 +280,23 @@ export const pickupService = {
   ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
-      where("collectorId", "==", collectorId),
-      orderBy("requestedAt", "desc")
+      where("collectorId", "==", collectorId)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
+    const pickups = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
         cancelledAt: data.cancelledAt?.toDate(),
       } as PickupRequest;
     });
+    
+    // Sort in memory instead of requiring an index
+    return pickups.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
   },
 
   async createPickupRequest(
@@ -369,7 +394,7 @@ export const notificationService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Notification)
+      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
     );
   },
 

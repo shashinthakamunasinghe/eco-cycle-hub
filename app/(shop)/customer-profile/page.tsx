@@ -34,8 +34,8 @@ export default function ProfilePage() {
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
-        city: user.city || "",
-        zipCode: user.zipCode || "",
+        city: "",
+        zipCode: "",
         avatar: user.avatar || "",
       });
     }
