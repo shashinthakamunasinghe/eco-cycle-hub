@@ -159,6 +159,17 @@ export const userService = {
     const docRef = doc(db, "users", id);
     await updateDoc(docRef, data);
   },
+
+  async deleteUser(id: string): Promise<void> {
+    const user = await this.getUser(id);
+    if (!user) throw new Error("User not found");
+    
+    // Delete the user document from Firestore
+    const docRef = doc(db, "users", id);
+    await deleteDoc(docRef);
+    
+    console.log(`✅ User ${id} deleted successfully from Firestore`);
+  },
 };
 
 // Order operations
@@ -424,167 +435,95 @@ export const notificationService = {
   },
 };
 
-// Collector Profile operations
+// Collector operations
 export const collectorService = {
-  async getCollectorProfile(collectorId: string): Promise<CollectorProfile | null> {
-    const docRef = doc(db, "collectorProfiles", collectorId);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as CollectorProfile : null;
+  async getAllCollectors(): Promise<User[]> {
+    return await userService.getUsersByRole("collector");
   },
 
-  async updateCollectorProfile(collectorId: string, profileData: Partial<CollectorProfile>): Promise<void> {
-    const docRef = doc(db, "collectorProfiles", collectorId);
-    await updateDoc(docRef, {
-      ...profileData,
-      updatedAt: Timestamp.now(),
-    });
+  async getCollector(id: string): Promise<User | null> {
+    const collector = await userService.getUser(id);
+    return collector?.role === "collector" ? collector : null;
   },
 
-  async addNewCollector(collectorData: {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
-    vehicleCapacity: number;
-    address?: string;
-    vehicleType?: string;
-    vehicleModel?: string;
-    licenseNumber?: string;
-    experience?: string;
-    emergencyContact?: string;
-    workingHours?: string;
-    specializations?: string[];
-  }): Promise<string> {
-    try {
-      console.log("🔧 Firebase Service: Creating collector...", {
-        email: collectorData.email,
-        name: collectorData.name,
-        hasPassword: !!collectorData.password,
-        passwordLength: collectorData.password?.length
-      });
-
-      // Create Firebase Authentication account first
-      console.log("📡 Creating Firebase Auth account...");
-      const authResult = await createUserWithEmailAndPassword(
-        auth,
-        collectorData.email,
-        collectorData.password
-      );
-      
-      const userId = authResult.user.uid;
-      console.log("✅ Firebase Auth account created:", userId);
-
-      // Create user document in Firestore with the same UID
-      console.log("📄 Creating Firestore user document...");
-      const { setDoc } = await import("firebase/firestore");
-      await setDoc(doc(db, "users", userId), {
-        id: userId,
-        name: collectorData.name,
-        email: collectorData.email,
-        phone: collectorData.phone,
-        role: "collector",
-        address: collectorData.address || "",
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      console.log("✅ Firestore user document created");
-
-      // Create collector profile with the same ID
-      console.log("📋 Creating collector profile...");
-      const collectorProfileData = {
-        id: userId,
-        name: collectorData.name,
-        email: collectorData.email,
-        phone: collectorData.phone,
-        address: collectorData.address || "",
-        licenseNumber: collectorData.licenseNumber || "",
-        vehicleType: collectorData.vehicleType || "Truck",
-        vehicleModel: collectorData.vehicleModel || "",
-        vehicleCapacity: collectorData.vehicleCapacity,
-        experience: collectorData.experience || "0-1 years",
-        status: "active",
-        rating: 0,
-        completedPickups: 0,
-        joinedDate: new Date().toISOString(),
-        emergencyContact: collectorData.emergencyContact || "",
-        workingHours: collectorData.workingHours || "9 AM - 5 PM",
-        specializations: collectorData.specializations || [],
-        isAvailable: true,
-        currentLoad: 0,
-        assignedRequests: [],
-        currentLocation: { lat: 6.9271, lng: 79.8612 }, // Default Colombo location
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      const collectorDocRef = doc(db, "collectorProfiles", userId);
-      await setDoc(collectorDocRef, collectorProfileData);
-      console.log("✅ Collector profile created");
-
-      console.log("🎉 Collector creation completed successfully:", userId);
-      return userId;
-    } catch (error) {
-      console.error("❌ Error creating collector:", {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        code: (error as { code?: string })?.code
-      });
-      throw error;
-    }
-  },
-
-  async createCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
-    const docRef = doc(db, "collectorProfiles", collectorId);
-    await updateDoc(docRef, {
-      ...profileData,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
-  },
-
-  async setCollectorProfile(collectorId: string, profileData: Omit<CollectorProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
-    const docRef = doc(db, "collectorProfiles", collectorId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      // Update existing profile
-      await updateDoc(docRef, {
-        ...profileData,
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      // Create new profile
-      const { setDoc } = await import("firebase/firestore");
-      await setDoc(docRef, {
-        ...profileData,
-        id: collectorId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-    }
-  },
-
-  async getAllCollectorProfiles(): Promise<CollectorProfile[]> {
-    const querySnapshot = await getDocs(collection(db, "collectorProfiles"));
-    return querySnapshot.docs.map(
-      (doc) => ({ ...doc.data(), id: doc.id } as CollectorProfile)
+  async getAvailableCollectors(): Promise<User[]> {
+    const q = query(
+      collection(db, "users"),
+      where("role", "==", "collector"),
+      where("isAvailable", "==", true)
     );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as User;
+    });
   },
 
-  async getCollectorsWithUserData(): Promise<Array<CollectorProfile & { userInfo?: User }>> {
-    // Get all collector profiles
-    const collectorProfiles = await this.getAllCollectorProfiles();
-    
-    // Get all users with collector role
-    const collectorUsers = await userService.getUsersByRole("collector");
-    
-    // Merge the data
-    return collectorProfiles.map(profile => {
-      const userInfo = collectorUsers.find(user => user.id === profile.id);
-      return {
-        ...profile,
-        userInfo
-      };
+  async updateCollectorAvailability(id: string, isAvailable: boolean): Promise<void> {
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, {
+      isAvailable,
+      updatedAt: Timestamp.now(),
     });
+  },
+
+  async updateCollectorLocation(id: string, location: { lat: number; lng: number }): Promise<void> {
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, {
+      currentLocation: location,
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async updateCollectorCapacity(id: string, truckCapacity: number, currentLoad?: number): Promise<void> {
+    const updateData: any = {
+      truckCapacity,
+      updatedAt: Timestamp.now(),
+    };
+    if (currentLoad !== undefined) {
+      updateData.currentLoad = currentLoad;
+    }
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, updateData);
+  },
+
+  async assignRequestToCollector(collectorId: string, requestId: string): Promise<void> {
+    const collector = await this.getCollector(collectorId);
+    if (!collector) throw new Error("Collector not found");
+    
+    const assignedRequests = (collector as any).assignedRequests || [];
+    const docRef = doc(db, "users", collectorId);
+    await updateDoc(docRef, {
+      assignedRequests: [...assignedRequests, requestId],
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async removeRequestFromCollector(collectorId: string, requestId: string): Promise<void> {
+    const collector = await this.getCollector(collectorId);
+    if (!collector) throw new Error("Collector not found");
+    
+    const assignedRequests = (collector as any).assignedRequests || [];
+    const docRef = doc(db, "users", collectorId);
+    await updateDoc(docRef, {
+      assignedRequests: assignedRequests.filter((id: string) => id !== requestId),
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async deleteCollector(id: string): Promise<void> {
+    const collector = await this.getCollector(id);
+    if (!collector) throw new Error("Collector not found");
+    
+    // Delete the collector document from Firestore
+    const docRef = doc(db, "users", id);
+    await deleteDoc(docRef);
+    
+    console.log(`✅ Collector ${id} deleted successfully from Firestore`);
   },
 };

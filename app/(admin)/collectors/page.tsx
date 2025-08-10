@@ -21,6 +21,7 @@ export default function AdminCollectorsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { register } = useFirebaseAuth()
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [viewCollector, setViewCollector] = useState<CollectorWithUser | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
@@ -186,6 +187,43 @@ export default function AdminCollectorsPage() {
     setIsConfirmDialogOpen(true)
   }
 
+  const handleDeleteCollector = (collector: User) => {
+    setCollectorToDelete(collector)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteCollector = async () => {
+    if (!collectorToDelete) return
+    
+    try {
+      setLoading(true)
+      console.log("🗑️ Deleting collector:", collectorToDelete.id)
+      
+      // Delete from Firestore
+      await collectorService.deleteCollector(collectorToDelete.id)
+      
+      // Update local state
+      setCollectors(collectors.filter((c) => c.id !== collectorToDelete.id))
+      setIsDeleteDialogOpen(false)
+      setCollectorToDelete(null)
+      
+      toast({
+        title: "Collector deleted",
+        description: `${collectorToDelete.name} has been permanently deleted from the system.`,
+        variant: "destructive",
+      })
+    } catch (error) {
+      console.error("❌ Error deleting collector:", error)
+      toast({
+        title: "Error deleting collector",
+        description: "Failed to delete collector. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const confirmBlockCollector = () => {
     if (!collectorToBlock) return
     
@@ -217,6 +255,7 @@ export default function AdminCollectorsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Collector Management</h1>
@@ -335,9 +374,84 @@ export default function AdminCollectorsPage() {
                   "Register Collector"
                 )}
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Register New Collector</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={newCollector.name}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter collector's full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newCollector.email}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={newCollector.phone}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="truckCapacity">Truck Capacity (kg)</Label>
+                  <Input
+                    id="truckCapacity"
+                    type="number"
+                    value={newCollector.truckCapacity}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, truckCapacity: e.target.value }))}
+                    placeholder="Enter truck capacity in kg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newCollector.password}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter password"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={newCollector.confirmPassword}
+                    onChange={(e) => setNewCollector((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                    placeholder="Confirm password"
+                  />
+                </div>
+                <Button onClick={handleAddCollector} className="w-full mt-4" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creating Collector...
+                    </>
+                  ) : (
+                    "Register Collector"
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Search */}
@@ -416,10 +530,25 @@ export default function AdminCollectorsPage() {
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center space-x-2">
-                      <Mail className="h-4 w-4" />
-                      <span className="truncate">{collector.email}</span>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4" />
+                        <span className="truncate">{collector.email}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4" />
+                        <span>{collector.phone}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Truck className="h-4 w-4" />
+                        <span>
+                          {collector.currentLoad || 0}kg / {collector.truckCapacity || 0}kg
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>{collector.assignedRequests?.length || 0} active pickup(s)</span>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Phone className="h-4 w-4" />
@@ -468,18 +597,11 @@ export default function AdminCollectorsPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
-
-      {filteredCollectors.length === 0 && (
-        <div className="text-center py-12">
-          <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No collectors found matching your search.</p>
-        </div>
-      )}
 
       {/* View Collector Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -488,9 +610,9 @@ export default function AdminCollectorsPage() {
             <DialogTitle>Collector Details</DialogTitle>
           </DialogHeader>
           {viewCollector && (
-            <Tabs defaultValue="details">
+            <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="assignments">Assignments</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
@@ -513,17 +635,50 @@ export default function AdminCollectorsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Contact Information</h4>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-gray-500" />
-                        <span>{viewCollector.email}</span>
+              <TabsContent value="overview">
+                <div className="space-y-6 py-4">
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={viewCollector.avatar || "/placeholder.svg"} alt={viewCollector.name} />
+                      <AvatarFallback>{viewCollector.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-xl font-semibold">{viewCollector.name}</h3>
+                      <Badge variant={viewCollector.isAvailable ? "default" : "secondary"}>
+                        {viewCollector.isAvailable ? "Available" : "Offline"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Contact Information</h4>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Mail className="h-4 w-4 text-gray-500" />
+                          <span>{viewCollector.email}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4 text-gray-500" />
+                          <span>{viewCollector.phone}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                        <span>{viewCollector.phone}</span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Vehicle Information</h4>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Truck className="h-4 w-4 text-gray-500" />
+                          <span>Capacity: {viewCollector.truckCapacity || 0}kg</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="h-4 w-4 text-gray-500" />
+                          <span>
+                            Current Load: {viewCollector.currentLoad || 0}kg (
+                            {viewCollector.truckCapacity ? Math.round(((viewCollector.currentLoad || 0) / viewCollector.truckCapacity) * 100) : 0}%)
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -544,7 +699,6 @@ export default function AdminCollectorsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
 
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Current Location</h4>
@@ -617,7 +771,7 @@ export default function AdminCollectorsPage() {
                       <CardContent className="p-4">
                         <div className="flex justify-between items-center">
                           <div>
-                            <h4 className="font-medium">Pickup #2</h4>
+                            <h4 className="font-medium">Sample Pickup #2</h4>
                             <p className="text-sm text-gray-500">Completed: Yesterday</p>
                             <Badge className="mt-2 bg-green-100 text-green-800">Completed</Badge>
                           </div>
@@ -653,6 +807,49 @@ export default function AdminCollectorsPage() {
                 </Button>
                 <Button variant="destructive" onClick={confirmBlockCollector}>
                   Block Collector
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Delete Collector</DialogTitle>
+          </DialogHeader>
+          {collectorToDelete && (
+            <div className="py-4">
+              <div className="flex items-center space-x-3 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                <Trash2 className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-800">Permanent Deletion</p>
+                  <p className="text-sm text-red-600">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="mb-4">
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold">{collectorToDelete.name}</span>? All associated data will be removed
+                from the system.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={loading}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDeleteCollector} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Permanently
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
