@@ -53,33 +53,33 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-center space-x-8 md:space-x-16">
               <div className="flex items-center space-x-4 text-white">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
                   <Factory className="h-8 w-8" />
                 </div>
-                <span className="text-2xl font-bold">Industries</span>
+                <span className="text-base md:text-lg font-bold">Industries</span>
               </div>
 
               <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-white rounded-full"></div>
-                <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                  <Recycle className="h-3 w-3 text-green-600" />
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <Recycle className="h-10 w-10 text-green-600" />
                 </div>
                 <div className="w-2 h-2 bg-white rounded-full"></div>
               </div>
 
               <div className="flex items-center space-x-4 text-white">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
                   <Store className="h-8 w-8" />
                 </div>
-                <span className="text-2xl font-bold">Customers</span>
+                <span className="text-base md:text-lg font-bold">Customers</span>
               </div>
             </div>
 
             <div className="text-center mt-8 text-white">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
                 Connecting the Circular Economy
               </h2>
-              <p className="text-xl md:text-2xl opacity-90">
+              <p className="text-base md:text-lg opacity-90">
                 From waste to wealth, from industry to customer - we are
                 building a sustainable future together
               </p>
