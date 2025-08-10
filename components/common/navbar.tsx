@@ -167,12 +167,12 @@ export function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Left side */}
             <div className="flex items-center">
-              <Link 
-                href={pathname.startsWith("/orders") ? "/products" : "/"} 
+              <Link
+                href={pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") ? "/products" : "/"}
                 className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>{pathname.startsWith("/orders") ? "Back to Products" : "Back Home"}</span>
+                <span>{pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") ? "Back to Products" : "Back Home"}</span>
               </Link>
             </div>
 
