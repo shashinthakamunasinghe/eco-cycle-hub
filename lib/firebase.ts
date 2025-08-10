@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, browserSessionPersistence, setPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -15,8 +15,17 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication and get a reference to the service
+// Initialize Firebase Authentication with session persistence
 export const auth = getAuth(app);
+
+// Set persistence to session (instead of local storage)
+// This helps prevent auth token issues across sessions
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserSessionPersistence)
+    .catch(error => {
+      console.error("Firebase auth persistence error:", error);
+    });
+}
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);

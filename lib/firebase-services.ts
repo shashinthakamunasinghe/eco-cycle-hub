@@ -27,15 +27,36 @@ import type {
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
     const querySnapshot = await getDocs(collection(db, "products"));
-    return querySnapshot.docs.map((doc) => {
+    
+    // Create a map to track unique IDs
+    const idMap = new Map<string, boolean>();
+    const products: Product[] = [];
+    
+    querySnapshot.docs.forEach((doc, index) => {
       const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate(),
-      } as unknown as Product;
+      const id = doc.id;
+      
+      if (!idMap.has(id)) {
+        idMap.set(id, true);
+        products.push({
+          id: id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as unknown as Product);
+      } else {
+        console.warn(`Found duplicate product ID in Firebase: ${id}`);
+        // Add with modified ID to avoid React key conflicts
+        products.push({
+          id: `${id}-${index}`,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as unknown as Product);
+      }
     });
+    
+    return products;
   },
 
   async getProduct(id: string): Promise<Product | null> {

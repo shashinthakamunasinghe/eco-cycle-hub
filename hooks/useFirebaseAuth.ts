@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  browserSessionPersistence,
+  setPersistence,
 } from "firebase/auth";
+import { cleanupFirebaseAuth } from "@/lib/firebase-auth-cleanup";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { User } from "@/types";
@@ -59,27 +63,10 @@ export function useFirebaseAuth() {
       console.log("📄 User document exists:", userDoc.exists());
 
       if (userDoc.exists()) {
-        const userData = userDoc.data();
-        console.log("✅ Raw user data from Firestore:", userData);
-        
-        // Ensure userData has the correct structure
-        const user: User = {
-          id: userData.id || result.user.uid,
-          email: userData.email || email,
-          name: userData.name,
-          role: userData.role,
-          avatar: userData.avatar,
-          phone: userData.phone,
-          address: userData.address,
-          location: userData.location,
-          createdAt: userData.createdAt?.toDate?.() || userData.createdAt || new Date(),
-        };
-        
-        console.log("✅ Processed user data:", user);
-        console.log("🏠 User role for routing:", user.role);
-        
-        setUser(user);
-        return user;
+        const userData = userDoc.data() as User;
+        console.log("✅ User data retrieved from Firestore");
+        setUser(userData);
+        return userData;
       } else {
         console.error("❌ User document not found in Firestore for UID:", result.user.uid);
         console.log("🔍 Available collections and documents might be different");
@@ -133,6 +120,24 @@ export function useFirebaseAuth() {
       return newUser;
     } catch (error: unknown) {
       console.error("Registration error:", error);
+      
+      // Handle Firebase specific errors for registration
+      if (error instanceof Error) {
+        const errorCode = (error as any).code;
+        
+        if (errorCode === "auth/email-already-in-use") {
+          throw new Error("An account already exists with this email address");
+        } else if (errorCode === "auth/invalid-email") {
+          throw new Error("Invalid email format");
+        } else if (errorCode === "auth/weak-password") {
+          throw new Error("Password is too weak. Please use a stronger password");
+        } else if (errorCode === "auth/network-request-failed") {
+          throw new Error("Network error. Please check your connection");
+        } else {
+          throw new Error("Registration failed: " + (error.message || "Unknown error"));
+        }
+      }
+      
       throw new Error("Registration failed");
     }
   };
@@ -146,6 +151,23 @@ export function useFirebaseAuth() {
       throw new Error("Logout failed");
     }
   };
+  
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (error: unknown) {
+      console.error("Password reset error:", error);
+      const errorCode = (error as any)?.code;
+      if (errorCode === "auth/user-not-found") {
+        throw new Error("No account found with this email address");
+      } else if (errorCode === "auth/invalid-email") {
+        throw new Error("Invalid email format");
+      } else {
+        throw new Error("Failed to send password reset email");
+      }
+    }
+  };
 
-  return { user, loading, login, register, logout };
+  return { user, loading, login, register, logout, resetPassword };
 }
