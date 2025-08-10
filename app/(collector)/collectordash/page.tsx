@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,78 +35,86 @@ export default function CollectorDashboard() {
       .reduce((sum, p) => sum + p.weight, 0),
   }
 
-  useEffect(() => {
-    const loadPickups = async () => {
-      console.log("🔄 Loading collector profile and pickups for user:", user?.id, user?.email);
-      
-      if (!user?.id || !user?.email) {
-        console.log("❌ No user ID or email found, skipping pickup load");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true)
-        
-        // First, get the collector profile for this user
-        console.log("📡 Fetching collector profile for email:", user.email);
-        const allCollectors = await collectorService.getAllCollectorProfiles();
-        const userCollectorProfile = allCollectors.find(c => c.email === user.email);
-        
-        if (!userCollectorProfile) {
-          console.log("❌ No collector profile found for user email:", user.email);
-          toast({
-            title: "Profile not found",
-            description: "No collector profile found for your account",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        console.log("✅ Found collector profile:", { 
-          id: userCollectorProfile.id, 
-          name: userCollectorProfile.name, 
-          email: userCollectorProfile.email 
-        });
-        setCollectorProfile(userCollectorProfile);
-        
-        // Now get pickups using the collector profile ID
-        console.log("📡 Fetching pickups for collector ID:", userCollectorProfile.id);
-        const pickups = await pickupService.getPickupRequestsByCollector(userCollectorProfile.id)
-        console.log("📦 Raw pickups from Firebase:", pickups);
-        
-        // Filter to show only active pickups (not completed or cancelled)
-        const activePickups = pickups.filter(
-          (p) => p.status !== "completed" && p.status !== "cancelled"
-        )
-        console.log("✅ Active pickups after filtering:", activePickups);
-        
-        setAssignedPickups(activePickups)
-      } catch (error) {
-        console.error("❌ Error loading pickups:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load pickup requests",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+  const loadPickups = useCallback(async () => {
+    console.log("🔄 Loading collector profile and pickups for user:", user?.id, user?.email);
+    
+    if (!user?.id || !user?.email) {
+      console.log("❌ No user ID or email found, skipping pickup load");
+      setLoading(false);
+      return;
     }
 
-    loadPickups()
+    try {
+      setLoading(true)
+      
+      // First, get the collector profile for this user
+      console.log("📡 Fetching collector profile for email:", user.email);
+      const allCollectors = await collectorService.getAllCollectorProfiles();
+      const userCollectorProfile = allCollectors.find(c => c.email === user.email);
+      
+      if (!userCollectorProfile) {
+        console.log("❌ No collector profile found for user email:", user.email);
+        toast({
+          title: "Profile not found",
+          description: "No collector profile found for your account",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("✅ Found collector profile:", { 
+        id: userCollectorProfile.id, 
+        name: userCollectorProfile.name, 
+        email: userCollectorProfile.email 
+      });
+      setCollectorProfile(userCollectorProfile);
+      
+      // Now get pickups using the collector profile ID
+      console.log("📡 Fetching pickups for collector ID:", userCollectorProfile.id);
+      const pickups = await pickupService.getPickupRequestsByCollector(userCollectorProfile.id)
+      console.log("📦 Raw pickups from Firebase:", pickups);
+      
+      // Filter to show only active pickups (not completed or cancelled)
+      const activePickups = pickups.filter(
+        (p) => p.status !== "completed" && p.status !== "cancelled"
+      )
+      console.log("✅ Active pickups after filtering:", activePickups);
+      
+      setAssignedPickups(activePickups)
+    } catch (error) {
+      console.error("❌ Error loading pickups:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load pickup requests",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }, [user?.id, user?.email, toast])
+
+  useEffect(() => {
+    loadPickups()
+  }, [loadPickups])
+
+  // Auto-refresh every 30 seconds for real-time updates
+  useEffect(() => {
+    if (!user?.id || !user?.email) return
+    
+    const interval = setInterval(() => {
+      console.log("🔄 Auto-refreshing pickups...")
+      loadPickups()
+    }, 30000) // 30 seconds
+    
+    return () => clearInterval(interval)
+  }, [loadPickups, user?.id, user?.email])
 
   const updatePickupStatus = async (id: string, newStatus: PickupRequest["status"]) => {
     try {
       await pickupService.updateStatus(id, newStatus)
       
-      // Update local state
-      setAssignedPickups(prevPickups =>
-        prevPickups.map((pickup) =>
-          pickup.id === id ? { ...pickup, status: newStatus } : pickup
-        )
-      )
+      // Refresh pickup data to get latest state
+      await loadPickups()
 
       toast({
         title: "Status updated",
@@ -149,12 +157,21 @@ export default function CollectorDashboard() {
     }
   }
 
-  const acceptPickup = (id: string) => {
-    updatePickupStatus(id, "assigned")
-    toast({
-      title: "Pickup accepted",
-      description: "You have accepted the pickup request. You can now start your journey.",
-    })
+  const acceptPickup = async (id: string) => {
+    try {
+      await updatePickupStatus(id, "on-way")
+      toast({
+        title: "Pickup accepted",
+        description: "You have accepted the pickup request and marked as on-way.",
+      })
+    } catch (error) {
+      console.error("Error accepting pickup:", error)
+      toast({
+        title: "Error",
+        description: "Failed to accept pickup request",
+        variant: "destructive",
+      })
+    }
   }
 
   const rejectPickup = async (id: string) => {
@@ -162,14 +179,12 @@ export default function CollectorDashboard() {
       // Update status back to pending and remove collector assignment
       await pickupService.updatePickupRequest(id, {
         status: "pending",
-        collectorId: undefined,
-        collectorName: undefined,
+        collectorId: "",
+        collectorName: "",
       })
 
-      // Remove from local state
-      setAssignedPickups(prevPickups =>
-        prevPickups.filter((pickup) => pickup.id !== id)
-      )
+      // Refresh pickup data to get latest state
+      await loadPickups()
 
       toast({
         title: "Pickup rejected",
@@ -378,13 +393,23 @@ export default function CollectorDashboard() {
                       <div className="flex flex-col space-y-2">
                         {pickup.status === "assigned" && (
                           <>
-                            <Button size="sm" onClick={() => acceptPickup(pickup.id)}>
-                              Accept
+                            <Button size="sm" onClick={() => acceptPickup(pickup.id)} className="bg-green-600 hover:bg-green-700">
+                              Accept & Start
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => rejectPickup(pickup.id)}>
+                            <Button size="sm" variant="destructive" onClick={() => rejectPickup(pickup.id)}>
                               Reject
                             </Button>
                           </>
+                        )}
+                        {pickup.status === "on-way" && (
+                          <Button size="sm" onClick={() => updatePickupStatus(pickup.id, "picked-up")} className="bg-blue-600 hover:bg-blue-700">
+                            Mark Picked Up
+                          </Button>
+                        )}
+                        {pickup.status === "picked-up" && (
+                          <Button size="sm" onClick={() => updatePickupStatus(pickup.id, "completed")} className="bg-purple-600 hover:bg-purple-700">
+                            Complete
+                          </Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => navigateToLocation(pickup)}>
                           Navigate
