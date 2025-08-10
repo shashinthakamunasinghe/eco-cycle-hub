@@ -12,13 +12,15 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import type {
   User,
   Product,
   Order,
   PickupRequest,
   Notification,
+  CollectorProfile,
 } from "@/types";
 
 // Product operations
@@ -159,7 +161,7 @@ export const orderService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -167,7 +169,7 @@ export const orderService = {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -199,8 +201,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id, // Ensure Firestore document ID takes precedence
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -220,8 +222,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -242,8 +244,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -257,21 +259,23 @@ export const pickupService = {
   ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
-      where("collectorId", "==", collectorId),
-      orderBy("requestedAt", "desc")
+      where("collectorId", "==", collectorId)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
+    const pickups = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
         cancelledAt: data.cancelledAt?.toDate(),
       } as PickupRequest;
     });
+    
+    // Sort in memory instead of requiring an index
+    return pickups.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
   },
 
   async createPickupRequest(
@@ -369,7 +373,7 @@ export const notificationService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Notification)
+      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
     );
   },
 

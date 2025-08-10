@@ -54,17 +54,21 @@ export default function LoginPage() {
           router.push("/");
       }
     } catch (error) {
+      console.error("❌ Login failed:", error);
       let errorMessage = "Invalid email or password";
       if (error instanceof Error) {
-        if (error.message.includes("user-not-found")) {
+        console.log("❌ Error message:", error.message);
+        if (error.message.includes("user-not-found") || error.message.includes("auth/user-not-found")) {
           errorMessage = "No account found with this email address";
-        } else if (error.message.includes("wrong-password")) {
+        } else if (error.message.includes("wrong-password") || error.message.includes("auth/wrong-password")) {
           errorMessage = "Incorrect password";
-        } else if (error.message.includes("invalid-email")) {
+        } else if (error.message.includes("invalid-email") || error.message.includes("auth/invalid-email")) {
           errorMessage = "Invalid email format";
         } else if (error.message.includes("User data not found")) {
           errorMessage =
             "Account exists but user profile is incomplete. Please contact support.";
+        } else if (error.message.includes("auth/invalid-credential")) {
+          errorMessage = "Invalid email or password. Please check your credentials.";
         } else {
           errorMessage = error.message;
         }

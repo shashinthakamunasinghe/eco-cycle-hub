@@ -35,28 +35,68 @@ export function useFirebaseAuth() {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log("🔄 Starting login process...", { email });
+      console.log("🔄 Starting login process...", { 
+        email, 
+        password: password ? "***provided***" : "***missing***",
+        authInstance: !!auth,
+        dbInstance: !!db 
+      });
 
+      if (!email || !password) {
+        throw new Error("Email and password are required");
+      }
+
+      console.log("📡 Attempting Firebase authentication...");
       const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ Firebase Auth login successful:", result.user.uid);
+      console.log("✅ Firebase Auth login successful:", { 
+        uid: result.user.uid,
+        email: result.user.email,
+        emailVerified: result.user.emailVerified 
+      });
 
+      console.log("📄 Fetching user document from Firestore...");
       const userDoc = await getDoc(doc(db, "users", result.user.uid));
+      console.log("📄 User document exists:", userDoc.exists());
 
       if (userDoc.exists()) {
-        const userData = userDoc.data() as User;
-        console.log("✅ User data retrieved from Firestore:", userData);
-        setUser(userData);
-        return userData;
+        const userData = userDoc.data();
+        console.log("✅ Raw user data from Firestore:", userData);
+        
+        // Ensure userData has the correct structure
+        const user: User = {
+          id: userData.id || result.user.uid,
+          email: userData.email || email,
+          name: userData.name,
+          role: userData.role,
+          avatar: userData.avatar,
+          phone: userData.phone,
+          address: userData.address,
+          location: userData.location,
+          createdAt: userData.createdAt?.toDate?.() || userData.createdAt || new Date(),
+        };
+        
+        console.log("✅ Processed user data:", user);
+        console.log("🏠 User role for routing:", user.role);
+        
+        setUser(user);
+        return user;
       } else {
-        console.error(
-          "❌ User document not found in Firestore for UID:",
-          result.user.uid
-        );
-        throw new Error("User data not found");
+        console.error("❌ User document not found in Firestore for UID:", result.user.uid);
+        console.log("🔍 Available collections and documents might be different");
+        throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error: unknown) {
-      console.error("❌ Login error:", error);
-      throw new Error("Invalid credentials");
+      console.error("❌ Login error details:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as { code?: string })?.code,
+        errorName: (error as { name?: string })?.name
+      });
+      
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Authentication failed. Please try again.");
     }
   };
 

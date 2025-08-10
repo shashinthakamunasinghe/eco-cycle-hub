@@ -1,77 +1,80 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Truck, MapPin, Phone, Mail, Search, UserPlus, Eye, Ban, RefreshCw, Trash2 } from "lucide-react"
+import { Truck, MapPin, Phone, Mail, Search, UserPlus, Eye, Ban, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { collectorService } from "@/lib/firebase-services"
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
-import type { User } from "@/types"
+import type { CollectorProfile, User as UserType } from "@/types"
+
+type CollectorWithUser = CollectorProfile & { userInfo?: UserType }
 
 export default function AdminCollectorsPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { register } = useFirebaseAuth()
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [viewCollector, setViewCollector] = useState<User | null>(null)
+  const [viewCollector, setViewCollector] = useState<CollectorWithUser | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
-  const [collectorToBlock, setCollectorToBlock] = useState<User | null>(null)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [collectorToDelete, setCollectorToDelete] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [fetchingCollectors, setFetchingCollectors] = useState(true)
+  const [collectorToBlock, setCollectorToBlock] = useState<CollectorWithUser | null>(null)
+  const [collectors, setCollectors] = useState<CollectorWithUser[]>([])
 
   const [newCollector, setNewCollector] = useState({
     name: "",
     email: "",
     phone: "",
-    truckCapacity: "",
+    address: "",
+    vehicleCapacity: "",
+    vehicleType: "Truck",
+    vehicleModel: "",
+    licenseNumber: "",
+    experience: "0-1 years",
+    emergencyContact: "",
     password: "",
     confirmPassword: "",
   })
 
-  // State for collectors list - fetch from Firestore only
-  const [collectors, setCollectors] = useState<User[]>([])
-
-  // Fetch collectors from Firestore on component mount
-  useEffect(() => {
-    const fetchCollectors = async () => {
-      try {
-        setFetchingCollectors(true)
-        console.log("🔄 Fetching collectors from Firestore...")
-        const collectorsData = await collectorService.getAllCollectors()
-        console.log("✅ Collectors fetched successfully:", collectorsData.length)
-        setCollectors(collectorsData)
-      } catch (error) {
-        console.error("❌ Error fetching collectors:", error)
-        toast({
-          title: "Error fetching collectors",
-          description: "Failed to load collectors from database. Please try again.",
-          variant: "destructive",
-        })
-        // Only show Firestore data, no fallback to mock data
-        setCollectors([])
-      } finally {
-        setFetchingCollectors(false)
-      }
+  // Load collectors from Firebase
+  const loadCollectors = useCallback(async () => {
+    try {
+      setLoading(true)
+      const collectorsData = await collectorService.getCollectorsWithUserData()
+      setCollectors(collectorsData)
+    } catch (error) {
+      console.error("Error loading collectors:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load collectors data.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    fetchCollectors()
   }, [toast])
 
+  useEffect(() => {
+    loadCollectors()
+  }, [loadCollectors])
+
   const toggleAvailability = async (collectorId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus
     try {
-      const newStatus = !currentStatus
-      await collectorService.updateCollectorAvailability(collectorId, newStatus)
+      // Update in Firebase
+      await collectorService.updateCollectorProfile(collectorId, {
+        isAvailable: newStatus
+      })
       
+      // Update local state
       setCollectors(
         collectors.map((collector) =>
           collector.id === collectorId ? { ...collector, isAvailable: newStatus } : collector,
@@ -101,54 +104,72 @@ export default function AdminCollectorsPage() {
       return
     }
 
-    if (!newCollector.name || !newCollector.email || !newCollector.phone || !newCollector.truckCapacity) {
+    if (!newCollector.name || !newCollector.email || !newCollector.phone || !newCollector.vehicleCapacity || !newCollector.address || !newCollector.password) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields including password.",
         variant: "destructive",
       })
       return
     }
 
-    setLoading(true)
     try {
-      // Create collector user with Firebase Authentication
-      console.log("🔄 Creating new collector...", newCollector)
-
-      const newCollectorUser = await register(newCollector.email, newCollector.password, {
+      setLoading(true)
+      
+      console.log("🔧 Admin: Creating new collector...", {
         name: newCollector.name,
         email: newCollector.email,
-        role: "collector",
         phone: newCollector.phone,
-        isAvailable: true,
-        currentLocation: { lat: 6.9271, lng: 79.8612 },
-        truckCapacity: Number.parseInt(newCollector.truckCapacity),
-        currentLoad: 0,
-        assignedRequests: [],
-        createdAt: new Date(),
+        address: newCollector.address,
+        vehicleCapacity: newCollector.vehicleCapacity,
+        hasPassword: !!newCollector.password
+      });
+      
+      // Add collector to Firebase
+      await collectorService.addNewCollector({
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        password: newCollector.password,
+        vehicleCapacity: Number.parseInt(newCollector.vehicleCapacity),
+        address: newCollector.address,
+        vehicleType: newCollector.vehicleType,
+        vehicleModel: newCollector.vehicleModel,
+        licenseNumber: newCollector.licenseNumber,
+        experience: newCollector.experience,
+        emergencyContact: newCollector.emergencyContact,
+        workingHours: "9 AM - 5 PM",
+        specializations: [],
       })
 
-      // Update local state
-      setCollectors([...collectors, newCollectorUser])
+      // Reload collectors from Firebase to get the updated list
+      await loadCollectors()
+
       setIsAddDialogOpen(false)
       setNewCollector({
         name: "",
         email: "",
         phone: "",
-        truckCapacity: "",
+        address: "",
+        vehicleCapacity: "",
+        vehicleType: "Truck",
+        vehicleModel: "",
+        licenseNumber: "",
+        experience: "0-1 years",
+        emergencyContact: "",
         password: "",
         confirmPassword: "",
       })
 
       toast({
-        title: "Collector added",
+        title: "Collector added successfully",
         description: `${newCollector.name} has been registered as a collector.`,
       })
     } catch (error) {
-      console.error("Error creating collector:", error)
+      console.error("Error adding collector:", error)
       toast({
-        title: "Error creating collector",
-        description: error instanceof Error ? error.message : "Failed to create collector. Please try again.",
+        title: "Error",
+        description: "Failed to add collector. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -156,12 +177,12 @@ export default function AdminCollectorsPage() {
     }
   }
 
-  const handleViewCollector = (collector: User) => {
+  const handleViewCollector = (collector: CollectorWithUser) => {
     setViewCollector(collector)
     setIsViewDialogOpen(true)
   }
 
-  const handleBlockCollector = (collector: User) => {
+  const handleBlockCollector = (collector: CollectorWithUser) => {
     setCollectorToBlock(collector)
     setIsConfirmDialogOpen(true)
   }
@@ -221,26 +242,15 @@ export default function AdminCollectorsPage() {
       collector.email.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const refreshCollectors = async () => {
-    try {
-      setFetchingCollectors(true)
-      console.log("🔄 Refreshing collectors from Firestore...")
-      const collectorsData = await collectorService.getAllCollectors()
-      setCollectors(collectorsData)
-      toast({
-        title: "Collectors refreshed",
-        description: `Loaded ${collectorsData.length} collectors from database.`,
-      })
-    } catch (error) {
-      console.error("❌ Error refreshing collectors:", error)
-      toast({
-        title: "Error refreshing collectors",
-        description: "Failed to reload collectors from database.",
-        variant: "destructive",
-      })
-    } finally {
-      setFetchingCollectors(false)
-    }
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading collectors...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -249,18 +259,120 @@ export default function AdminCollectorsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Collector Management</h1>
-          <p className="text-gray-600 mt-2">Manage waste collectors from Firestore database</p>
+          <p className="text-gray-600">Manage {filteredCollectors.length} collector{filteredCollectors.length !== 1 ? 's' : ''}</p>
+          <p className="text-gray-600 mt-2">Manage waste collectors and their assignments</p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={refreshCollectors} disabled={fetchingCollectors}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${fetchingCollectors ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Add Collector
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Collector
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Register New Collector</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={newCollector.name}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter collector's full name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newCollector.email}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={newCollector.phone}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicleCapacity">Vehicle Capacity (kg)</Label>
+                <Input
+                  id="vehicleCapacity"
+                  type="number"
+                  value={newCollector.vehicleCapacity}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, vehicleCapacity: e.target.value }))}
+                  placeholder="Enter truck capacity in kg"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newCollector.address}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="Enter address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicleType">Vehicle Type</Label>
+                <Select value={newCollector.vehicleType} onValueChange={(value) => setNewCollector((prev) => ({ ...prev, vehicleType: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Truck">Truck</SelectItem>
+                    <SelectItem value="Van">Van</SelectItem>
+                    <SelectItem value="Pickup">Pickup</SelectItem>
+                    <SelectItem value="Motorcycle">Motorcycle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="licenseNumber">License Number</Label>
+                <Input
+                  id="licenseNumber"
+                  value={newCollector.licenseNumber}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, licenseNumber: e.target.value }))}
+                  placeholder="Enter driving license number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newCollector.password}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Create password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={newCollector.confirmPassword}
+                  onChange={(e) => setNewCollector((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="Confirm password"
+                />
+              </div>
+              <Button onClick={handleAddCollector} disabled={loading} className="w-full mt-4">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Register Collector"
+                )}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
@@ -397,48 +509,26 @@ export default function AdminCollectorsPage() {
 
       {/* Collectors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {fetchingCollectors ? (
-          <div className="col-span-full flex justify-center items-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading collectors from Firestore...</p>
-            </div>
-          </div>
-        ) : filteredCollectors.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg font-medium mb-2">No collectors found in Firestore</p>
-            <p className="text-gray-400 text-sm mb-4">
-              {searchTerm ? "No collectors match your search criteria." : "No collectors are registered in the Firestore database yet."}
-            </p>
-            {!searchTerm && (
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Add First Collector
-              </Button>
-            )}
-          </div>
-        ) : (
-          filteredCollectors.map((collector) => (
-            <Card key={collector.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={collector.avatar || "/placeholder.svg"} alt={collector.name} />
-                    <AvatarFallback>
-                      {collector.name
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold truncate">{collector.name}</h3>
-                      <Badge variant={collector.isAvailable ? "default" : "secondary"}>
-                        {collector.isAvailable ? "Available" : "Offline"}
-                      </Badge>
-                    </div>
+        {filteredCollectors.map((collector) => (
+          <Card key={collector.id} className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-4">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={collector.avatar || "/placeholder-user.jpg"} alt={collector.name} />
+                  <AvatarFallback>
+                    {collector.name
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <h3 className="font-semibold truncate">{collector.name}</h3>
+                    <Badge variant={collector.isAvailable ? "default" : "secondary"}>
+                      {collector.isAvailable ? "Available" : "Offline"}
+                    </Badge>
+                  </div>
 
                     <div className="space-y-2 text-sm text-gray-600">
                       <div className="flex items-center space-x-2">
@@ -460,40 +550,51 @@ export default function AdminCollectorsPage() {
                         <span>{collector.assignedRequests?.length || 0} active pickup(s)</span>
                       </div>
                     </div>
-
-                    {/* Capacity Bar */}
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Truck Capacity</span>
-                        <span>{collector.truckCapacity ? Math.round(((collector.currentLoad || 0) / collector.truckCapacity) * 100) : 0}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${collector.truckCapacity ? ((collector.currentLoad || 0) / collector.truckCapacity) * 100 : 0}%` }}
-                        ></div>
-                      </div>
+                    <div className="flex items-center space-x-2">
+                      <Phone className="h-4 w-4" />
+                      <span>{collector.phone}</span>
                     </div>
-
-                    <div className="flex space-x-2 mt-4">
-                      <Button
-                        size="sm"
-                        variant={collector.isAvailable ? "destructive" : "default"}
-                        onClick={() => toggleAvailability(collector.id, collector.isAvailable ?? false)}
-                        className="flex-1"
-                      >
-                        {collector.isAvailable ? "Set Offline" : "Set Available"}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleViewCollector(collector)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleBlockCollector(collector)}>
-                        <Ban className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteCollector(collector)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center space-x-2">
+                      <Truck className="h-4 w-4" />
+                      <span>
+                        {collector.currentLoad || 0}kg / {collector.vehicleCapacity}kg
+                      </span>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>{collector.assignedRequests?.length || 0} active pickup(s)</span>
+                    </div>
+                  </div>
+
+                  {/* Capacity Bar */}
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Truck Capacity</span>
+                      <span>{Math.round(((collector.currentLoad || 0) / collector.vehicleCapacity) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${((collector.currentLoad || 0) / collector.vehicleCapacity) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2 mt-4">
+                    <Button
+                      size="sm"
+                      variant={collector.isAvailable ? "destructive" : "default"}
+                      onClick={() => toggleAvailability(collector.id, collector.isAvailable || false)}
+                      className="flex-1"
+                    >
+                      {collector.isAvailable ? "Set Offline" : "Set Available"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleViewCollector(collector)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleBlockCollector(collector)}>
+                      <Ban className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -515,6 +616,24 @@ export default function AdminCollectorsPage() {
                 <TabsTrigger value="assignments">Assignments</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
+              <TabsContent value="details" className="space-y-4 py-4">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={viewCollector.avatar || "/placeholder-user.jpg"} alt={viewCollector.name} />
+                    <AvatarFallback>
+                      {viewCollector.name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-xl font-semibold">{viewCollector.name}</h3>
+                    <Badge variant={viewCollector.isAvailable ? "default" : "secondary"}>
+                      {viewCollector.isAvailable ? "Available" : "Offline"}
+                    </Badge>
+                  </div>
+                </div>
 
               <TabsContent value="overview">
                 <div className="space-y-6 py-4">
@@ -565,37 +684,53 @@ export default function AdminCollectorsPage() {
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500">Current Location</h4>
-                    <div className="mt-2 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">
-                          {viewCollector.currentLocation ? 
-                            `Lat: ${viewCollector.currentLocation.lat}, Lng: ${viewCollector.currentLocation.lng}` :
-                            'Location not available'
-                          }
-                        </p>
+                    <h4 className="text-sm font-medium text-gray-500">Vehicle Information</h4>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Truck className="h-4 w-4 text-gray-500" />
+                        <span>Capacity: {viewCollector.vehicleCapacity}kg</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <span>
+                          Current Load: {viewCollector.currentLoad || 0}kg (
+                          {Math.round(((viewCollector.currentLoad || 0) / viewCollector.vehicleCapacity) * 100)}%)
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                      Close
-                    </Button>
-                    <Button
-                      variant={viewCollector.isAvailable ? "destructive" : "default"}
-                      onClick={() => {
-                        toggleAvailability(viewCollector.id, viewCollector.isAvailable ?? false)
-                        setViewCollector({
-                          ...viewCollector,
-                          isAvailable: !viewCollector.isAvailable,
-                        })
-                      }}
-                    >
-                      {viewCollector.isAvailable ? "Set Offline" : "Set Available"}
-                    </Button>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Current Location</h4>
+                  <div className="mt-2 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">
+                        {viewCollector.currentLocation 
+                          ? `Lat: ${viewCollector.currentLocation.lat}, Lng: ${viewCollector.currentLocation.lng}`
+                          : "Location not available"
+                        }
+                      </p>
+                    </div>
                   </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    variant={viewCollector.isAvailable ? "destructive" : "default"}
+                    onClick={() => {
+                      toggleAvailability(viewCollector.id, viewCollector.isAvailable || false)
+                      setViewCollector({
+                        ...viewCollector,
+                        isAvailable: !viewCollector.isAvailable,
+                      })
+                    }}
+                  >
+                    {viewCollector.isAvailable ? "Set Offline" : "Set Available"}
+                  </Button>
                 </div>
               </TabsContent>
 
