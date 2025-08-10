@@ -1,14 +1,37 @@
 // Debug utility to help troubleshoot Firebase Authentication issues
 // Add this to your login page temporarily to debug
+import { Auth } from "firebase/auth";
+import { Firestore } from "firebase/firestore";
+
+// Helper functions to ensure we have valid Firebase instances
+function getAuth(auth: Auth | null): Auth {
+  if (!auth) {
+    throw new Error(
+      "Firebase Auth is not initialized. Check your Firebase configuration."
+    );
+  }
+  return auth;
+}
+
+function getDb(db: Firestore | null): Firestore {
+  if (!db) {
+    throw new Error(
+      "Firestore is not initialized. Check your Firebase configuration."
+    );
+  }
+  return db;
+}
 
 export const debugFirebaseAuth = {
   async checkFirebaseConnection() {
     try {
-      console.log("🔍 Firebase Debug - Checking connection...");
+      console.log("Firebase Debug - Checking connection...");
       console.log("Firebase config:", {
+
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY
           ? "Set"
           : "Missing",
+
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
           ? "Set"
           : "Missing",
@@ -32,11 +55,13 @@ export const debugFirebaseAuth = {
 
   async checkUserInFirestore(uid: string) {
     try {
-      console.log(`🔍 Checking Firestore for user: ${uid}`);
+      console.log(`Checking Firestore for user: ${uid}`);
       const { doc, getDoc } = await import("firebase/firestore");
       const { db } = await import("@/lib/firebase");
 
-      const userDoc = await getDoc(doc(db, "users", uid));
+      // Use the getDb helper function with the imported db
+      const firestore = getDb(db);
+      const userDoc = await getDoc(doc(firestore, "users", uid));
 
       if (userDoc.exists()) {
         console.log("User found in Firestore:", userDoc.data());
@@ -53,11 +78,13 @@ export const debugFirebaseAuth = {
 
   async listAllUsers() {
     try {
-      console.log("🔍 Listing all users in Firestore...");
+      console.log("Listing all users in Firestore...");
       const { collection, getDocs } = await import("firebase/firestore");
       const { db } = await import("@/lib/firebase");
 
-      const querySnapshot = await getDocs(collection(db, "users"));
+      // Use the getDb helper function with the imported db
+      const firestore = getDb(db);
+      const querySnapshot = await getDocs(collection(firestore, "users"));
       const users = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -67,6 +94,7 @@ export const debugFirebaseAuth = {
       return users;
     } catch (error) {
       console.error("Error listing users:", error);
+      
       return [];
     }
   },
@@ -80,7 +108,9 @@ export const debugFirebaseAuth = {
       const { signInWithEmailAndPassword } = await import("firebase/auth");
       const { auth } = await import("@/lib/firebase");
 
+
       const result = await signInWithEmailAndPassword(auth, email, password);
+
       console.log("Firebase Auth successful:", result.user.uid);
 
       // Check Firestore
@@ -95,14 +125,12 @@ export const debugFirebaseAuth = {
       }
     } catch (error) {
       console.error("Debug login error:", error);
+
       console.error("Error code:");
       console.error("Error message:");
+     
       throw error;
     }
   },
 };
 
-// Usage in console:
-// debugFirebaseAuth.checkFirebaseConnection()
-// debugFirebaseAuth.listAllUsers()
-// debugFirebaseAuth.debugLogin("test@example.com", "password123")
