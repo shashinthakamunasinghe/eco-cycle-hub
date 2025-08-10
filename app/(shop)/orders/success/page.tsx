@@ -38,20 +38,20 @@ export default function SuccessPage() {
     async function processOrder() {
       try {
         setIsLoading(true)
-        
+
         // Create a unique order ID
         const newOrderId = `ORD-${Date.now()}`
         setOrderNumber(newOrderId)
-        
+
         // Get cart items from localStorage
         const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]") as CartItem[];
-        
+
         // Check if cart is empty or has only zero-value items
         if (!cartItems.length || !cartItems.some(item => (item.price || 0) > 0)) {
           console.warn("No valid items in cart, but attempting to create order");
           // We'll still continue to handle the case, but log a warning
         }
-        
+
         // Calculate order totals with safety checks for undefined or non-numeric values
         const subtotal = cartItems.reduce((sum: number, item: CartItem) => {
           // Ensure price and quantity are valid numbers
@@ -62,7 +62,7 @@ export default function SuccessPage() {
         const shipping = subtotal > 50 ? 0 : 5.99;
         const tax = subtotal * 0.08;
         const total = subtotal + shipping + tax;
-        
+
         // Ensure each item has valid properties
         const validatedItems = cartItems.map((item: CartItem) => ({
           ...item,
@@ -71,11 +71,11 @@ export default function SuccessPage() {
           name: item.name || "Product",
           image: item.image || "/placeholder.svg"
         }));
-        
+
         // Get the current user info from localStorage
         const userInfo = localStorage.getItem("userInfo");
         let userEmail = "";
-        
+
         if (userInfo) {
           try {
             const parsedUserInfo = JSON.parse(userInfo);
@@ -84,7 +84,7 @@ export default function SuccessPage() {
             console.error("Failed to parse user info:", e);
           }
         }
-        
+
         // Create order object with all required fields and user email
         const order = {
           id: newOrderId,
@@ -98,20 +98,32 @@ export default function SuccessPage() {
           total: total,        // Total with shipping and tax
           userEmail: userEmail // Associate with the logged-in user
         }
-        
+
         // Only save the order if it has items and a total value greater than 0
         if (validatedItems.length > 0 && total > 0) {
           // Save to orders in localStorage
           const orders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
           orders.unshift(order)
           localStorage.setItem("customerOrders", JSON.stringify(orders))
+
+          // Add order success notification to localStorage
+          const notifications = JSON.parse(localStorage.getItem("shopNotifications") || "[]")
+          notifications.unshift({
+            id: `notif-${Date.now()}`,
+            title: "Order Successful",
+            message: `Your order ${newOrderId} was placed successfully!`,
+            type: "order",
+            read: false,
+            createdAt: new Date().toISOString()
+          })
+          localStorage.setItem("shopNotifications", JSON.stringify(notifications))
         } else {
           console.log("Skipped saving invalid order (empty items or zero value)")
         }
-        
+
         // Clear cart
         clearCart()
-        
+
         setIsLoading(false)
       } catch (error) {
         console.error("Error processing order:", error)
