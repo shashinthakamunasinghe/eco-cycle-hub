@@ -1,47 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { getStripe } from "@/lib/stripe"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react"
+import { Trash2, Plus, Minus, ShoppingBag, LogIn } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-
-interface CartItem {
-  id: string
-  name: string
-  price: number
-  image: string
-  quantity: number
-  stock: number
-}
+import { useCart } from "@/contexts/CartContext"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { useRouter } from "next/navigation"
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const { cartItems, updateQuantity, removeFromCart } = useCart()
   const { toast } = useToast()
-
-  useEffect(() => {
-    const items = JSON.parse(localStorage.getItem("cartItems") || "[]")
-    setCartItems(items)
-  }, [])
-
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity < 1) return
-
-    const updatedItems = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: Math.min(newQuantity, item.stock) } : item,
-    )
-    setCartItems(updatedItems)
-    localStorage.setItem("cartItems", JSON.stringify(updatedItems))
-  }
+  const { user } = useFirebaseAuth()
+  const router = useRouter()
 
   const removeItem = (id: string, name: string) => {
-    const updatedItems = cartItems.filter((item) => item.id !== id)
-    setCartItems(updatedItems)
-    localStorage.setItem("cartItems", JSON.stringify(updatedItems))
+    removeFromCart(id)
     toast({
       title: "Item removed",
       description: `${name} has been removed from your cart.`,
@@ -53,7 +32,18 @@ export default function CartPage() {
   const tax = subtotal * 0.08
   const total = subtotal + shipping + tax
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    // Check if user is logged in
+    if (!user || !user.email) {
+      toast({
+        title: "Login Required",
+        description: "Please login before proceeding to checkout.",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+
     if (cartItems.length === 0) {
       toast({
         title: "Cart is empty",
@@ -63,31 +53,127 @@ export default function CartPage() {
       return
     }
 
-    // Create order
-    const order = {
-      id: `ORD-${Date.now()}`,
-      items: cartItems,
-      subtotal,
-      shipping,
-      tax,
-      total,
-      status: "pending",
-      createdAt: new Date().toISOString(),
+    try {
+      console.log("Starting checkout process");
+      
+      // Save user info in localStorage for order association
+      if (user) {
+        const userInfo = {
+          email: user.email
+        };
+        localStorage.setItem("userInfo", JSON.stringify(userInfo));
+      }
+      
+      // Process cart items to ensure proper URLs for Stripe
+      const processedCartItems = cartItems.map(item => {
+        // Process image URLs to be fully qualified for Stripe
+        let imageUrl = item.image;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          // Convert relative URLs to absolute URLs
+          const baseUrl = window.location.origin;
+          imageUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+        }
+        
+        return {
+          ...item,
+          image: imageUrl
+        };
+      });
+      
+      // Create order data to send to API
+      const orderData = {
+        items: processedCartItems,
+        subtotal,
+        shipping,
+        tax,
+        total,
+        userEmail: user.email // Include user email in order data
+      }
+      
+      console.log(`Sending order data: ${cartItems.length} items, total: $${total.toFixed(2)}`);
+
+      // Call the Stripe API to create a checkout session (using App Router API route)
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      })
+
+      console.log(`Response status: ${response.status}`);
+      
+      // Get the response body regardless of status
+      const responseText = await response.text();
+      console.log(`Response body: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+      
+      if (!response.ok) {
+        // Try to parse the error message from the response
+        let errorMessage = "Network response was not ok";
+        try {
+          const errorData = JSON.parse(responseText);
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Parse the successful response
+      const session = responseText ? JSON.parse(responseText) : {};
+      
+      // Initialize Stripe
+      const stripe = await getStripe();
+      if (!stripe) {
+        throw new Error("Failed to initialize Stripe");
+      }
+      
+      // Redirect to checkout
+      const result = await stripe.redirectToCheckout({
+        sessionId: session.id,
+      })
+
+      if (result.error) {
+        // If redirectToCheckout fails
+        toast({
+          title: "Checkout error",
+          description: result.error.message,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      let errorMessage = "There was a problem processing your order. Please try again.";
+      let actionMessage = "";
+      
+      // More specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes("Stripe") && error.message.includes("key")) {
+          errorMessage = "Payment configuration error: Stripe API keys are not properly set up.";
+          actionMessage = "Please ensure valid Stripe API keys are in .env.local file.";
+        } else if (error.message.includes("NetworkError") || error.message.includes("Network")) {
+          errorMessage = "Network error when connecting to payment service.";
+          actionMessage = "Please check your internet connection and try again.";
+        } else if (error.message.includes("URL") || error.message.includes("url")) {
+          errorMessage = "Invalid URL detected in product data.";
+          actionMessage = "Please report this issue to support.";
+        } else if (error.message.includes("Failed to fetch") || error.message.includes("CORS")) {
+          errorMessage = "Could not connect to the payment service.";
+          actionMessage = "This may be due to network issues or server configuration.";
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      
+      toast({
+        title: "Checkout failed",
+        description: actionMessage ? `${errorMessage}\n${actionMessage}` : errorMessage,
+        variant: "destructive",
+      });
     }
-
-    // Save to orders
-    const orders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
-    orders.unshift(order)
-    localStorage.setItem("customerOrders", JSON.stringify(orders))
-
-    // Clear cart
-    setCartItems([])
-    localStorage.removeItem("cartItems")
-
-    toast({
-      title: "Order placed successfully!",
-      description: `Order ${order.id} has been placed.`,
-    })
   }
 
   if (cartItems.length === 0) {
@@ -199,8 +285,15 @@ export default function CartPage() {
               {shipping > 0 && (
                 <p className="text-sm text-gray-600">Add ${(50 - subtotal).toFixed(2)} more for free shipping!</p>
               )}
-              <Button className="w-full" onClick={handleCheckout}>
-                Proceed to Checkout
+              <Button className="w-full" onClick={handleCheckout} disabled={cartItems.length === 0}>
+                {user ? (
+                  <>Proceed to Stripe Checkout</>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Login to Checkout
+                  </>
+                )}
               </Button>
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/products">Continue Shopping</Link>

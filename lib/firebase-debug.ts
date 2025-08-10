@@ -27,23 +27,29 @@ export const debugFirebaseAuth = {
     try {
       console.log("Firebase Debug - Checking connection...");
       console.log("Firebase config:", {
-        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "Set" : "Missing",
+
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+          ? "Set"
+          : "Missing",
+
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
           ? "Set"
           : "Missing",
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
           ? "Set"
           : "Missing",
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+          ? "Set"
+          : "Missing",
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+          ? "Set"
+          : "Missing",
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+          ? "Set"
+          : "Missing",
       });
     } catch (error) {
       console.error("Firebase connection error:", error);
-      if (error && typeof error === "object") {
-        const firebaseError = error as { code?: string; message?: string };
-        console.error(
-          "Error details:",
-          firebaseError.message || "Unknown error"
-        );
-      }
     }
   },
 
@@ -66,13 +72,6 @@ export const debugFirebaseAuth = {
       }
     } catch (error) {
       console.error("Firestore check error:", error);
-      if (error && typeof error === "object") {
-        const firestoreError = error as { code?: string; message?: string };
-        console.error(
-          "Error details:",
-          firestoreError.message || "Unknown error"
-        );
-      }
       return null;
     }
   },
@@ -95,13 +94,7 @@ export const debugFirebaseAuth = {
       return users;
     } catch (error) {
       console.error("Error listing users:", error);
-      if (error && typeof error === "object") {
-        const firestoreError = error as { code?: string; message?: string };
-        console.error(
-          "Error details:",
-          firestoreError.message || "Unknown error"
-        );
-      }
+      
       return [];
     }
   },
@@ -115,13 +108,9 @@ export const debugFirebaseAuth = {
       const { signInWithEmailAndPassword } = await import("firebase/auth");
       const { auth } = await import("@/lib/firebase");
 
-      // Use the getAuth helper function with the imported auth
-      const authInstance = getAuth(auth);
-      const result = await signInWithEmailAndPassword(
-        authInstance,
-        email,
-        password
-      );
+
+      const result = await signInWithEmailAndPassword(auth, email, password);
+
       console.log("Firebase Auth successful:", result.user.uid);
 
       // Check Firestore
@@ -136,21 +125,12 @@ export const debugFirebaseAuth = {
       }
     } catch (error) {
       console.error("Debug login error:", error);
-      // Handle Firebase AuthError which typically has code and message properties
-      if (error && typeof error === "object") {
-        const firebaseError = error as { code?: string; message?: string };
-        console.error("Error code:", firebaseError.code || "No error code");
-        console.error(
-          "Error message:",
-          firebaseError.message || "No error message"
-        );
-      }
+
+      console.error("Error code:");
+      console.error("Error message:");
+     
       throw error;
     }
   },
 };
 
-// Usage in console:
-// debugFirebaseAuth.checkFirebaseConnection()
-// debugFirebaseAuth.listAllUsers()
-// debugFirebaseAuth.debugLogin("test@example.com", "password123")

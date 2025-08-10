@@ -4,13 +4,13 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Package, ShoppingCart, Heart, Trash2, Check } from "lucide-react"
+import { Bell, Package, ShoppingCart, Trash2, Check } from "lucide-react"
 
 interface Notification {
   id: string
   title: string
   message: string
-  type: "order" | "promotion" | "wishlist" | "general"
+  type: "order" | "promotion" | "general"
   read: boolean
   createdAt: string
 }
@@ -18,55 +18,46 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
 
+  // Load notifications from localStorage
   useEffect(() => {
-    // Mock notifications
-    const mockNotifications: Notification[] = [
-      {
-        id: "1",
-        title: "Order Shipped",
-        message: "Your order #ORD-1234 has been shipped and is on its way!",
-        type: "order",
-        read: false,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "2",
-        title: "Special Offer",
-        message: "Get 20% off on all eco-friendly fertilizers this week!",
-        type: "promotion",
-        read: false,
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "3",
-        title: "Wishlist Item Back in Stock",
-        message: "Organic Compost Mix is now back in stock!",
-        type: "wishlist",
-        read: true,
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "4",
-        title: "Order Delivered",
-        message: "Your order #ORD-1230 has been delivered successfully.",
-        type: "order",
-        read: true,
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ]
-    setNotifications(mockNotifications)
+    const stored = localStorage.getItem("shopNotifications")
+    if (stored) {
+      setNotifications(JSON.parse(stored))
+    } else {
+      setNotifications([])
+    }
+    // Listen for storage changes (in case another tab updates notifications)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "shopNotifications") {
+        setNotifications(e.newValue ? JSON.parse(e.newValue) : [])
+      }
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif)))
+    setNotifications((prev) => {
+      const updated = prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif))
+      localStorage.setItem("shopNotifications", JSON.stringify(updated))
+      return updated
+    })
   }
 
   const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((notif) => notif.id !== id))
+    setNotifications((prev) => {
+      const updated = prev.filter((notif) => notif.id !== id)
+      localStorage.setItem("shopNotifications", JSON.stringify(updated))
+      return updated
+    })
   }
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })))
+    setNotifications((prev) => {
+      const updated = prev.map((notif) => ({ ...notif, read: true }))
+      localStorage.setItem("shopNotifications", JSON.stringify(updated))
+      return updated
+    })
   }
 
   const getIcon = (type: string) => {
@@ -75,8 +66,6 @@ export default function NotificationsPage() {
         return <Package className="h-5 w-5 text-blue-600" />
       case "promotion":
         return <ShoppingCart className="h-5 w-5 text-green-600" />
-      case "wishlist":
-        return <Heart className="h-5 w-5 text-red-600" />
       default:
         return <Bell className="h-5 w-5 text-gray-600" />
     }

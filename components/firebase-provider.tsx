@@ -19,13 +19,14 @@ export function FirebaseProvider({ children }: FirebaseProviderProps) {
     if (process.env.NODE_ENV === "development") {
       const migrateData = async () => {
         try {
-          // Check if we need to migrate (you can add logic to check if data exists)
+          // Check if we need to migrate - more reliable check
           const shouldMigrate =
-            localStorage.getItem("firebase-migrated") !== "true";
+            localStorage.getItem("firebase-migrated") !== "true" &&
+            localStorage.getItem("disable-auto-migration") !== "true";
 
           if (shouldMigrate) {
-            await FirebaseMigration.migrateAll();
-            localStorage.setItem("firebase-migrated", "true");
+            console.log("Auto-migration disabled to prevent duplicates. Use manual migration if needed.");
+            localStorage.setItem("disable-auto-migration", "true");
           }
 
           setMigrationStatus("completed");

@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -13,13 +14,15 @@ import {
   Timestamp,
   Firestore,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import type {
   User,
   Product,
   Order,
   PickupRequest,
   Notification,
+  CollectorProfile,
 } from "@/types";
 
 // Helper function to ensure we have a valid Firestore instance
@@ -35,16 +38,22 @@ function getDb(): Firestore {
 // Product operations
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
-    const querySnapshot = await getDocs(collection(getDb(), "products"));
-    return querySnapshot.docs.map((doc) => {
+
+    const querySnapshot = await getDocs(collection(db, "products"));
+    const products: Product[] = [];
+    
+    querySnapshot.docs.forEach((doc) => {
+
       const data = doc.data();
-      return {
+      products.push({
         id: doc.id,
         ...data,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate(),
-      } as unknown as Product;
+      } as unknown as Product);
     });
+    
+    return products;
   },
 
   async getProduct(id: string): Promise<Product | null> {
@@ -61,7 +70,21 @@ export const productService = {
   },
 
   async addProduct(product: Omit<Product, "id">): Promise<string> {
-    const docRef = await addDoc(collection(getDb(), "products"), {
+
+    // Check for existing product with same name and description to prevent duplicates
+    const existingQuery = query(
+      collection(db, "products"),
+      where("name", "==", product.name),
+      where("description", "==", product.description)
+    );
+    const existingSnapshot = await getDocs(existingQuery);
+    
+    if (!existingSnapshot.empty) {
+      throw new Error("A product with this name and description already exists");
+    }
+    
+    const docRef = await addDoc(collection(db, "products"), {
+
       ...product,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -170,7 +193,7 @@ export const orderService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -181,7 +204,7 @@ export const orderService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      (doc) => ({ ...doc.data(), id: doc.id } as Order)
     );
   },
 
@@ -213,8 +236,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id, // Ensure Firestore document ID takes precedence
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -235,8 +258,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -257,8 +280,8 @@ export const pickupService = {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
@@ -271,22 +294,26 @@ export const pickupService = {
     collectorId: string
   ): Promise<PickupRequest[]> {
     const q = query(
-      collection(getDb(), "pickupRequests"),
-      where("collectorId", "==", collectorId),
-      orderBy("requestedAt", "desc")
+
+      collection(db, "pickupRequests"),
+      where("collectorId", "==", collectorId)
+
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
+    const pickups = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
-        id: doc.id,
         ...data,
+        id: doc.id,
         requestedAt: data.requestedAt?.toDate() || new Date(),
         scheduledAt: data.scheduledAt?.toDate(),
         completedAt: data.completedAt?.toDate(),
         cancelledAt: data.cancelledAt?.toDate(),
       } as PickupRequest;
     });
+    
+    // Sort in memory instead of requiring an index
+    return pickups.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
   },
 
   async createPickupRequest(
@@ -383,7 +410,7 @@ export const notificationService = {
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Notification)
+      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
     );
   },
 
@@ -532,5 +559,56 @@ export const collectorService = {
     await deleteDoc(docRef);
 
     console.log(`✅ Collector ${id} deleted successfully from Firestore`);
+  },
+
+  // Collector Profile operations (separate collection)
+  async getAllCollectorProfiles(): Promise<CollectorProfile[]> {
+    const querySnapshot = await getDocs(collection(db, "collectorProfiles"));
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+        // joinedDate is stored as a string, not a Timestamp
+        joinedDate: data.joinedDate || new Date().toISOString(),
+      } as unknown as CollectorProfile;
+    });
+  },
+
+  async getCollectorProfile(id: string): Promise<CollectorProfile | null> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate(),
+      // joinedDate is stored as a string, not a Timestamp
+      joinedDate: data.joinedDate || new Date().toISOString(),
+    } as unknown as CollectorProfile;
+  },
+
+  async setCollectorProfile(id: string, profileData: Partial<CollectorProfile>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const updateData = {
+      ...profileData,
+      updatedAt: Timestamp.now(),
+    };
+    
+    await setDoc(docRef, updateData, { merge: true });
+  },
+
+  async updateCollectorProfile(id: string, updates: Partial<CollectorProfile>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const updateData = {
+      ...updates,
+      updatedAt: Timestamp.now(),
+    };
+    
+    await updateDoc(docRef, updateData);
   },
 };

@@ -52,7 +52,9 @@ export const mockPickupRequests: PickupRequest[] = [
       address: "Colombo, Sri Lanka",
     },
     status: "pending",
-    priority: "high",
+
+    priority: "medium", // Added missing required field
+
     requestedAt: new Date(),
   },
   {
@@ -67,7 +69,9 @@ export const mockPickupRequests: PickupRequest[] = [
       address: "Colombo, Sri Lanka",
     },
     status: "completed",
-    priority: "medium",
+
+    priority: "high", // Added missing required field
+
     collectorId: "3",
     collectorName: "John Collector",
     requestedAt: new Date(Date.now() - 86400000),

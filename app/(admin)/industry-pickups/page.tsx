@@ -1,103 +1,181 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, MapPin, Clock, User, Search } from "lucide-react"
+import { Package, MapPin, Clock, User, Search, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { collectorService, pickupService } from "@/lib/firebase-services"
+import type { CollectorProfile, PickupRequest } from "@/types"
+
+interface AvailableCollector {
+  id: string;
+  name: string;
+  isAvailable: boolean;
+  email: string;
+  phone?: string;
+}
 
 export default function AdminPickupsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [availableCollectors, setAvailableCollectors] = useState<AvailableCollector[]>([])
+  const [collectorsLoading, setCollectorsLoading] = useState(true)
   const { toast } = useToast()
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentPickup, setCurrentPickup] = useState<any>(null)
+  const [currentPickup, setCurrentPickup] = useState<PickupRequest | null>(null)
 
-  const [pickupRequests, setPickupRequests] = useState([
-    {
-      id: "1",
-      industryName: "Green Industries Ltd",
-      industryId: "2",
-      wasteType: "Organic Waste",
-      weight: 150,
-      status: "pending",
-      address: "123 Industrial Ave, Colombo",
-      requestedAt: "2024-01-15T10:30:00Z",
-      collectorId: null,
-      collectorName: null,
-      priority: "high",
-    },
-    {
-      id: "2",
-      industryName: "Eco Manufacturing",
-      industryId: "3",
-      wasteType: "Plastic Waste",
-      weight: 200,
-      status: "assigned",
-      address: "456 Factory St, Colombo",
-      requestedAt: "2024-01-15T09:45:00Z",
-      collectorId: "3",
-      collectorName: "John Collector",
-      priority: "medium",
-    },
-    {
-      id: "3",
-      industryName: "Clean Tech Corp",
-      industryId: "4",
-      wasteType: "Metal Waste",
-      weight: 300,
-      status: "on-way",
-      address: "789 Plant Rd, Colombo",
-      requestedAt: "2024-01-14T14:20:00Z",
-      collectorId: "4",
-      collectorName: "Jane Smith",
-      priority: "low",
-    },
-    {
-      id: "4",
-      industryName: "Tech Solutions",
-      industryId: "5",
-      wasteType: "Electronic Waste",
-      weight: 50,
-      status: "completed",
-      address: "321 Tech Park, Colombo",
-      requestedAt: "2024-01-13T11:00:00Z",
-      collectorId: "3",
-      collectorName: "John Collector",
-      priority: "high",
-      completedAt: "2024-01-13T15:30:00Z",
-    },
-  ])
+  const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([])
+  const [pickupRequestsLoading, setPickupRequestsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const availableCollectors = [
-    { id: "3", name: "John Collector", isAvailable: true },
-    { id: "4", name: "Jane Smith", isAvailable: false },
-    { id: "5", name: "Mike Johnson", isAvailable: true },
-  ]
+  // Load pickup requests from Firebase
+  useEffect(() => {
+    const loadPickupRequests = async () => {
+      try {
+        setPickupRequestsLoading(true)
+        const requests = await pickupService.getAllPickupRequests()
+        setPickupRequests(requests)
+      } catch (error) {
+        console.error("Error loading pickup requests:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load pickup requests",
+          variant: "destructive",
+        })
+      } finally {
+        setPickupRequestsLoading(false)
+      }
+    }
 
-  const assignCollector = (pickupId: string, collectorId: string) => {
-    const collector = availableCollectors.find((c) => c.id === collectorId)
+    loadPickupRequests()
+  }, [toast])
 
-    // Update the pickup request status and assign collector
-    setPickupRequests(
-      pickupRequests.map((request) =>
-        request.id === pickupId
-          ? { ...request, status: "assigned", collectorId, collectorName: collector?.name }
-          : request,
-      ),
-    )
+  // Load collectors from Firebase
+  useEffect(() => {
+    const loadCollectors = async () => {
+      try {
+        setCollectorsLoading(true)
+        const collectorsData = await collectorService.getAllCollectors()
+        
+        // Transform collector data to match our interface
+        const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
+          id: collector.id,
+          name: collector.name,
+          email: collector.email,
+          phone: collector.phone,
+          isAvailable: collector.isAvailable || true, // Default to available if not specified
+        }))
+        
+        setAvailableCollectors(formattedCollectors)
+        console.log("📋 Loaded collectors for assignment:", formattedCollectors)
+      } catch (error) {
+        console.error("❌ Error loading collectors:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load collectors for assignment",
+          variant: "destructive",
+        })
+      } finally {
+        setCollectorsLoading(false)
+      }
+    }
 
-    toast({
-      title: "Collector assigned",
-      description: `${collector?.name} has been assigned to this pickup request.`,
-    })
+    loadCollectors()
+  }, [toast])
+
+  const refreshData = async () => {
+    setIsLoading(true)
+    try {
+      // Reload pickup requests
+      const requests = await pickupService.getAllPickupRequests()
+      setPickupRequests(requests)
+      
+      // Reload collectors
+      const collectorsData = await collectorService.getAllCollectors()
+      
+      // Transform collector data to match our interface
+      const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
+        id: collector.id,
+        name: collector.name,
+        email: collector.email,
+        phone: collector.phone,
+        isAvailable: collector.isAvailable || true, // Default to available if not specified
+      }))
+      
+      setAvailableCollectors(formattedCollectors)
+      
+      toast({
+        title: "Data refreshed",
+        description: "Pickup requests and collectors have been updated",
+      })
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to refresh data",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const viewPickupDetails = (pickup: any) => {
+  const assignCollector = async (pickupId: string, collectorId: string) => {
+    const collector = availableCollectors.find((c) => c.id === collectorId)
+
+    if (!collector) {
+      toast({
+        title: "Error",
+        description: "Selected collector not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Update the pickup request in Firebase
+      await pickupService.assignCollector(pickupId, collectorId, collector.name)
+
+      // Update the local state to reflect the change
+      setPickupRequests(
+        pickupRequests.map((request) =>
+          request.id === pickupId
+            ? { ...request, status: "assigned", collectorId, collectorName: collector.name }
+            : request,
+        ),
+      )
+
+      // Refresh available collectors to get updated availability
+      const updatedCollectorsData = await collectorService.getAvailableCollectors();
+      const formattedUpdatedCollectors: AvailableCollector[] = updatedCollectorsData.map((collector: any) => ({
+        id: collector.id,
+        name: collector.name,
+        email: collector.email,
+        phone: collector.phone,
+        isAvailable: collector.isAvailable || true,
+      }))
+      setAvailableCollectors(formattedUpdatedCollectors);
+
+      toast({
+        title: "Collector assigned",
+        description: `${collector.name} has been assigned to this pickup request.`,
+      })
+    } catch (error) {
+      console.error("Error assigning collector:", error)
+      toast({
+        title: "Error",
+        description: "Failed to assign collector. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const viewPickupDetails = (pickup: typeof pickupRequests[0]) => {
     setCurrentPickup(pickup)
     setIsViewDialogOpen(true)
   }
@@ -136,7 +214,7 @@ export default function AdminPickupsPage() {
     const matchesSearch =
       request.industryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.wasteType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.address.toLowerCase().includes(searchTerm.toLowerCase())
+      (request.location?.address && request.location.address.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === "all" || request.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -150,6 +228,19 @@ export default function AdminPickupsPage() {
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="secondary">{filteredRequests.length} requests</Badge>
+          <Badge variant="outline" className="text-green-600 border-green-200">
+            {availableCollectors.filter(c => c.isAvailable).length} available collectors
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshData}
+            disabled={isLoading}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
         </div>
       </div>
 
@@ -183,7 +274,21 @@ export default function AdminPickupsPage() {
 
       {/* Pickup Requests List */}
       <div className="space-y-4">
-        {filteredRequests.map((request) => (
+        {pickupRequestsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading pickup requests...</p>
+            </div>
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="text-center py-8">
+            <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No pickup requests found</h3>
+            <p className="text-gray-600">No pickup requests match your current filters.</p>
+          </div>
+        ) : (
+          filteredRequests.map((request) => (
           <Card key={request.id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
@@ -204,7 +309,7 @@ export default function AdminPickupsPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4" />
-                        <span>{request.address}</span>
+                        <span>{request.location?.address || 'Address not available'}</span>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -252,15 +357,9 @@ export default function AdminPickupsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
-
-      {filteredRequests.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No pickup requests found matching your criteria.</p>
-        </div>
-      )}
 
       {/* View Pickup Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -302,7 +401,7 @@ export default function AdminPickupsPage() {
                   <div className="p-3 border rounded-lg">
                     <div className="flex items-start space-x-2">
                       <MapPin className="h-4 w-4 mt-0.5" />
-                      <span className="text-sm">{currentPickup.address}</span>
+                      <span className="text-sm">{currentPickup?.location?.address || 'Address not available'}</span>
                     </div>
                   </div>
                 </div>

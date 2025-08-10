@@ -1,4 +1,36 @@
+
 "use client";
+
+// Notification counter component for shop
+import React from "react";
+function ShopNotificationCount() {
+  const [count, setCount] = React.useState(0);
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  React.useEffect(() => {
+    function updateCount() {
+      const notifications = JSON.parse(localStorage.getItem("shopNotifications") || "[]");
+      setCount(Array.isArray(notifications) ? notifications.filter((n:any) => !n.read).length : 0);
+    }
+    updateCount();
+    window.addEventListener("storage", updateCount);
+    // Also update on focus (in case notifications are changed in another tab)
+    window.addEventListener("focus", updateCount);
+    // Also update when navigating to the notifications page
+    if (pathname === "/shop-notifications") {
+      updateCount();
+    }
+    return () => {
+      window.removeEventListener("storage", updateCount);
+      window.removeEventListener("focus", updateCount);
+    };
+  }, [pathname]);
+  if (count === 0) return null;
+  return (
+    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
 
 import Link from "next/link";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
@@ -17,18 +49,37 @@ import {
   Recycle,
   ShoppingCart,
   Package,
-  Heart,
   ArrowLeft,
   Settings,
   LogOut,
 } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+
+
+
+
+// Cart counter component
+function CartItemCount() {
+  const { cartCount } = useCart();
+  
+  if (cartCount === 0) {
+    return null;
+  }
+  
+  return (
+    <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
+      {cartCount > 99 ? '99+' : cartCount}
+    </span>
+  );
+}
+
 export function Navbar() {
   const { user, logout: authLogout } = useFirebaseAuth();
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const router = useRouter();
   const getDashboardLabel = () => {
     if (pathname.startsWith("/industry")) return "Industry Dashboard";
@@ -43,7 +94,6 @@ export function Navbar() {
       "/cart",
       "/products",
       "/orders",
-      "/wishlist",
       "/customer-profile",
       "/shop-notifications",
     ];
@@ -63,7 +113,7 @@ export function Navbar() {
 
   const getProfileLink = () => {
     if (isShopRoute()) return "/customer-profile";
-    if (user?.role) return "/${user.role}-profile";
+    if (user?.role) return `/${user.role}-profile`;
     return "#";
   };
 
@@ -153,12 +203,13 @@ export function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Left side */}
             <div className="flex items-center">
-              <Button variant="ghost" asChild>
-                <Link href="/" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back Home
-                </Link>
-              </Button>
+                <Link
+                href={pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "/products" : "/"}
+                className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>{pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "Back to Products" : "Back Home"}</span>
+              </Link>
             </div>
 
             {/* Center - Logo and Label */}
@@ -183,44 +234,27 @@ export function Navbar() {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative"
-                    asChild
+                  <Link 
+                    href="/cart"
+                    className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
                   >
-                    <Link href="/cart">
-                      <ShoppingCart className="h-5 w-5" />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
-                        4
-                      </span>
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/orders">
-                      <Package className="h-4 w-4 mr-2" />
-                      Orders
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/wishlist">
-                      <Heart className="h-4 w-4 mr-2" />
-                      Wishlist
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative"
-                    asChild
+                    <ShoppingCart className="h-5 w-5" />
+                    <CartItemCount />
+                  </Link>
+                  <Link 
+                    href="/orders"
+                    className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center"
                   >
-                    <Link href="/shop-notifications">
-                      <Bell className="h-5 w-5" />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                        3
-                      </span>
-                    </Link>
-                  </Button>
+                    <Package className="h-4 w-4 mr-2" />
+                    Orders
+                  </Link>
+                  <Link 
+                    href="/shop-notifications"
+                    className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
+                  >
+                    <Bell className="h-5 w-5" />
+                    <ShopNotificationCount />
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -272,12 +306,18 @@ export function Navbar() {
                 </>
               ) : (
                 <>
-                  <Button variant="ghost" asChild>
-                    <Link href="/register?type=customer">Register</Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/login">Login</Link>
-                  </Button>
+                  <Link 
+                    href="/register?type=customer"
+                    className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
+                  >
+                    Register
+                  </Link>
+                  <Link 
+                    href="/login"
+                    className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
+                  >
+                    Login
+                  </Link>
                 </>
               )}
             </div>
@@ -314,14 +354,15 @@ export function Navbar() {
 
           {/* Right side - Notifications and Profile */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="relative" asChild>
-              <Link href={getNotificationLink()}>
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                  3
-                </span>
-              </Link>
-            </Button>
+            <Link 
+              href={getNotificationLink()}
+              className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                3
+              </span>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
