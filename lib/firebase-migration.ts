@@ -1,4 +1,4 @@
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, Firestore } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   mockUsers,
@@ -8,12 +8,22 @@ import {
   mockNotifications,
 } from "@/lib/mock-data";
 
+// Helper function to ensure we have a valid Firestore instance
+function getDb(): Firestore {
+  if (!db) {
+    throw new Error(
+      "Firestore is not initialized. Check your Firebase configuration."
+    );
+  }
+  return db;
+}
+
 export class FirebaseMigration {
   static async migrateUsers() {
     console.log("Migrating users...");
     try {
       const promises = mockUsers.map((user) =>
-        addDoc(collection(db, "users"), {
+        addDoc(collection(getDb(), "users"), {
           ...user,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
@@ -30,7 +40,7 @@ export class FirebaseMigration {
     console.log("Migrating products...");
     try {
       const promises = mockProducts.map((product) =>
-        addDoc(collection(db, "products"), {
+        addDoc(collection(getDb(), "products"), {
           ...product,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
@@ -47,7 +57,7 @@ export class FirebaseMigration {
     console.log("Migrating orders...");
     try {
       const promises = mockOrders.map((order) =>
-        addDoc(collection(db, "orders"), {
+        addDoc(collection(getDb(), "orders"), {
           ...order,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
@@ -64,7 +74,7 @@ export class FirebaseMigration {
     console.log("Migrating pickup requests...");
     try {
       const promises = mockPickupRequests.map((request) =>
-        addDoc(collection(db, "pickupRequests"), {
+        addDoc(collection(getDb(), "pickupRequests"), {
           ...request,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
@@ -81,7 +91,7 @@ export class FirebaseMigration {
     console.log("Migrating notifications...");
     try {
       const promises = mockNotifications.map((notification) =>
-        addDoc(collection(db, "notifications"), {
+        addDoc(collection(getDb(), "notifications"), {
           ...notification,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
