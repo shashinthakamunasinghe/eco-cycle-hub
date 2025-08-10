@@ -11,6 +11,7 @@ import {
   orderBy,
   limit,
   Timestamp,
+  Firestore,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type {
@@ -21,10 +22,20 @@ import type {
   Notification,
 } from "@/types";
 
+// Helper function to ensure we have a valid Firestore instance
+function getDb(): Firestore {
+  if (!db) {
+    throw new Error(
+      "Firestore is not initialized. Check your Firebase configuration."
+    );
+  }
+  return db;
+}
+
 // Product operations
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
-    const querySnapshot = await getDocs(collection(db, "products"));
+    const querySnapshot = await getDocs(collection(getDb(), "products"));
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -37,7 +48,7 @@ export const productService = {
   },
 
   async getProduct(id: string): Promise<Product | null> {
-    const docRef = doc(db, "products", id);
+    const docRef = doc(getDb(), "products", id);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
     const data = docSnap.data();
@@ -50,7 +61,7 @@ export const productService = {
   },
 
   async addProduct(product: Omit<Product, "id">): Promise<string> {
-    const docRef = await addDoc(collection(db, "products"), {
+    const docRef = await addDoc(collection(getDb(), "products"), {
       ...product,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -59,7 +70,7 @@ export const productService = {
   },
 
   async updateProduct(id: string, product: Partial<Product>): Promise<void> {
-    const docRef = doc(db, "products", id);
+    const docRef = doc(getDb(), "products", id);
     await updateDoc(docRef, {
       ...product,
       updatedAt: Timestamp.now(),
@@ -67,13 +78,13 @@ export const productService = {
   },
 
   async deleteProduct(id: string): Promise<void> {
-    const docRef = doc(db, "products", id);
+    const docRef = doc(getDb(), "products", id);
     await deleteDoc(docRef);
   },
 
   async getProductsByCategory(category: string): Promise<Product[]> {
     const q = query(
-      collection(db, "products"),
+      collection(getDb(), "products"),
       where("category", "==", category)
     );
     const querySnapshot = await getDocs(q);
@@ -92,7 +103,7 @@ export const productService = {
 // User operations
 export const userService = {
   async getUser(id: string): Promise<User | null> {
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
 
@@ -106,7 +117,7 @@ export const userService = {
   },
 
   async getAllUsers(): Promise<User[]> {
-    const querySnapshot = await getDocs(collection(db, "users"));
+    const querySnapshot = await getDocs(collection(getDb(), "users"));
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -119,7 +130,7 @@ export const userService = {
   },
 
   async getUsersByRole(role: User["role"]): Promise<User[]> {
-    const q = query(collection(db, "users"), where("role", "==", role));
+    const q = query(collection(getDb(), "users"), where("role", "==", role));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
@@ -133,7 +144,7 @@ export const userService = {
   },
 
   async updateUser(id: string, data: Partial<User>): Promise<void> {
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await updateDoc(docRef, data);
   },
 
@@ -142,7 +153,7 @@ export const userService = {
     if (!user) throw new Error("User not found");
 
     // Delete the user document from Firestore
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await deleteDoc(docRef);
 
     console.log(`✅ User ${id} deleted successfully from Firestore`);
@@ -153,7 +164,7 @@ export const userService = {
 export const orderService = {
   async getUserOrders(userId: string): Promise<Order[]> {
     const q = query(
-      collection(db, "orders"),
+      collection(getDb(), "orders"),
       where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
@@ -164,7 +175,10 @@ export const orderService = {
   },
 
   async getAllOrders(): Promise<Order[]> {
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const q = query(
+      collection(getDb(), "orders"),
+      orderBy("createdAt", "desc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() } as Order)
@@ -172,7 +186,7 @@ export const orderService = {
   },
 
   async createOrder(order: Omit<Order, "id">): Promise<string> {
-    const docRef = await addDoc(collection(db, "orders"), {
+    const docRef = await addDoc(collection(getDb(), "orders"), {
       ...order,
       createdAt: Timestamp.now(),
     });
@@ -180,7 +194,7 @@ export const orderService = {
   },
 
   async updateOrderStatus(id: string, status: Order["status"]): Promise<void> {
-    const docRef = doc(db, "orders", id);
+    const docRef = doc(getDb(), "orders", id);
     await updateDoc(docRef, {
       status,
       updatedAt: Timestamp.now(),
@@ -192,7 +206,7 @@ export const orderService = {
 export const pickupService = {
   async getAllPickupRequests(): Promise<PickupRequest[]> {
     const q = query(
-      collection(db, "pickupRequests"),
+      collection(getDb(), "pickupRequests"),
       orderBy("requestedAt", "desc")
     );
     const querySnapshot = await getDocs(q);
@@ -213,7 +227,7 @@ export const pickupService = {
     status: PickupRequest["status"]
   ): Promise<PickupRequest[]> {
     const q = query(
-      collection(db, "pickupRequests"),
+      collection(getDb(), "pickupRequests"),
       where("status", "==", status),
       orderBy("requestedAt", "desc")
     );
@@ -235,7 +249,7 @@ export const pickupService = {
     industryId: string
   ): Promise<PickupRequest[]> {
     const q = query(
-      collection(db, "pickupRequests"),
+      collection(getDb(), "pickupRequests"),
       where("industryId", "==", industryId),
       orderBy("requestedAt", "desc")
     );
@@ -257,7 +271,7 @@ export const pickupService = {
     collectorId: string
   ): Promise<PickupRequest[]> {
     const q = query(
-      collection(db, "pickupRequests"),
+      collection(getDb(), "pickupRequests"),
       where("collectorId", "==", collectorId),
       orderBy("requestedAt", "desc")
     );
@@ -278,7 +292,7 @@ export const pickupService = {
   async createPickupRequest(
     request: Omit<PickupRequest, "id">
   ): Promise<string> {
-    const docRef = await addDoc(collection(db, "pickupRequests"), {
+    const docRef = await addDoc(collection(getDb(), "pickupRequests"), {
       ...request,
       requestedAt: Timestamp.fromDate(request.requestedAt),
       scheduledAt: request.scheduledAt
@@ -298,7 +312,7 @@ export const pickupService = {
     id: string,
     updates: Partial<PickupRequest>
   ): Promise<void> {
-    const docRef = doc(db, "pickupRequests", id);
+    const docRef = doc(getDb(), "pickupRequests", id);
     // Create a shallow copy of the updates without explicit any
     const updateData: Record<string, unknown> = { ...updates };
 
@@ -327,7 +341,7 @@ export const pickupService = {
     collectorId: string,
     collectorName: string
   ): Promise<void> {
-    const docRef = doc(db, "pickupRequests", id);
+    const docRef = doc(getDb(), "pickupRequests", id);
     await updateDoc(docRef, {
       collectorId,
       collectorName,
@@ -340,7 +354,7 @@ export const pickupService = {
     id: string,
     status: PickupRequest["status"]
   ): Promise<void> {
-    const docRef = doc(db, "pickupRequests", id);
+    const docRef = doc(getDb(), "pickupRequests", id);
     const updateData: Record<string, string | Timestamp> = { status };
 
     if (status === "completed") {
@@ -353,7 +367,7 @@ export const pickupService = {
   },
 
   async deletePickupRequest(id: string): Promise<void> {
-    const docRef = doc(db, "pickupRequests", id);
+    const docRef = doc(getDb(), "pickupRequests", id);
     await deleteDoc(docRef);
   },
 };
@@ -362,7 +376,7 @@ export const pickupService = {
 export const notificationService = {
   async getUserNotifications(userId: string): Promise<Notification[]> {
     const q = query(
-      collection(db, "notifications"),
+      collection(getDb(), "notifications"),
       where("userId", "==", userId),
       orderBy("createdAt", "desc"),
       limit(50)
@@ -376,7 +390,7 @@ export const notificationService = {
   async createNotification(
     notification: Omit<Notification, "id">
   ): Promise<string> {
-    const docRef = await addDoc(collection(db, "notifications"), {
+    const docRef = await addDoc(collection(getDb(), "notifications"), {
       ...notification,
       createdAt: Timestamp.now(),
     });
@@ -384,7 +398,7 @@ export const notificationService = {
   },
 
   async markAsRead(id: string): Promise<void> {
-    const docRef = doc(db, "notifications", id);
+    const docRef = doc(getDb(), "notifications", id);
     await updateDoc(docRef, {
       read: true,
       updatedAt: Timestamp.now(),
@@ -393,7 +407,7 @@ export const notificationService = {
 
   async markAllAsRead(userId: string): Promise<void> {
     const q = query(
-      collection(db, "notifications"),
+      collection(getDb(), "notifications"),
       where("userId", "==", userId),
       where("read", "==", false)
     );
@@ -423,7 +437,7 @@ export const collectorService = {
 
   async getAvailableCollectors(): Promise<User[]> {
     const q = query(
-      collection(db, "users"),
+      collection(getDb(), "users"),
       where("role", "==", "collector"),
       where("isAvailable", "==", true)
     );
@@ -443,7 +457,7 @@ export const collectorService = {
     id: string,
     isAvailable: boolean
   ): Promise<void> {
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await updateDoc(docRef, {
       isAvailable,
       updatedAt: Timestamp.now(),
@@ -454,7 +468,7 @@ export const collectorService = {
     id: string,
     location: { lat: number; lng: number }
   ): Promise<void> {
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await updateDoc(docRef, {
       currentLocation: location,
       updatedAt: Timestamp.now(),
@@ -473,7 +487,7 @@ export const collectorService = {
     if (currentLoad !== undefined) {
       updateData.currentLoad = currentLoad;
     }
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await updateDoc(docRef, updateData);
   },
 
@@ -485,7 +499,7 @@ export const collectorService = {
     if (!collector) throw new Error("Collector not found");
 
     const assignedRequests = collector.assignedRequests || [];
-    const docRef = doc(db, "users", collectorId);
+    const docRef = doc(getDb(), "users", collectorId);
     await updateDoc(docRef, {
       assignedRequests: [...assignedRequests, requestId],
       updatedAt: Timestamp.now(),
@@ -500,7 +514,7 @@ export const collectorService = {
     if (!collector) throw new Error("Collector not found");
 
     const assignedRequests = collector.assignedRequests || [];
-    const docRef = doc(db, "users", collectorId);
+    const docRef = doc(getDb(), "users", collectorId);
     await updateDoc(docRef, {
       assignedRequests: assignedRequests.filter(
         (id: string) => id !== requestId
@@ -514,7 +528,7 @@ export const collectorService = {
     if (!collector) throw new Error("Collector not found");
 
     // Delete the collector document from Firestore
-    const docRef = doc(db, "users", id);
+    const docRef = doc(getDb(), "users", id);
     await deleteDoc(docRef);
 
     console.log(`✅ Collector ${id} deleted successfully from Firestore`);

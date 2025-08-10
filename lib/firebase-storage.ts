@@ -3,8 +3,19 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
+  FirebaseStorage,
 } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+
+// Helper function to ensure we have a valid Storage instance
+function getStorage(): FirebaseStorage {
+  if (!storage) {
+    throw new Error(
+      "Firebase Storage is not initialized. Check your Firebase configuration."
+    );
+  }
+  return storage;
+}
 
 export class FirebaseStorageService {
   // Upload file to Firebase Storage
@@ -15,7 +26,7 @@ export class FirebaseStorageService {
   ): Promise<string> {
     try {
       const finalFileName = fileName || `${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, `${path}/${finalFileName}`);
+      const storageRef = ref(getStorage(), `${path}/${finalFileName}`);
 
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
@@ -59,7 +70,7 @@ export class FirebaseStorageService {
   // Delete file from Firebase Storage
   static async deleteFile(url: string): Promise<void> {
     try {
-      const storageRef = ref(storage, url);
+      const storageRef = ref(getStorage(), url);
       await deleteObject(storageRef);
     } catch (error) {
       console.error("Error deleting file:", error);
