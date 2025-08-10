@@ -21,20 +21,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: "20.x"
-
-      - name: Set Firebase environment variables
-        run: |
-          echo "NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}" >> $GITHUB_ENV
-
-      - name: Verify Firebase env vars are set
-        run: |
-          node -e "const req=['NEXT_PUBLIC_FIREBASE_API_KEY','NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN','NEXT_PUBLIC_FIREBASE_PROJECT_ID','NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET','NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID','NEXT_PUBLIC_FIREBASE_APP_ID'];let ok=true;for(const k of req){const set=!!process.env[k];console.log(`${k}: ${set?'set':'MISSING'}`);if(!set) ok=false;}if(!ok){console.error('Missing required Firebase env vars');process.exit(1);}"
+          node-version: '20.x'
 
       - name: npm install, build, and test
         run: |
@@ -60,18 +47,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_06713C024C644EC393E6F58E5ECE669A }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_6B61934FEFB849948F63E1C37E3873B3 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A2D361EAEB814DDEB3BD41416F7D4A0F }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_1D89A831164C49A681EE767ACE9F0DD3 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_66ABC49CF9EF4EA3915C88A21E936912 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_53A0ADA9E909479C93A37BCCAAA70AAF }}
 
-      - name: "Deploy to Azure Web App"
+      - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: "eco-cycle-hub"
-          slot-name: "Production"
+          app-name: 'eco-cycle-hub'
+          slot-name: 'Production'
           package: .
+          
