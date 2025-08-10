@@ -3,18 +3,17 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { ShoppingBag, ShoppingCart, Package, User, Heart, Star } from "lucide-react"
+import { ShoppingBag, ShoppingCart, Package, User, Star } from "lucide-react"
 
 const navigation = [
   { name: "Products", href: "/products", icon: ShoppingBag },
   { name: "Cart", href: "/cart", icon: ShoppingCart },
   { name: "Orders", href: "/orders", icon: Package },
-  { name: "Wishlist", href: "/wishlist", icon: Heart },
   { name: "Reviews", href: "/reviews", icon: Star },
   { name: "Profile", href: "/customer-profile", icon: User },
 ]
 
-const categories = ["Fertilizers", "Garden Supplies", "Mulch", "Compost", "Seeds", "Tools"]
+const categories = ["Fertilizers", "Garden Supplies", "Mulch", "Compost", "Seeds",]
 
 export function ShopSidebar() {
   const pathname = usePathname()

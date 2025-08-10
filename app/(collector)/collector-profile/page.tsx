@@ -11,55 +11,124 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Save, Edit } from "lucide-react"
+import { Upload, Save, Edit, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { collectorService } from "@/lib/firebase-services"
+import type { CollectorProfile } from "@/types"
 
 export default function CollectorProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
-  const [profileData, setProfileData] = useState({
-    id: "COL-001",
-    name: "John Doe",
-    email: "john.doe@ecocycle.com",
-    phone: "+94 77 123 4567",
-    address: "123 Main Street, Colombo 03",
-    licenseNumber: "DL-12345678",
-    vehicleType: "truck",
-    vehicleModel: "Tata 407",
-    vehicleCapacity: 1000,
-    experience: "3 years",
-    status: "active",
-    rating: 4.8,
-    completedPickups: 245,
-    avatar: "/placeholder.svg?height=100&width=100",
-    joinedDate: "2023-01-15",
-    emergencyContact: "+94 77 987 6543",
-    workingHours: "8:00 AM - 6:00 PM",
-    specializations: ["Organic Waste", "Plastic Waste", "Metal Waste"],
-  })
-
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const { user } = useFirebaseAuth()
   const { toast } = useToast()
 
-  const handleInputChange = (field: string, value: string) => {
+  const [profileData, setProfileData] = useState<CollectorProfile>({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    licenseNumber: "",
+    vehicleType: "truck",
+    vehicleModel: "",
+    vehicleCapacity: 1000,
+    experience: "",
+    status: "active",
+    rating: 0,
+    completedPickups: 0,
+    avatar: "/placeholder.svg?height=100&width=100",
+    joinedDate: new Date().toISOString().split('T')[0],
+    emergencyContact: "",
+    workingHours: "8:00 AM - 6:00 PM",
+    specializations: [],
+  })
+
+  const handleInputChange = (field: string, value: string | number) => {
     setProfileData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
-    // Save to localStorage
-    localStorage.setItem("collectorProfile", JSON.stringify(profileData))
-    setIsEditing(false)
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been successfully updated.",
-    })
+  const handleSave = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save your profile.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      await collectorService.setCollectorProfile(user.id, profileData)
+      
+      // Also save to localStorage as backup
+      localStorage.setItem("collectorProfile", JSON.stringify(profileData))
+      
+      setIsEditing(false)
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully saved to the database.",
+      })
+    } catch (error) {
+      console.error("Error saving profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save profile. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleCancel = () => {
     // Reset to original data
-    const savedData = localStorage.getItem("collectorProfile")
-    if (savedData) {
-      setProfileData(JSON.parse(savedData))
-    }
+    loadProfileData()
     setIsEditing(false)
+  }
+
+  const loadProfileData = async () => {
+    if (!user?.id) return
+
+    try {
+      setInitialLoading(true)
+      const savedProfile = await collectorService.getCollectorProfile(user.id)
+      
+      if (savedProfile) {
+        setProfileData(savedProfile)
+      } else {
+        // If no profile exists in Firebase, check localStorage or use default
+        const localData = localStorage.getItem("collectorProfile")
+        if (localData) {
+          const parsedData = JSON.parse(localData)
+          setProfileData({
+            ...parsedData,
+            id: user.id,
+            email: user.email || parsedData.email,
+            name: user.name || parsedData.name,
+          })
+        } else {
+          // Set default data with user info
+          setProfileData(prev => ({
+            ...prev,
+            id: user.id,
+            email: user.email || "",
+            name: user.name || "",
+          }))
+        }
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load profile data.",
+        variant: "destructive",
+      })
+    } finally {
+      setInitialLoading(false)
+    }
   }
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,18 +141,85 @@ export default function CollectorProfilePage() {
       reader.readAsDataURL(file)
       toast({
         title: "Avatar Updated",
-        description: "Your profile picture has been updated.",
+        description: "Your profile picture has been updated. Don't forget to save changes.",
       })
     }
   }
 
   useEffect(() => {
-    // Load profile data from localStorage
-    const savedData = localStorage.getItem("collectorProfile")
-    if (savedData) {
-      setProfileData(JSON.parse(savedData))
+    const loadData = async () => {
+      if (!user?.id) return
+
+      try {
+        setInitialLoading(true)
+        const savedProfile = await collectorService.getCollectorProfile(user.id)
+        
+        if (savedProfile) {
+          setProfileData(savedProfile)
+        } else {
+          // If no profile exists in Firebase, check localStorage or use default
+          const localData = localStorage.getItem("collectorProfile")
+          if (localData) {
+            const parsedData = JSON.parse(localData)
+            setProfileData({
+              ...parsedData,
+              id: user.id,
+              email: user.email || parsedData.email,
+              name: user.name || parsedData.name,
+            })
+          } else {
+            // Set default data with user info
+            setProfileData(prev => ({
+              ...prev,
+              id: user.id,
+              email: user.email || "",
+              name: user.name || "",
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load profile data.",
+          variant: "destructive",
+        })
+      } finally {
+        setInitialLoading(false)
+      }
     }
-  }, [])
+
+    if (user?.id) {
+      loadData()
+    }
+  }, [user?.id, user?.email, user?.name, toast])
+
+  // Show loading state while fetching initial data
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading profile...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Show message if user is not logged in
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Please Log In</h2>
+          <p className="text-gray-600 mb-4">You need to be logged in to view your collector profile.</p>
+          <Button asChild>
+            <a href="/login">Go to Login</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -103,9 +239,18 @@ export default function CollectorProfilePage() {
               <Button variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
+              <Button onClick={handleSave} disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </>
           )}
@@ -300,7 +445,7 @@ export default function CollectorProfilePage() {
                 id="capacity"
                 type="number"
                 value={profileData.vehicleCapacity}
-                onChange={(e) => handleInputChange("vehicleCapacity", e.target.value)}
+                onChange={(e) => handleInputChange("vehicleCapacity", parseInt(e.target.value) || 0)}
                 disabled={!isEditing}
               />
             </div>

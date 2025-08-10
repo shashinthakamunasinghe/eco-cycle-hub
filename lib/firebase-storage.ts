@@ -14,6 +14,9 @@ export class FirebaseStorageService {
     fileName?: string
   ): Promise<string> {
     try {
+      if (!storage) {
+        throw new Error("Firebase storage is not initialized");
+      }
       const finalFileName = fileName || `${Date.now()}_${file.name}`;
       const storageRef = ref(storage, `${path}/${finalFileName}`);
 
@@ -59,6 +62,9 @@ export class FirebaseStorageService {
   // Delete file from Firebase Storage
   static async deleteFile(url: string): Promise<void> {
     try {
+      if (!storage) {
+        throw new Error("Firebase storage is not initialized");
+      }
       const storageRef = ref(storage, url);
       await deleteObject(storageRef);
     } catch (error) {
