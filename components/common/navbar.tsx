@@ -43,7 +43,7 @@ function CartItemCount() {
 
 export function Navbar() {
   const { user, logout: authLogout } = useFirebaseAuth();
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const router = useRouter();
   const getDashboardLabel = () => {
     if (pathname.startsWith("/industry")) return "Industry Dashboard";

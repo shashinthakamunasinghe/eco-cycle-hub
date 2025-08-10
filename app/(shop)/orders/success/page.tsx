@@ -19,14 +19,14 @@ interface CartItem {
 }
 
 export default function SuccessPage() {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() || new URLSearchParams()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [orderNumber, setOrderNumber] = useState("")
   const { clearCart } = useCart()
 
-  const success = searchParams.get("success")
-  const sessionId = searchParams.get("session_id")
+  const success = searchParams?.get("success") || ""
+  const sessionId = searchParams?.get("session_id") || ""
 
   useEffect(() => {
     // If there's no success query param or session ID, redirect to orders
