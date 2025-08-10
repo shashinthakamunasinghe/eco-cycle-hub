@@ -28,33 +28,16 @@ import type {
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
     const querySnapshot = await getDocs(collection(db, "products"));
-    
-    // Create a map to track unique IDs
-    const idMap = new Map<string, boolean>();
     const products: Product[] = [];
     
-    querySnapshot.docs.forEach((doc, index) => {
+    querySnapshot.docs.forEach((doc) => {
       const data = doc.data();
-      const id = doc.id;
-      
-      if (!idMap.has(id)) {
-        idMap.set(id, true);
-        products.push({
-          id: id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate(),
-        } as unknown as Product);
-      } else {
-        console.warn(`Found duplicate product ID in Firebase: ${id}`);
-        // Add with modified ID to avoid React key conflicts
-        products.push({
-          id: `${id}-${index}`,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate(),
-        } as unknown as Product);
-      }
+      products.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as unknown as Product);
     });
     
     return products;
@@ -74,6 +57,18 @@ export const productService = {
   },
 
   async addProduct(product: Omit<Product, "id">): Promise<string> {
+    // Check for existing product with same name and description to prevent duplicates
+    const existingQuery = query(
+      collection(db, "products"),
+      where("name", "==", product.name),
+      where("description", "==", product.description)
+    );
+    const existingSnapshot = await getDocs(existingQuery);
+    
+    if (!existingSnapshot.empty) {
+      throw new Error("A product with this name and description already exists");
+    }
+    
     const docRef = await addDoc(collection(db, "products"), {
       ...product,
       createdAt: Timestamp.now(),
