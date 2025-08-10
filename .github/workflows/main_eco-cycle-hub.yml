@@ -6,7 +6,7 @@ name: Build and deploy Node.js app to Azure Web App - eco-cycle-hub
 on:
   push:
     branches:
-      - deploy/azure
+      - main
   workflow_dispatch:
 
 jobs:
