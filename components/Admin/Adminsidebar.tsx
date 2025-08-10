@@ -13,6 +13,7 @@ import {
   Bell,
   BarChart3,
   LogOut,
+  Database,
 } from "lucide-react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const navigation = [
   { name: "Map View", href: "/admin-map", icon: MapPin },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Notifications", href: "/admin-notifications", icon: Bell },
+  { name: "Database Cleanup", href: "/database-cleanup", icon: Database },
 ];
 
 export function AdminSidebar() {

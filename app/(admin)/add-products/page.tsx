@@ -116,6 +116,22 @@ export default function AdminProductsPage() {
       return;
     }
 
+    // Check for duplicates
+    const existingProduct = products.find(
+      (product) =>
+        product.name.toLowerCase() === newProduct.name.toLowerCase() &&
+        product.description.toLowerCase() === newProduct.description.toLowerCase()
+    );
+
+    if (existingProduct) {
+      toast({
+        title: "Duplicate Product",
+        description: "A product with this name and description already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const productToAdd = {
         name: newProduct.name,
