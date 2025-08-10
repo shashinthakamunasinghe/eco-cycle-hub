@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, MapPin, Clock, User, Search } from "lucide-react"
+import { Package, MapPin, Clock, User, Search, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { collectorService, pickupService } from "@/lib/firebase-services"
@@ -31,6 +31,7 @@ export default function AdminPickupsPage() {
 
   const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([])
   const [pickupRequestsLoading, setPickupRequestsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Load pickup requests from Firebase
   useEffect(() => {
@@ -59,10 +60,10 @@ export default function AdminPickupsPage() {
     const loadCollectors = async () => {
       try {
         setCollectorsLoading(true)
-        const collectorsData = await collectorService.getAllCollectorProfiles()
+        const collectorsData = await collectorService.getAllCollectors()
         
         // Transform collector data to match our interface
-        const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: CollectorProfile) => ({
+        const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
           id: collector.id,
           name: collector.name,
           email: collector.email,
@@ -86,6 +87,43 @@ export default function AdminPickupsPage() {
 
     loadCollectors()
   }, [toast])
+
+  const refreshData = async () => {
+    setIsLoading(true)
+    try {
+      // Reload pickup requests
+      const requests = await pickupService.getAllPickupRequests()
+      setPickupRequests(requests)
+      
+      // Reload collectors
+      const collectorsData = await collectorService.getAllCollectors()
+      
+      // Transform collector data to match our interface
+      const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
+        id: collector.id,
+        name: collector.name,
+        email: collector.email,
+        phone: collector.phone,
+        isAvailable: collector.isAvailable || true, // Default to available if not specified
+      }))
+      
+      setAvailableCollectors(formattedCollectors)
+      
+      toast({
+        title: "Data refreshed",
+        description: "Pickup requests and collectors have been updated",
+      })
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to refresh data",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const assignCollector = async (pickupId: string, collectorId: string) => {
     const collector = availableCollectors.find((c) => c.id === collectorId)
@@ -113,8 +151,15 @@ export default function AdminPickupsPage() {
       )
 
       // Refresh available collectors to get updated availability
-      const updatedCollectors = await collectorService.getAvailableCollectors();
-      setAvailableCollectors(updatedCollectors);
+      const updatedCollectorsData = await collectorService.getAvailableCollectors();
+      const formattedUpdatedCollectors: AvailableCollector[] = updatedCollectorsData.map((collector: any) => ({
+        id: collector.id,
+        name: collector.name,
+        email: collector.email,
+        phone: collector.phone,
+        isAvailable: collector.isAvailable || true,
+      }))
+      setAvailableCollectors(formattedUpdatedCollectors);
 
       toast({
         title: "Collector assigned",
@@ -274,7 +319,7 @@ export default function AdminPickupsPage() {
                       </div>
                       {request.collectorName && (
                         <div className="flex items-center space-x-2">
-                          <UserIcon className="h-4 w-4" />
+                          <User className="h-4 w-4" />
                           <span>Collector: {request.collectorName}</span>
                         </div>
                       )}
