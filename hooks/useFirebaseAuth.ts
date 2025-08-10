@@ -20,15 +20,30 @@ export function useFirebaseAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Set persistence to local to maintain login across browser sessions
+    setPersistence(auth, browserSessionPersistence).catch(console.error);
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("🔄 Auth state changed:", firebaseUser?.uid, firebaseUser?.email);
+      
       if (firebaseUser) {
-        // Get user data from Firestore
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setUser(userData);
+        try {
+          // Get user data from Firestore
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            console.log("✅ User data loaded:", userData.email, userData.role);
+            setUser(userData);
+          } else {
+            console.warn("⚠️ User document not found for:", firebaseUser.uid);
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("❌ Error loading user data:", error);
+          setUser(null);
         }
       } else {
+        console.log("🚪 User logged out or not authenticated");
         setUser(null);
       }
       setLoading(false);
