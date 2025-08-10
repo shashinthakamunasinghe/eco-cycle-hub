@@ -16,15 +16,16 @@ import type { PickupRequest, CollectorProfile } from "@/types"
 export default function CollectorDashboard() {
   const [isAvailable, setIsAvailable] = useState(true)
   const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([])
+  const [allPickups, setAllPickups] = useState<PickupRequest[]>([]) // Store all pickups for stats
   const [loading, setLoading] = useState(true)
   const [collectorProfile, setCollectorProfile] = useState<CollectorProfile | null>(null)
   const { toast } = useToast()
   const { user } = useFirebaseAuth()
 
-  // Stats computed from real data
+  // Stats computed from ALL pickup data (including completed)
   const stats = {
     assignedPickups: assignedPickups.filter((p) => p.status === "assigned").length,
-    completedToday: assignedPickups.filter((p) => 
+    completedToday: allPickups.filter((p) => 
       p.status === "completed" && 
       p.completedAt && 
       new Date(p.completedAt).toDateString() === new Date().toDateString()
@@ -113,11 +114,15 @@ export default function CollectorDashboard() {
       const pickups = await pickupService.getPickupRequestsByCollector(userCollectorProfile.id)
       console.log("📦 Raw pickups from Firebase:", pickups);
       
-      // Filter to show only active pickups (not completed or cancelled)
+      // Store ALL pickups for stats calculation (including completed)
+      setAllPickups(pickups);
+      
+      // Filter to show only active pickups in the UI (not completed or cancelled)
       const activePickups = pickups.filter(
         (p) => p.status !== "completed" && p.status !== "cancelled"
       )
       console.log("✅ Active pickups after filtering:", activePickups);
+      console.log("📊 Total pickups (including completed):", pickups.length);
       
       setAssignedPickups(activePickups)
     } catch (error) {
