@@ -4,47 +4,61 @@
 export const debugFirebaseAuth = {
   async checkFirebaseConnection() {
     try {
-      console.log("🔍 Firebase Debug - Checking connection...");
+      console.log("Firebase Debug - Checking connection...");
       console.log("Firebase config:", {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
       });
     } catch (error) {
-      console.error("❌ Firebase connection error:", error);
+      console.error("Firebase connection error:", error);
+      if (error && typeof error === "object") {
+        const firebaseError = error as { code?: string; message?: string };
+        console.error(
+          "Error details:",
+          firebaseError.message || "Unknown error"
+        );
+      }
     }
   },
 
   async checkUserInFirestore(uid: string) {
     try {
-      console.log(`🔍 Checking Firestore for user: ${uid}`);
+      console.log(`Checking Firestore for user: ${uid}`);
       const { doc, getDoc } = await import("firebase/firestore");
       const { db } = await import("@/lib/firebase");
 
       const userDoc = await getDoc(doc(db, "users", uid));
 
       if (userDoc.exists()) {
-        console.log("✅ User found in Firestore:", userDoc.data());
+        console.log("User found in Firestore:", userDoc.data());
         return userDoc.data();
       } else {
-        console.log("❌ User not found in Firestore");
+        console.log("User not found in Firestore");
         return null;
       }
     } catch (error) {
-      console.error("❌ Firestore check error:", error);
+      console.error("Firestore check error:", error);
+      if (error && typeof error === "object") {
+        const firestoreError = error as { code?: string; message?: string };
+        console.error(
+          "Error details:",
+          firestoreError.message || "Unknown error"
+        );
+      }
       return null;
     }
   },
 
   async listAllUsers() {
     try {
-      console.log("🔍 Listing all users in Firestore...");
+      console.log("Listing all users in Firestore...");
       const { collection, getDocs } = await import("firebase/firestore");
       const { db } = await import("@/lib/firebase");
 
@@ -54,17 +68,24 @@ export const debugFirebaseAuth = {
         ...doc.data(),
       }));
 
-      console.log("📋 All users:", users);
+      console.log("All users:", users);
       return users;
     } catch (error) {
-      console.error("❌ Error listing users:", error);
+      console.error("Error listing users:", error);
+      if (error && typeof error === "object") {
+        const firestoreError = error as { code?: string; message?: string };
+        console.error(
+          "Error details:",
+          firestoreError.message || "Unknown error"
+        );
+      }
       return [];
     }
   },
 
   async debugLogin(email: string, password: string) {
     try {
-      console.log("🔍 Debug Login Process Starting...");
+      console.log("Debug Login Process Starting...");
       console.log("Email:", email);
 
       // Check Firebase Auth
@@ -72,22 +93,29 @@ export const debugFirebaseAuth = {
       const { auth } = await import("@/lib/firebase");
 
       const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ Firebase Auth successful:", result.user.uid);
+      console.log("Firebase Auth successful:", result.user.uid);
 
       // Check Firestore
       const userData = await this.checkUserInFirestore(result.user.uid);
 
       if (userData) {
-        console.log("✅ Complete login successful");
+        console.log("Complete login successful");
         return userData;
       } else {
-        console.log("❌ Auth successful but user data missing in Firestore");
+        console.log("Auth successful but user data missing in Firestore");
         return null;
       }
     } catch (error) {
-      console.error("❌ Debug login error:", error);
-      console.error("Error code:");
-      console.error("Error message:");
+      console.error("Debug login error:", error);
+      // Handle Firebase AuthError which typically has code and message properties
+      if (error && typeof error === "object") {
+        const firebaseError = error as { code?: string; message?: string };
+        console.error("Error code:", firebaseError.code || "No error code");
+        console.error(
+          "Error message:",
+          firebaseError.message || "No error message"
+        );
+      }
       throw error;
     }
   },
