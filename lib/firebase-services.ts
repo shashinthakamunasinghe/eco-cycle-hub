@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -525,5 +526,56 @@ export const collectorService = {
     await deleteDoc(docRef);
     
     console.log(`✅ Collector ${id} deleted successfully from Firestore`);
+  },
+
+  // Collector Profile operations (separate collection)
+  async getAllCollectorProfiles(): Promise<CollectorProfile[]> {
+    const querySnapshot = await getDocs(collection(db, "collectorProfiles"));
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate(),
+        // joinedDate is stored as a string, not a Timestamp
+        joinedDate: data.joinedDate || new Date().toISOString(),
+      } as unknown as CollectorProfile;
+    });
+  },
+
+  async getCollectorProfile(id: string): Promise<CollectorProfile | null> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate(),
+      // joinedDate is stored as a string, not a Timestamp
+      joinedDate: data.joinedDate || new Date().toISOString(),
+    } as unknown as CollectorProfile;
+  },
+
+  async setCollectorProfile(id: string, profileData: Partial<CollectorProfile>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const updateData = {
+      ...profileData,
+      updatedAt: Timestamp.now(),
+    };
+    
+    await setDoc(docRef, updateData, { merge: true });
+  },
+
+  async updateCollectorProfile(id: string, updates: Partial<CollectorProfile>): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", id);
+    const updateData = {
+      ...updates,
+      updatedAt: Timestamp.now(),
+    };
+    
+    await updateDoc(docRef, updateData);
   },
 };
