@@ -216,7 +216,7 @@ export default function ProductsPage() {
           console.log("Rendering products with IDs:", sortedProducts.map(p => p.id));
           return null;
         })()}
-        {sortedProducts.map((product) => (
+        {sortedProducts.map((product, idx) => (
           <Card
             key={`${product.id}-${idx}`}
             className="group hover:shadow-lg transition-shadow"
