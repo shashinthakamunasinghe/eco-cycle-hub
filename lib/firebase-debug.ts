@@ -7,17 +7,26 @@ export const debugFirebaseAuth = {
       console.log("🔍 Firebase Debug - Checking connection...");
       console.log("Firebase config:", {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-          ? "✅ Set"
-          : "❌ Missing",
+          ? "Set"
+          : "Missing",
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+          ? "Set"
+          : "Missing",
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+          ? "Set"
+          : "Missing",
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+          ? "Set"
+          : "Missing",
       });
     } catch (error) {
-      console.error("❌ Firebase connection error:", error);
+      console.error("Firebase connection error:", error);
     }
   },
 
@@ -30,14 +39,14 @@ export const debugFirebaseAuth = {
       const userDoc = await getDoc(doc(db, "users", uid));
 
       if (userDoc.exists()) {
-        console.log("✅ User found in Firestore:", userDoc.data());
+        console.log("User found in Firestore:", userDoc.data());
         return userDoc.data();
       } else {
-        console.log("❌ User not found in Firestore");
+        console.log("User not found in Firestore");
         return null;
       }
     } catch (error) {
-      console.error("❌ Firestore check error:", error);
+      console.error("Firestore check error:", error);
       return null;
     }
   },
@@ -54,17 +63,17 @@ export const debugFirebaseAuth = {
         ...doc.data(),
       }));
 
-      console.log("📋 All users:", users);
+      console.log("All users:", users);
       return users;
     } catch (error) {
-      console.error("❌ Error listing users:", error);
+      console.error("Error listing users:", error);
       return [];
     }
   },
 
   async debugLogin(email: string, password: string) {
     try {
-      console.log("🔍 Debug Login Process Starting...");
+      console.log("Debug Login Process Starting...");
       console.log("Email:", email);
 
       // Check Firebase Auth
@@ -72,20 +81,20 @@ export const debugFirebaseAuth = {
       const { auth } = await import("@/lib/firebase");
 
       const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ Firebase Auth successful:", result.user.uid);
+      console.log("Firebase Auth successful:", result.user.uid);
 
       // Check Firestore
       const userData = await this.checkUserInFirestore(result.user.uid);
 
       if (userData) {
-        console.log("✅ Complete login successful");
+        console.log("Complete login successful");
         return userData;
       } else {
-        console.log("❌ Auth successful but user data missing in Firestore");
+        console.log("Auth successful but user data missing in Firestore");
         return null;
       }
     } catch (error) {
-      console.error("❌ Debug login error:", error);
+      console.error("Debug login error:", error);
       console.error("Error code:");
       console.error("Error message:");
       throw error;

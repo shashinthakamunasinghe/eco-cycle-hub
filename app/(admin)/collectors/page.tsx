@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { collectorService } from "@/lib/firebase-services"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+import { debugFirebaseAuth } from "@/lib/firebase-debug"
 import type { User } from "@/types"
 
 export default function AdminCollectorsPage() {
@@ -47,6 +48,12 @@ export default function AdminCollectorsPage() {
       try {
         setFetchingCollectors(true)
         console.log("🔄 Fetching collectors from Firestore...")
+        
+        // Debug Firebase connection in development
+        if (process.env.NODE_ENV === "development") {
+          await debugFirebaseAuth.checkFirebaseConnection()
+        }
+        
         const collectorsData = await collectorService.getAllCollectors()
         console.log("✅ Collectors fetched successfully:", collectorsData.length)
         setCollectors(collectorsData)
@@ -92,6 +99,7 @@ export default function AdminCollectorsPage() {
   }
 
   const handleAddCollector = async () => {
+    // Validation checks
     if (newCollector.password !== newCollector.confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -110,10 +118,47 @@ export default function AdminCollectorsPage() {
       return
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newCollector.email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate password strength
+    if (newCollector.password.length < 6) {
+      toast({
+        title: "Weak password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate truck capacity
+    const truckCapacity = Number.parseInt(newCollector.truckCapacity)
+    if (isNaN(truckCapacity) || truckCapacity <= 0) {
+      toast({
+        title: "Invalid truck capacity",
+        description: "Please enter a valid truck capacity (positive number).",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
     try {
       // Create collector user with Firebase Authentication
-      console.log("🔄 Creating new collector...", newCollector)
+      console.log("🔄 Creating new collector...", {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        truckCapacity,
+      })
 
       const newCollectorUser = await register(newCollector.email, newCollector.password, {
         name: newCollector.name,
@@ -122,11 +167,13 @@ export default function AdminCollectorsPage() {
         phone: newCollector.phone,
         isAvailable: true,
         currentLocation: { lat: 6.9271, lng: 79.8612 },
-        truckCapacity: Number.parseInt(newCollector.truckCapacity),
+        truckCapacity,
         currentLoad: 0,
         assignedRequests: [],
         createdAt: new Date(),
       })
+
+      console.log("✅ Collector created successfully:", newCollectorUser.id)
 
       // Update local state
       setCollectors([...collectors, newCollectorUser])
@@ -141,14 +188,36 @@ export default function AdminCollectorsPage() {
       })
 
       toast({
-        title: "Collector added",
+        title: "Collector added successfully",
         description: `${newCollector.name} has been registered as a collector.`,
       })
     } catch (error) {
-      console.error("Error creating collector:", error)
+      console.error("❌ Error creating collector:", error)
+      
+      // More specific error handling
+      let errorMessage = "Failed to create collector. Please try again."
+      
+      if (error instanceof Error) {
+        if (error.message.includes("email-already-in-use")) {
+          errorMessage = "This email is already registered. Please use a different email."
+        } else if (error.message.includes("weak-password")) {
+          errorMessage = "Password is too weak. Please choose a stronger password."
+        } else if (error.message.includes("invalid-email")) {
+          errorMessage = "Invalid email address. Please check the email format."
+        } else if (error.message.includes("operation-not-allowed")) {
+          errorMessage = "Email/password accounts are not enabled. Please contact the administrator."
+        } else if (error.message.includes("network-request-failed")) {
+          errorMessage = "Network error. Please check your internet connection and try again."
+        } else if (error.message.includes("Permission denied")) {
+          errorMessage = "Database permission denied. Please check Firebase security rules."
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       toast({
         title: "Error creating collector",
-        description: error instanceof Error ? error.message : "Failed to create collector. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

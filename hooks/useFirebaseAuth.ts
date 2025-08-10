@@ -92,8 +92,14 @@ export function useFirebaseAuth() {
       setUser(newUser);
       return newUser;
     } catch (error: unknown) {
-      console.error("Registration error:", error);
-      throw new Error("Registration failed");
+      console.error("❌ Registration error:", error);
+      
+      // Preserve the original Firebase error message for better debugging
+      if (error instanceof Error) {
+        throw error;
+      } else {
+        throw new Error("Registration failed - Unknown error");
+      }
     }
   };
 
