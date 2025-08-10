@@ -77,7 +77,7 @@ export function Navbar() {
 
   const getProfileLink = () => {
     if (isShopRoute()) return "/customer-profile";
-    if (user?.role) return "/${user.role}-profile";
+    if (user?.role) return `/${user.role}-profile`;
     return "#";
   };
 
