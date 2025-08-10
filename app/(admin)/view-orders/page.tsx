@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,48 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { mockOrders } from "@/lib/mock-data"
+
+// Define interfaces for type safety
+interface OrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  customerId: string;
+  customerName: string;
+  items: OrderItem[];
+  subtotal?: number;
+  shipping?: number;
+  tax?: number;
+  total: number;
+  status: string;
+  shippingAddress: string;
+  createdAt: Date;
+  deliveredAt?: Date;
+}
+
+interface CustomerOrder {
+  id: string;
+  items: {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image?: string;
+  }[];
+  status: string;
+  paymentId?: string;
+  createdAt: string;
+  subtotal?: number;
+  shipping?: number;
+  tax?: number;
+  total?: number;
+}
+
 import { Package, User, Calendar, DollarSign, Search, Eye, Truck, Home } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -16,38 +58,106 @@ export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentOrder, setCurrentOrder] = useState<any>(null)
+  const [currentOrder, setCurrentOrder] = useState<Order | null>(null)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const { toast } = useToast()
+  
+  // Refresh orders when localStorage changes
+  useEffect(() => {
+    const loadOrders = () => {
+      if (typeof window !== 'undefined') {
+        // Get customer orders from localStorage
+        const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]") as CustomerOrder[];
+        
+        // Filter out invalid orders (empty items or zero value)
+        const validCustomerOrders = customerOrders.filter(order => 
+          order.items && order.items.length > 0 && order.total && order.total > 0
+        );
+        
+        // Format customer orders to match the admin view requirements
+        const formattedCustomerOrders: Order[] = validCustomerOrders.map((order: CustomerOrder) => ({
+          id: order.id,
+          customerId: order.paymentId?.substring(0, 6) || "customer",
+          customerName: "Customer", // We don't have customer name in localStorage
+          items: order.items.map((item) => ({
+            productId: item.id || "",
+            productName: item.name || "",
+            quantity: item.quantity || 0,
+            price: item.price || 0
+          })),
+          subtotal: order.subtotal || 0,
+          shipping: order.shipping || 0,
+          tax: order.tax || 0, 
+          total: (order.total || 0), // Use the actual total from the order
+          status: order.status || "processing",
+          shippingAddress: "Customer Address", // Placeholder as we don't have address
+          createdAt: new Date(order.createdAt || Date.now()),
+        }));
+        
+        // Combine with mock data - keeping only the original mockOrders
+        const mockOrdersFiltered = mockOrders.filter(mock => 
+          !formattedCustomerOrders.some((customerOrder: Order) => customerOrder.id === mock.id)
+        );
+        
+        setOrders([
+          ...formattedCustomerOrders,
+          ...mockOrdersFiltered
+        ]);
+      }
+    };
+    
+    // Load orders on mount
+    loadOrders();
+    
+    // Listen for storage events to refresh orders when they change
+    window.addEventListener('storage', loadOrders);
+    
+    return () => {
+      window.removeEventListener('storage', loadOrders);
+    };
+  }, []);
 
-  // Extended mock orders for demo
-  const [orders, setOrders] = useState([
-    ...mockOrders,
-    {
-      id: "2",
-      customerId: "4",
-      customerName: "John Smith",
-      items: [
-        { productId: "2", productName: "Bio-Degradable Plant Pots", quantity: 3, price: 12.99 },
-        { productId: "3", productName: "Recycled Paper Mulch", quantity: 1, price: 18.99 },
-      ],
-      total: 57.96,
-      status: "shipped" as const,
-      shippingAddress: "456 Green Avenue, Eco City",
-      createdAt: new Date(Date.now() - 86400000),
-    },
-    {
-      id: "3",
-      customerId: "5",
-      customerName: "Sarah Johnson",
-      items: [{ productId: "1", productName: "Organic Compost Fertilizer", quantity: 5, price: 25.99 }],
-      total: 129.95,
-      status: "delivered" as const,
-      shippingAddress: "789 Sustainable Street, Green Town",
-      createdAt: new Date(Date.now() - 172800000),
-      deliveredAt: new Date(Date.now() - 86400000),
-    },
-  ])
+  // Load customer orders from localStorage and combine with mock data
+  const [orders, setOrders] = useState<Order[]>(() => {
+    // Only run in browser environment
+    if (typeof window !== 'undefined') {
+      // Get customer orders from localStorage
+      const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]") as CustomerOrder[];
+      
+      // Filter out invalid orders (empty items or zero value)
+      const validCustomerOrders = customerOrders.filter(order => 
+        order.items && order.items.length > 0 && order.total && order.total > 0
+      );
+      
+      // Format customer orders to match the admin view requirements
+      const formattedCustomerOrders: Order[] = validCustomerOrders.map((order: CustomerOrder) => ({
+        id: order.id,
+        customerId: order.paymentId?.substring(0, 6) || "customer",
+        customerName: "Customer", // We don't have customer name in localStorage
+        items: order.items.map((item) => ({
+          productId: item.id,
+          productName: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        subtotal: order.subtotal || 0,
+        shipping: order.shipping || 0,
+        tax: order.tax || 0,
+        total: order.total || 0, // Use the full total including shipping and tax
+        status: order.status || "processing",
+        shippingAddress: "Customer Address", // Placeholder as we don't have address
+        createdAt: new Date(order.createdAt || Date.now()),
+      }));
+      
+      // Combine with mock data
+      return [
+        ...formattedCustomerOrders,
+        ...mockOrders
+      ];
+    }
+    // Fallback to mock data for SSR
+    return mockOrders;
+  });
 
   const updateOrderStatus = (orderId: string, newStatus: string) => {
     setOrders(
@@ -190,7 +300,7 @@ export default function AdminOrdersPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <DollarSign className="h-4 w-4" />
-                        <span className="font-semibold">${order.total.toFixed(2)}</span>
+                        <span className="font-semibold">${(order.total || 0).toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -201,7 +311,7 @@ export default function AdminOrdersPage() {
                       {order.deliveredAt && (
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-4 w-4" />
-                          <span>Delivered: {order.deliveredAt.toLocaleDateString()}</span>
+                          <span>Delivered: {order.deliveredAt ? order.deliveredAt.toLocaleDateString() : 'Not delivered yet'}</span>
                         </div>
                       )}
                       <div className="text-xs text-gray-500">
@@ -329,7 +439,7 @@ export default function AdminOrdersPage() {
                           Total
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ${currentOrder.total.toFixed(2)}
+                          ${(currentOrder.total || 0).toFixed(2)}
                         </td>
                       </tr>
                     </tfoot>
@@ -373,7 +483,7 @@ export default function AdminOrdersPage() {
                           <div className="h-2 w-2 rounded-full bg-green-500"></div>
                           <p className="text-sm">
                             <span className="font-medium">Delivered</span> -{" "}
-                            {currentOrder.deliveredAt.toLocaleDateString()}
+                            {currentOrder.deliveredAt ? currentOrder.deliveredAt.toLocaleDateString() : 'Not delivered yet'}
                           </p>
                         </div>
                       )}
@@ -459,15 +569,28 @@ export default function AdminOrdersPage() {
                     <div className="p-3 border rounded-lg">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal:</span>
-                        <span>${(currentOrder.total * 0.9).toFixed(2)}</span>
+                        <span>${(currentOrder.subtotal || 0).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tax:</span>
-                        <span>${(currentOrder.total * 0.1).toFixed(2)}</span>
-                      </div>
+                      
+                      {/* Only show shipping in the details */}
+                      {currentOrder.shipping !== undefined && currentOrder.shipping > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Shipping:</span>
+                          <span>${currentOrder.shipping.toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {/* Only show tax in the details */}
+                      {currentOrder.tax !== undefined && currentOrder.tax > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Tax:</span>
+                          <span>${currentOrder.tax.toFixed(2)}</span>
+                        </div>
+                      )}
+                      
                       <div className="flex justify-between text-sm font-medium border-t pt-2 mt-2">
                         <span>Total:</span>
-                        <span>${currentOrder.total.toFixed(2)}</span>
+                        <span>${(currentOrder.total || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -486,7 +609,7 @@ export default function AdminOrdersPage() {
           </DialogHeader>
           <div className="py-4">
             <p className="mb-4">
-              Process payment for Order #{currentOrder?.id} - ${currentOrder?.total.toFixed(2)}
+              Process payment for Order #{currentOrder?.id} - ${(currentOrder?.total || 0).toFixed(2)}
             </p>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
