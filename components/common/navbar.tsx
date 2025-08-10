@@ -1,4 +1,36 @@
+
 "use client";
+
+// Notification counter component for shop
+import React from "react";
+function ShopNotificationCount() {
+  const [count, setCount] = React.useState(0);
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  React.useEffect(() => {
+    function updateCount() {
+      const notifications = JSON.parse(localStorage.getItem("shopNotifications") || "[]");
+      setCount(Array.isArray(notifications) ? notifications.filter((n:any) => !n.read).length : 0);
+    }
+    updateCount();
+    window.addEventListener("storage", updateCount);
+    // Also update on focus (in case notifications are changed in another tab)
+    window.addEventListener("focus", updateCount);
+    // Also update when navigating to the notifications page
+    if (pathname === "/shop-notifications") {
+      updateCount();
+    }
+    return () => {
+      window.removeEventListener("storage", updateCount);
+      window.removeEventListener("focus", updateCount);
+    };
+  }, [pathname]);
+  if (count === 0) return null;
+  return (
+    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
 
 import Link from "next/link";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
@@ -25,6 +57,10 @@ import { useCart } from "@/contexts/CartContext";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+
+
+
 
 // Cart counter component
 function CartItemCount() {
@@ -167,12 +203,12 @@ export function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Left side */}
             <div className="flex items-center">
-              <Link 
-                href={pathname.startsWith("/orders") ? "/products" : "/"} 
+                <Link
+                href={pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "/products" : "/"}
                 className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>{pathname.startsWith("/orders") ? "Back to Products" : "Back Home"}</span>
+                <span>{pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "Back to Products" : "Back Home"}</span>
               </Link>
             </div>
 
@@ -217,9 +253,7 @@ export function Navbar() {
                     className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
                   >
                     <Bell className="h-5 w-5" />
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                      3
-                    </span>
+                    <ShopNotificationCount />
                   </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

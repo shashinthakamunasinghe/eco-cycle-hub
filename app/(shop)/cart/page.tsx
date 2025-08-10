@@ -126,10 +126,9 @@ export default function CartPage() {
       const session = responseText ? JSON.parse(responseText) : {};
       
       // Initialize Stripe
-      const stripe = await getStripe()
-      
+      const stripe = await getStripe();
       if (!stripe) {
-        throw new Error("Failed to initialize Stripe")
+        throw new Error("Failed to initialize Stripe");
       }
       
       // Redirect to checkout

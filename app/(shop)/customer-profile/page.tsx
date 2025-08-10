@@ -3,6 +3,7 @@
 import type React from "react";
 
 import { useState, useEffect } from "react";
+import { updateUserPassword } from "@/lib/firebase-update-password";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,11 @@ export default function ProfilePage() {
     zipCode: "",
     avatar: "",
   });
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -228,6 +234,8 @@ export default function ProfilePage() {
                     id="current-password"
                     type="password"
                     placeholder="Enter your current password"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
                   />
                 </div>
                 <div>
@@ -236,6 +244,8 @@ export default function ProfilePage() {
                     id="new-password"
                     type="password"
                     placeholder="Enter your new password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
                   />
                 </div>
                 <div>
@@ -244,6 +254,8 @@ export default function ProfilePage() {
                     id="confirm-password"
                     type="password"
                     placeholder="Confirm your new password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
                   />
                 </div>
               </div>
@@ -262,9 +274,40 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <Button className="w-full md:w-auto">
+              <Button
+                className="w-full md:w-auto"
+                onClick={async () => {
+                  setIsUpdatingPassword(true);
+                  if (!currentPassword || !newPassword || !confirmPassword) {
+                    toast({ title: "All fields required", description: "Please fill in all password fields.", variant: "destructive" });
+                    setIsUpdatingPassword(false);
+                    return;
+                  }
+                  if (newPassword !== confirmPassword) {
+                    toast({ title: "Passwords do not match", description: "New password and confirmation do not match.", variant: "destructive" });
+                    setIsUpdatingPassword(false);
+                    return;
+                  }
+                  if (newPassword.length < 6) {
+                    toast({ title: "Password too short", description: "Password must be at least 6 characters.", variant: "destructive" });
+                    setIsUpdatingPassword(false);
+                    return;
+                  }
+                  try {
+                    await updateUserPassword(currentPassword, newPassword);
+                    toast({ title: "Password updated", description: "Your password has been updated successfully." });
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                  } catch (err: any) {
+                    toast({ title: "Password update failed", description: err.message || "Could not update password.", variant: "destructive" });
+                  }
+                  setIsUpdatingPassword(false);
+                }}
+                disabled={isUpdatingPassword}
+              >
                 <Save className="h-4 w-4 mr-2" />
-                Update Password
+                {isUpdatingPassword ? "Updating..." : "Update Password"}
               </Button>
             </CardContent>
           </Card>
