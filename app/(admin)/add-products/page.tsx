@@ -116,6 +116,22 @@ export default function AdminProductsPage() {
       return;
     }
 
+    // Check for duplicates
+    const existingProduct = products.find(
+      (product) =>
+        product.name.toLowerCase() === newProduct.name.toLowerCase() &&
+        product.description.toLowerCase() === newProduct.description.toLowerCase()
+    );
+
+    if (existingProduct) {
+      toast({
+        title: "Duplicate Product",
+        description: "A product with this name and description already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const productToAdd = {
         name: newProduct.name,
@@ -128,7 +144,9 @@ export default function AdminProductsPage() {
         reviews: 0,
       };
 
+      console.log('Adding product:', productToAdd);
       await productService.addProduct(productToAdd);
+      
       const updatedProducts = await productService.getAllProducts();
       setProducts(updatedProducts);
       setIsAddDialogOpen(false);
@@ -154,6 +172,8 @@ export default function AdminProductsPage() {
       });
     }
   };
+
+
 
   const handleEditProduct = async () => {
     if (!currentProduct) return;
@@ -182,20 +202,32 @@ export default function AdminProductsPage() {
 
     try {
       await productService.deleteProduct(currentProduct.id);
+      
       const updatedProducts = await productService.getAllProducts();
       setProducts(updatedProducts);
       setIsDeleteDialogOpen(false);
+      setCurrentProduct(null);
 
       toast({
         title: "Product deleted",
         description: `${currentProduct.name} has been removed from the catalog.`,
-        variant: "destructive",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting product:", error);
+      
+      let errorMessage = "Failed to delete product. Please try again.";
+      
+      if (error?.code === 'permission-denied') {
+        errorMessage = "Permission denied. Please ensure you're logged in as an admin.";
+      } else if (error?.code === 'unauthenticated') {
+        errorMessage = "Authentication required. Please log in as an admin.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete product. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -229,7 +261,7 @@ export default function AdminProductsPage() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
@@ -370,9 +402,9 @@ export default function AdminProductsPage() {
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProducts.map((product, idx) => (
+        {filteredProducts.map((product) => (
           <Card
-            key={`${product.id}-${idx}`}
+            key={product.id}
             className="hover:shadow-lg transition-shadow"
           >
             <CardHeader className="p-0">
@@ -403,7 +435,7 @@ export default function AdminProductsPage() {
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={`admin-card-star-${product.id}-${i}`}
+                        key={`star-${product.id}-${i}`}
                         className={`h-4 w-4 ${
                           i < Math.floor(product.rating)
                             ? "text-yellow-400 fill-current"
