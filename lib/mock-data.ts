@@ -1,4 +1,11 @@
-import type { User, PickupRequest, Collector, Product, Order, Notification } from "@/types"
+import type {
+  User,
+  PickupRequest,
+  Collector,
+  Product,
+  Order,
+  Notification,
+} from "@/types";
 
 export const mockUsers: User[] = [
   {
@@ -30,7 +37,7 @@ export const mockUsers: User[] = [
     role: "customer",
     createdAt: new Date(),
   },
-]
+];
 
 export const mockPickupRequests: PickupRequest[] = [
   {
@@ -45,6 +52,7 @@ export const mockPickupRequests: PickupRequest[] = [
       address: "Colombo, Sri Lanka",
     },
     status: "pending",
+    priority: "high",
     requestedAt: new Date(),
   },
   {
@@ -59,12 +67,13 @@ export const mockPickupRequests: PickupRequest[] = [
       address: "Colombo, Sri Lanka",
     },
     status: "completed",
+    priority: "medium",
     collectorId: "3",
     collectorName: "John Collector",
     requestedAt: new Date(Date.now() - 86400000),
     completedAt: new Date(),
   },
-]
+];
 
 export const mockCollectors: Collector[] = [
   {
@@ -78,7 +87,7 @@ export const mockCollectors: Collector[] = [
     currentLoad: 200,
     assignedRequests: ["1"],
   },
-]
+];
 
 export const mockProducts: Product[] = [
   {
@@ -114,7 +123,7 @@ export const mockProducts: Product[] = [
     rating: 4.7,
     reviews: 156,
   },
-]
+];
 
 export const mockOrders: Order[] = [
   {
@@ -134,14 +143,15 @@ export const mockOrders: Order[] = [
     shippingAddress: "123 Green Street, Eco City",
     createdAt: new Date(),
   },
-]
+];
 
 export const mockNotifications: Notification[] = [
   {
     id: "1",
     userId: "2",
     title: "Pickup Request Submitted",
-    message: "Your pickup request for Organic Waste has been submitted successfully.",
+    message:
+      "Your pickup request for Organic Waste has been submitted successfully.",
     type: "success",
     read: false,
     createdAt: new Date(),
@@ -155,4 +165,4 @@ export const mockNotifications: Notification[] = [
     read: false,
     createdAt: new Date(),
   },
-]
+];

@@ -140,11 +140,11 @@ export const userService = {
   async deleteUser(id: string): Promise<void> {
     const user = await this.getUser(id);
     if (!user) throw new Error("User not found");
-    
+
     // Delete the user document from Firestore
     const docRef = doc(db, "users", id);
     await deleteDoc(docRef);
-    
+
     console.log(`✅ User ${id} deleted successfully from Firestore`);
   },
 };
@@ -214,7 +214,8 @@ export const pickupService = {
   ): Promise<PickupRequest[]> {
     const q = query(
       collection(db, "pickupRequests"),
-      orderBy("createdAt", "desc")
+      where("status", "==", status),
+      orderBy("requestedAt", "desc")
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => {
@@ -298,8 +299,8 @@ export const pickupService = {
     updates: Partial<PickupRequest>
   ): Promise<void> {
     const docRef = doc(db, "pickupRequests", id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: Record<string, any> = { ...updates };
+    // Create a shallow copy of the updates without explicit any
+    const updateData: Record<string, unknown> = { ...updates };
 
     // Convert dates to Firestore Timestamps
     if (updateData.scheduledAt) {
@@ -340,8 +341,7 @@ export const pickupService = {
     status: PickupRequest["status"]
   ): Promise<void> {
     const docRef = doc(db, "pickupRequests", id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: Record<string, any> = { status };
+    const updateData: Record<string, string | Timestamp> = { status };
 
     if (status === "completed") {
       updateData.completedAt = Timestamp.now();
@@ -439,7 +439,10 @@ export const collectorService = {
     });
   },
 
-  async updateCollectorAvailability(id: string, isAvailable: boolean): Promise<void> {
+  async updateCollectorAvailability(
+    id: string,
+    isAvailable: boolean
+  ): Promise<void> {
     const docRef = doc(db, "users", id);
     await updateDoc(docRef, {
       isAvailable,
@@ -447,7 +450,10 @@ export const collectorService = {
     });
   },
 
-  async updateCollectorLocation(id: string, location: { lat: number; lng: number }): Promise<void> {
+  async updateCollectorLocation(
+    id: string,
+    location: { lat: number; lng: number }
+  ): Promise<void> {
     const docRef = doc(db, "users", id);
     await updateDoc(docRef, {
       currentLocation: location,
@@ -455,8 +461,12 @@ export const collectorService = {
     });
   },
 
-  async updateCollectorCapacity(id: string, truckCapacity: number, currentLoad?: number): Promise<void> {
-    const updateData: any = {
+  async updateCollectorCapacity(
+    id: string,
+    truckCapacity: number,
+    currentLoad?: number
+  ): Promise<void> {
+    const updateData: Record<string, number | Timestamp> = {
       truckCapacity,
       updatedAt: Timestamp.now(),
     };
@@ -467,11 +477,14 @@ export const collectorService = {
     await updateDoc(docRef, updateData);
   },
 
-  async assignRequestToCollector(collectorId: string, requestId: string): Promise<void> {
+  async assignRequestToCollector(
+    collectorId: string,
+    requestId: string
+  ): Promise<void> {
     const collector = await this.getCollector(collectorId);
     if (!collector) throw new Error("Collector not found");
-    
-    const assignedRequests = (collector as any).assignedRequests || [];
+
+    const assignedRequests = collector.assignedRequests || [];
     const docRef = doc(db, "users", collectorId);
     await updateDoc(docRef, {
       assignedRequests: [...assignedRequests, requestId],
@@ -479,14 +492,19 @@ export const collectorService = {
     });
   },
 
-  async removeRequestFromCollector(collectorId: string, requestId: string): Promise<void> {
+  async removeRequestFromCollector(
+    collectorId: string,
+    requestId: string
+  ): Promise<void> {
     const collector = await this.getCollector(collectorId);
     if (!collector) throw new Error("Collector not found");
-    
-    const assignedRequests = (collector as any).assignedRequests || [];
+
+    const assignedRequests = collector.assignedRequests || [];
     const docRef = doc(db, "users", collectorId);
     await updateDoc(docRef, {
-      assignedRequests: assignedRequests.filter((id: string) => id !== requestId),
+      assignedRequests: assignedRequests.filter(
+        (id: string) => id !== requestId
+      ),
       updatedAt: Timestamp.now(),
     });
   },
@@ -494,11 +512,11 @@ export const collectorService = {
   async deleteCollector(id: string): Promise<void> {
     const collector = await this.getCollector(id);
     if (!collector) throw new Error("Collector not found");
-    
+
     // Delete the collector document from Firestore
     const docRef = doc(db, "users", id);
     await deleteDoc(docRef);
-    
+
     console.log(`✅ Collector ${id} deleted successfully from Firestore`);
   },
 };
