@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const slides = [
   {
@@ -29,32 +29,32 @@ const slides = [
     cta: "Start Shopping",
     link: "/products",
   },
-]
+];
 
 export function ShopSlideshow() {
-  const [currentSlide, setCurrentSlide] = useState(0)
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length)
-    }, 5000)
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
 
-    return () => clearInterval(timer)
-  }, [])
+    return () => clearInterval(timer);
+  }, []);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length)
-  }
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)
-  }
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
 
   return (
     <div className="relative h-48 md:h-64 overflow-hidden bg-gradient-to-r from-green-500 to-emerald-600">
       {slides.map((slide, index) => (
         <div
-          key={slide.id}
+          key={`shop-slide-${slide.id}`}
           className={`absolute inset-0 transition-transform duration-500 ease-in-out ${
             index === currentSlide ? "translate-x-0" : "translate-x-full"
           }`}
@@ -65,9 +65,15 @@ export function ShopSlideshow() {
           <div className="relative h-full">
             <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
               <div className="text-center text-white px-4">
-                <h2 className="text-2xl md:text-4xl font-bold mb-2">{slide.title}</h2>
+                <h2 className="text-2xl md:text-4xl font-bold mb-2">
+                  {slide.title}
+                </h2>
                 <p className="text-sm md:text-lg mb-4">{slide.subtitle}</p>
-                <Button size="sm" className="bg-white text-green-600 hover:bg-gray-100" asChild>
+                <Button
+                  size="sm"
+                  className="bg-white text-green-600 hover:bg-gray-100"
+                  asChild
+                >
                   <a href={slide.link}>{slide.cta}</a>
                 </Button>
               </div>
@@ -97,12 +103,16 @@ export function ShopSlideshow() {
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
         {slides.map((_, index) => (
           <button
-            key={index}
-            className={`w-2 h-2 rounded-full transition-colors ${index === currentSlide ? "bg-white" : "bg-white/50"}`}
+            key={`shop-dot-${index}`}
+            className={`w-2 h-2 rounded-full transition-colors ${
+              index === currentSlide ? "bg-white" : "bg-white/50"
+            }`}
+            aria-label={`Go to slide ${index + 1}`}
+            title={`Go to slide ${index + 1}`}
             onClick={() => setCurrentSlide(index)}
           />
         ))}
       </div>
     </div>
-  )
+  );
 }

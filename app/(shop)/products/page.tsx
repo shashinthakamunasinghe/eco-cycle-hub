@@ -77,7 +77,7 @@ export default function ProductsPage() {
       }
     };
     fetchProducts();
-  }, []);
+  }, [toast]);
 
   const categories = [
     { value: "all", label: "All Categories" },
@@ -218,7 +218,7 @@ export default function ProductsPage() {
         })()}
         {sortedProducts.map((product) => (
           <Card
-            key={product.id}
+            key={`${product.id}-${idx}`}
             className="group hover:shadow-lg transition-shadow"
             onMouseEnter={() => setHoveredProduct(product.id)}
             onMouseLeave={() => setHoveredProduct(null)}

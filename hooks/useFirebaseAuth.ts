@@ -39,19 +39,28 @@ export function useFirebaseAuth() {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log("🔄 Starting login process...");
-      
-      // Clean up any existing authentication state first
-      await cleanupFirebaseAuth();
-      
-      // Set persistence to session for this login
-      await setPersistence(auth, browserSessionPersistence);
-      
-      console.log("🔐 Attempting authentication...");
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ Firebase Auth login successful:", result.user.uid);
+      console.log("🔄 Starting login process...", { 
+        email, 
+        password: password ? "***provided***" : "***missing***",
+        authInstance: !!auth,
+        dbInstance: !!db 
+      });
 
+      if (!email || !password) {
+        throw new Error("Email and password are required");
+      }
+
+      console.log("📡 Attempting Firebase authentication...");
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log("✅ Firebase Auth login successful:", { 
+        uid: result.user.uid,
+        email: result.user.email,
+        emailVerified: result.user.emailVerified 
+      });
+
+      console.log("📄 Fetching user document from Firestore...");
       const userDoc = await getDoc(doc(db, "users", result.user.uid));
+      console.log("📄 User document exists:", userDoc.exists());
 
       if (userDoc.exists()) {
         const userData = userDoc.data() as User;
@@ -59,40 +68,22 @@ export function useFirebaseAuth() {
         setUser(userData);
         return userData;
       } else {
-        console.error(
-          "❌ User document not found in Firestore for UID:",
-          result.user.uid
-        );
-        throw new Error("User data not found");
+        console.error("❌ User document not found in Firestore for UID:", result.user.uid);
+        console.log("🔍 Available collections and documents might be different");
+        throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error: unknown) {
-      console.error("❌ Login error:", error);
+      console.error("❌ Login error details:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as { code?: string })?.code,
+        errorName: (error as { name?: string })?.name
+      });
       
-      // Handle Firebase specific errors
       if (error instanceof Error) {
-        const errorMessage = error.message || "";
-        const errorCode = (error as any).code;
-        
-        if (errorCode === "auth/too-many-requests") {
-          throw new Error("Too many login attempts. Please try again later or reset your password.");
-        } else if (errorCode === "auth/user-not-found") {
-          throw new Error("No account found with this email address");
-        } else if (errorCode === "auth/wrong-password") {
-          throw new Error("Incorrect password");
-        } else if (errorCode === "auth/invalid-email") {
-          throw new Error("Invalid email format");
-        } else if (errorCode === "auth/invalid-credential") {
-          throw new Error("Invalid login credentials. Please check your email and password.");
-        } else if (errorCode === "auth/user-disabled") {
-          throw new Error("This account has been disabled. Please contact support.");
-        } else if (errorCode === "auth/network-request-failed") {
-          throw new Error("Network error. Please check your connection.");
-        } else {
-          throw new Error(errorMessage || "Invalid credentials");
-        }
+        throw error;
       }
-      
-      throw new Error("Authentication failed. Please try again later.");
+      throw new Error("Authentication failed. Please try again.");
     }
   };
 
