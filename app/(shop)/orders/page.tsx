@@ -79,29 +79,16 @@ export default function OrdersPage() {
     }
   }
 
-  if (orders.length === 0) {
+  if (orders.length === 0 && user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          {user ? (
-            <>
-              <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">No orders yet</h2>
-              <p className="text-gray-600 mb-6">You haven't placed any orders yet. Start shopping to see your orders here!</p>
-              <Button asChild>
-                <Link href="/products">Continue Shopping</Link>
-              </Button>
-            </>
-          ) : (
-            <>
-              <ShieldAlert className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Please log in</h2>
-              <p className="text-gray-600 mb-6">You need to be logged in to view your orders.</p>
-              <Button asChild>
-                <Link href="/login">Log In</Link>
-              </Button>
-            </>
-          )}
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No orders yet</h2>
+          <p className="text-gray-600 mb-6">You haven't placed any orders yet. Start shopping to see your orders here!</p>
+          <Button asChild>
+            <Link href="/products">Continue Shopping</Link>
+          </Button>
         </div>
       </div>
     )
