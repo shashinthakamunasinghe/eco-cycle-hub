@@ -1,126 +1,127 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Button } from "@/components/ui/button"
-import { collection, onSnapshot, query } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { collectorService } from "@/lib/firebase-services"
-import type { CollectorProfile, PickupRequest } from "@/types"
-import { MapPin, Phone, Mail, Clock, FileText, Truck, Package, User, Edit, AlertCircle, UserX, Power, MoreVertical, Trash2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
+  Truck,
+  MapPin,
+  Phone,
+  Mail,
+  Search,
+  UserPlus,
+  Eye,
+  Ban,
+  Loader2,
+  Trash2,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+// Commented out unused imports
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { collectorService } from "@/lib/firebase-services";
+import type { CollectorProfile, User as UserType } from "@/types";
 
-export default function CollectorsPage() {
-  const [collectors, setCollectors] = useState<CollectorProfile[]>([])
-  const [pickups, setPickups] = useState<PickupRequest[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingCollector, setEditingCollector] = useState<CollectorProfile | null>(null)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isUpdating, setIsUpdating] = useState(false)
+interface UserWithCollectorFields extends UserType {
+  licenseNumber?: string;
+  vehicleType?: string;
+  vehicleModel?: string;
+  truckCapacity?: number;
+  experience?: string;
+  isAvailable?: boolean;
+  rating?: number;
+  completedPickups?: number;
+  emergencyContact?: string;
+  workingHours?: string;
+  specializations?: string[];
+}
 
-  useEffect(() => {
-    // Set up real-time listeners for collectors and pickups
-    setLoading(true)
-    
-    // Real-time listener for collector profiles
-    const collectorsQuery = query(collection(db, "collectorProfiles"))
-    const unsubscribeCollectors = onSnapshot(collectorsQuery, (snapshot) => {
-      const collectorData: CollectorProfile[] = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        collectorData.push({
-          id: doc.id,
-          name: data.name || "Unknown",
-          email: data.email || "",
-          phone: data.phone || "",
-          address: data.address || "",
-          licenseNumber: data.licenseNumber || "",
-          vehicleType: data.vehicleType || "",
-          vehicleModel: data.vehicleModel || "",
-          vehicleCapacity: data.vehicleCapacity || 0,
-          experience: data.experience || "",
-          status: data.status || "inactive",
-          rating: data.rating || 0,
-          completedPickups: data.completedPickups || 0,
-          joinedDate: data.joinedDate || "",
-          emergencyContact: data.emergencyContact || "",
-          workingHours: data.workingHours || "",
-          specializations: data.specializations || [],
-          isAvailable: data.isAvailable || false,
-          currentLoad: data.currentLoad || 0,
-          currentLocation: data.currentLocation || null,
-          lastActivity: data.lastActivity || null,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        } as CollectorProfile)
-      })
-      setCollectors(collectorData)
-      setLoading(false)
-    }, (error) => {
-      console.error("Error fetching collectors:", error)
-      setLoading(false)
-    })
-    
-    // Real-time listener for all pickup requests
-    const pickupsQuery = query(collection(db, "pickupRequests"))
-    const unsubscribePickups = onSnapshot(pickupsQuery, (snapshot) => {
-      const pickupData: PickupRequest[] = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        pickupData.push({
-          id: doc.id,
-          industryId: data.industryId || "",
-          industryName: data.industryName || "",
-          wasteType: data.wasteType || "",
-          weight: data.weight || 0,
-          location: data.location || { lat: 0, lng: 0, address: "" },
-          status: data.status || "pending",
-          collectorId: data.collectorId || "",
-          collectorName: data.collectorName || "",
-          priority: data.priority || "medium",
-          requestedAt: data.requestedAt?.toDate() || new Date(),
-          scheduledAt: data.scheduledAt?.toDate() || undefined,
-          completedAt: data.completedAt?.toDate() || undefined,
-          cancelledAt: data.cancelledAt?.toDate() || undefined,
-          notes: data.notes || "",
-        } as PickupRequest)
-      })
-      setPickups(pickupData)
-    }, (error) => {
-      console.error("Error fetching pickups:", error)
-    })
-    
-    return () => {
-      unsubscribeCollectors()
-      unsubscribePickups()
+type CollectorWithUser = CollectorProfile & { userInfo?: UserType };
+
+export default function AdminCollectorsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const { register } = useFirebaseAuth();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [viewCollector, setViewCollector] = useState<CollectorWithUser | null>(
+    null
+  );
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [collectorToBlock, setCollectorToBlock] =
+    useState<CollectorWithUser | null>(null);
+  const [collectorToDelete, setCollectorToDelete] =
+    useState<CollectorWithUser | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [collectors, setCollectors] = useState<CollectorWithUser[]>([]);
+
+  const [newCollector, setNewCollector] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    vehicleCapacity: "",
+    vehicleType: "Truck",
+    vehicleModel: "",
+    licenseNumber: "",
+    experience: "0-1 years",
+    emergencyContact: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  // Load collectors from Firebase
+  const loadCollectors = useCallback(async () => {
+    try {
+      setLoading(true);
+      const collectorsData = await collectorService.getAllCollectors();
+      // Transform User[] to CollectorWithUser[] by casting to proper type
+      const transformedCollectors = collectorsData.map((user) => {
+        const userWithCollectorFields = user as UserWithCollectorFields;
+        return {
+          ...user,
+          // Add CollectorProfile specific fields with defaults
+          licenseNumber: userWithCollectorFields.licenseNumber || "",
+          vehicleType: userWithCollectorFields.vehicleType || "Truck",
+          vehicleModel: userWithCollectorFields.vehicleModel || "",
+          vehicleCapacity: user.truckCapacity || 0,
+          experience: userWithCollectorFields.experience || "",
+          status: user.isAvailable ? "active" : "inactive",
+          rating: userWithCollectorFields.rating || 0,
+          completedPickups: userWithCollectorFields.completedPickups || 0,
+          joinedDate: user.createdAt.toISOString(),
+          emergencyContact: userWithCollectorFields.emergencyContact || "",
+          workingHours: userWithCollectorFields.workingHours || "9 AM - 5 PM",
+          specializations: userWithCollectorFields.specializations || [],
+          userInfo: user,
+        };
+      }) as CollectorWithUser[];
+      setCollectors(transformedCollectors);
+    } catch (error) {
+      console.error("Error loading collectors:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load collectors data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [])
+  }, [toast]);
+
 
   // Calculate current load for each collector based on assigned pickups
   const getCollectorWithLoad = (collector: CollectorProfile) => {
@@ -163,71 +164,59 @@ export default function CollectorsPage() {
   
   // Debug logging
   useEffect(() => {
-    if (collectors.length > 0 && pickups.length > 0) {
-      console.log("📊 Pickup Statistics:")
-      console.log("- Total pickups in database:", pickups.length)
-      console.log("- Completed pickups:", totalCompletedPickups)
-      console.log("- Profile completed totals:", totalCompletedFromProfiles)
-      console.log("- Collectors with completedPickups:", collectors.map(c => ({
-        name: c.name,
-        completedPickups: c.completedPickups || 0,
-        isAvailable: c.isAvailable
-      })))
-      console.log("- Available collectors:", collectors.filter(c => c.isAvailable).length)
-      console.log("- Pickup statuses:", [...new Set(pickups.map(p => p.status))])
-    }
-  }, [collectors, pickups, totalCompletedPickups, totalCompletedFromProfiles])
 
-  // Handler functions
-  const handleEditCollector = (collector: CollectorProfile) => {
-    setEditingCollector(collector)
-    setIsEditDialogOpen(true)
-  }
+    loadCollectors();
+  }, [loadCollectors]);
 
-  const handleSaveEdit = async () => {
-    if (!editingCollector) return
-    
-    setIsUpdating(true)
+  const toggleAvailability = async (
+    collectorId: string,
+    currentStatus: boolean
+  ) => {
+    const newStatus = !currentStatus;
     try {
-      await collectorService.updateCollectorProfile(editingCollector.id, editingCollector)
-      setIsEditDialogOpen(false)
-      setEditingCollector(null)
-      console.log("✅ Collector profile updated successfully")
-    } catch (error) {
-      console.error("❌ Error updating collector profile:", error)
-    } finally {
-      setIsUpdating(false)
-    }
-  }
+      // Update in Firebase
+      await collectorService.updateCollectorAvailability(
+        collectorId,
+        newStatus
+      );
 
-  const handleSuspendCollector = async (collector: CollectorProfile) => {
-    if (!confirm(`Are you sure you want to suspend ${collector.name}?`)) return
-    
-    try {
-      await collectorService.updateCollectorProfile(collector.id, {
-        status: "suspended",
-        isAvailable: false
-      })
-      console.log("✅ Collector suspended successfully")
+      // Update local state
+      setCollectors(
+        collectors.map((collector) =>
+          collector.id === collectorId
+            ? { ...collector, isAvailable: newStatus }
+            : collector
+        )
+      );
+      toast({
+        title: "Availability updated",
+        description: `Collector is now ${newStatus ? "available" : "offline"}.`,
+      });
     } catch (error) {
-      console.error("❌ Error suspending collector:", error)
-    }
-  }
+      console.error("Error updating availability:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update collector availability.",
+        variant: "destructive",
+      });
 
-  const handleToggleOffline = async (collector: CollectorProfile) => {
-    const newStatus = collector.status === "offline" ? "active" : "offline"
-    const action = newStatus === "offline" ? "set offline" : "bring online"
-    
-    if (!confirm(`Are you sure you want to ${action} ${collector.name}?`)) return
-    
-    try {
-      await collectorService.updateCollectorProfile(collector.id, {
-        status: newStatus,
-        isAvailable: newStatus === "active"
-      })
-      console.log(`✅ Collector ${action} successfully`)
-    } catch (error) {
-      console.error(`❌ Error changing collector status:`, error)
+    }
+  };
+
+  const handleAddCollector = async () => {
+    // Basic validation
+    if (
+      !newCollector.name ||
+      !newCollector.email ||
+      !newCollector.password ||
+      !newCollector.vehicleCapacity
+    ) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields including password.",
+        variant: "destructive",
+      });
+      return;
     }
   }
 
@@ -236,114 +225,136 @@ export default function CollectorsPage() {
     
     setIsUpdating(true)
     try {
-      console.log("🔄 Syncing completed pickups for all collectors...")
-      
-      for (const collector of collectors) {
-        // Count completed pickups for this collector
-        const collectorCompletedPickups = pickups.filter(
-          pickup => pickup.collectorId === collector.id && pickup.status === 'completed'
-        ).length
-        
-        // Update profile if the count is different
-        if (collectorCompletedPickups !== (collector.completedPickups || 0)) {
-          await collectorService.updateCollectorProfile(collector.id, {
-            completedPickups: collectorCompletedPickups
-          })
-          console.log(`✅ Updated ${collector.name}: ${collectorCompletedPickups} completed pickups`)
-        }
-      }
-      
-      console.log("✅ Completed pickup sync finished")
-      alert("Completed pickup counts have been synchronized!")
+      setLoading(true);
+
+      console.log("🔧 Admin: Creating new collector...", {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        vehicleCapacity: newCollector.vehicleCapacity,
+        hasPassword: !!newCollector.password,
+      });
+
+      // Register user with Firebase Auth and create user document
+      // Ignoring userCredential return value as we don't need it
+      await register(newCollector.email, newCollector.password, {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        role: "collector" as const,
+        // Collector specific fields
+        isAvailable: true,
+        truckCapacity: Number.parseInt(newCollector.vehicleCapacity),
+        currentLoad: 0,
+        assignedRequests: [],
+        createdAt: new Date(),
+      });
+
+      // Reload collectors from Firebase to get the updated list
+      await loadCollectors();
+
+      setIsAddDialogOpen(false);
+      setNewCollector({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        vehicleCapacity: "",
+        vehicleType: "Truck",
+        vehicleModel: "",
+        licenseNumber: "",
+        experience: "0-1 years",
+        emergencyContact: "",
+        password: "",
+        confirmPassword: "",
+      });
+      toast({
+        title: "Collector added",
+        description: `${newCollector.name} has been successfully added as a collector.`,
+      });
     } catch (error) {
-      console.error("❌ Error syncing completed pickups:", error)
-      alert("Error occurred during sync. Check console for details.")
+      console.error("Error adding collector:", error);
+      toast({
+        title: "Error adding collector",
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
     } finally {
-      setIsUpdating(false)
-    }
-  }
+      setLoading(false);
 
-  const handleDeleteCollector = async (collector: CollectorProfile) => {
-    // Check if collector has active assignments
-    const activeAssignments = pickups.filter(
-      pickup => 
-        pickup.collectorId === collector.id && 
-        !['completed', 'cancelled'].includes(pickup.status)
-    )
-
-    if (activeAssignments.length > 0) {
-      alert(`Cannot delete ${collector.name}. They have ${activeAssignments.length} active pickup assignments. Please reassign or complete these pickups first.`)
-      return
     }
+  };
 
-    const confirmMessage = `⚠️ WARNING: This action cannot be undone!\n\nAre you sure you want to permanently delete collector "${collector.name}"?\n\nThis will remove:\n- All profile information\n- Historical data\n- Access to the system\n\nType "DELETE" to confirm:`
-    
-    const userInput = prompt(confirmMessage)
-    if (userInput !== "DELETE") {
-      console.log("Delete operation cancelled")
-      return
-    }
+  const handleViewCollector = (collector: CollectorWithUser) => {
+    setViewCollector(collector);
+    setIsViewDialogOpen(true);
+  };
+
+  // Remove the unused function since toggleAvailability is called directly
+  // If you want to keep this function, you should replace the direct toggleAvailability calls with it
+
+  const handleDeleteCollector = (collector: CollectorWithUser) => {
+    setCollectorToDelete(collector);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCollector = async () => {
+    if (!collectorToDelete) return;
 
     try {
-      // Delete from collector profiles collection
-      await collectorService.deleteCollectorProfile(collector.id)
-      console.log("✅ Collector deleted successfully")
-      
-      // Optional: You might also want to delete from users collection if they exist there
-      // This depends on your data structure
+      setLoading(true);
+      console.log("🗑️ Deleting collector:", collectorToDelete.id);
+
+      // Delete from Firestore
+      await collectorService.deleteCollector(collectorToDelete.id);
+
+      // Update local state
+      setCollectors(collectors.filter((c) => c.id !== collectorToDelete.id));
+      setIsDeleteDialogOpen(false);
+      setCollectorToDelete(null);
+
+      toast({
+        title: "Collector deleted",
+        description: `${collectorToDelete.name} has been permanently deleted from the system.`,
+        variant: "destructive",
+      });
     } catch (error) {
-      console.error("❌ Error deleting collector:", error)
-      alert("Failed to delete collector. Please try again.")
-    }
-  }
+      console.error("❌ Error deleting collector:", error);
+      toast({
+        title: "Error deleting collector",
+        description: "Failed to delete collector. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
 
-  // Get status badge color
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "inactive":
-        return "bg-gray-100 text-gray-800"
-      case "on-duty":
-        return "bg-blue-100 text-blue-800"
-      case "off-duty":
-        return "bg-yellow-100 text-yellow-800"
-      case "offline":
-        return "bg-orange-100 text-orange-800"
-      case "suspended":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
     }
-  }
-  
-  // Get capacity fill color
-  const getCapacityColor = (percentage: number) => {
-    if (percentage >= 90) return "bg-red-500"
-    if (percentage >= 70) return "bg-yellow-500"
-    return "bg-green-500"
-  }
-  
-  // Format date
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Unknown"
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
+  };
 
-  // Format last activity time
-  const formatLastActivity = (lastActivity: string | null | undefined) => {
-    if (!lastActivity) return "Never"
-    const date = new Date(lastActivity)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMins / 60)
-    const diffDays = Math.floor(diffHours / 24)
+  const confirmBlockCollector = async () => {
+    if (!collectorToBlock) return;
+
+    try {
+      await toggleAvailability(
+        collectorToBlock.id,
+        collectorToBlock.isAvailable || false
+      );
+      setIsConfirmDialogOpen(false);
+      setCollectorToBlock(null);
+    } catch (error) {
+      console.error("Error blocking collector:", error);
+    }
+  };
+
+  const filteredCollectors = collectors.filter(
+    (collector) =>
+      collector.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collector.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
 
     if (diffMins < 1) return "Just now"
     if (diffMins < 60) return `${diffMins}m ago`
@@ -361,46 +372,205 @@ export default function CollectorsPage() {
           <p className="mt-4 text-gray-600">Loading collector data...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Collectors Management</h1>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            Export Data
-          </Button>
-          {totalCompletedFromProfiles !== totalCompletedPickups && (
-            <Button 
-              variant="outline" 
-              onClick={handleSyncCompletedPickups}
-              disabled={isUpdating}
-              className="text-orange-600 border-orange-600 hover:bg-orange-50"
-            >
-              {isUpdating ? "Syncing..." : "Sync Pickup Counts"}
-            </Button>
-          )}
-          <Button>
-            Add New Collector
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Collector Management
+          </h1>
+          <p className="text-gray-600">
+            Manage {filteredCollectors.length} collector
+            {filteredCollectors.length !== 1 ? "s" : ""}
+          </p>
+          <p className="text-gray-600 mt-2">
+            Manage waste collectors and their assignments
+          </p>
         </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Collector
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Register New Collector</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={newCollector.name}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter collector's full name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newCollector.email}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={newCollector.phone}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newCollector.address}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      address: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicleCapacity">Vehicle Capacity (kg)</Label>
+                <Input
+                  id="vehicleCapacity"
+                  type="number"
+                  value={newCollector.vehicleCapacity}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      vehicleCapacity: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter vehicle capacity in kg"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newCollector.password}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={newCollector.confirmPassword}
+                  onChange={(e) =>
+                    setNewCollector((prev) => ({
+                      ...prev,
+                      confirmPassword: e.target.value,
+                    }))
+                  }
+                  placeholder="Confirm password"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleAddCollector} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Add Collector"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-      
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          placeholder="Search collectors..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Total Collectors</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Collectors
+            </CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{collectors.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Collectors
+            </CardTitle>
+            <Truck className="h-4 w-4 text-green-600" />
+
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{collectors.length}</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Available Online</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Offline Collectors
+            </CardTitle>
+            <Truck className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-green-600">
@@ -411,95 +581,51 @@ export default function CollectorsPage() {
             </p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Total Pickups Completed</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              With Assignments
+            </CardTitle>
+            <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">
-              {totalCompletedPickups}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Completed status in database
-            </p>
-            {totalCompletedFromProfiles !== totalCompletedPickups && (
-              <p className="text-xs text-orange-600 mt-1">
-                Profile totals: {totalCompletedFromProfiles} (may need sync)
-              </p>
-            )}
+            <div className="text-2xl font-bold text-blue-600">
+              {
+                collectors.filter((c) => (c.assignedRequests?.length || 0) > 0)
+                  .length
+              }
+            </div>
+
           </CardContent>
         </Card>
       </div>
       
       {/* Collectors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {collectorsWithLoad.map(collector => (
-          <Card key={collector.id} className="overflow-hidden">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center">
-                    <span className={`w-3 h-3 rounded-full mr-2 ${collector.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                    {collector.name}
-                  </CardTitle>
-                  <CardDescription className="flex items-center mt-1 space-x-2">
-                    <Badge className={getStatusColor(collector.status)}>
-                      {collector.status || "Unknown Status"}
-                    </Badge>
-                    <Badge 
-                      variant={collector.isAvailable ? "default" : "secondary"}
-                      className={collector.isAvailable ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                    >
-                      {collector.isAvailable ? "Online" : "Offline"}
-                    </Badge>
-                    <span className="text-sm">ID: {collector.id.substring(0, 6)}...</span>
-                  </CardDescription>
-                </div>
-                <div className="flex space-x-1">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={() => handleEditCollector(collector)}
+
+        {filteredCollectors.map((collector) => (
+          <Card
+            key={collector.id}
+            className="hover:shadow-md transition-shadow"
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center space-x-3">
+                <Avatar>
+                  <AvatarImage
+                    src={collector.avatar || "/placeholder-user.jpg"}
+                    alt={collector.name}
+                  />
+                  <AvatarFallback>{collector.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <h3 className="font-semibold">{collector.name}</h3>
+                  <Badge
+                    variant={collector.isAvailable ? "default" : "secondary"}
                   >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditCollector(collector)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleToggleOffline(collector)}
-                        className={collector.status === "offline" ? "text-green-600" : "text-yellow-600"}
-                      >
-                        <Power className="h-4 w-4 mr-2" />
-                        {collector.status === "offline" ? "Bring Online" : "Set Offline"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleSuspendCollector(collector)}
-                        className="text-red-600"
-                      >
-                        <UserX className="h-4 w-4 mr-2" />
-                        Suspend Collector
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteCollector(collector)}
-                        className="text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Collector
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    {collector.isAvailable ? "Available" : "Offline"}
+                  </Badge>
+
                 </div>
               </div>
             </CardHeader>
@@ -536,6 +662,15 @@ export default function CollectorsPage() {
                     <p>{collector.vehicleModel || "Not specified"}</p>
                   </div>
                 </div>
+
+              )}
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <Truck className="h-4 w-4" />
+                <span>
+                  {collector.currentLoad || 0}kg /{" "}
+                  {collector.vehicleCapacity || 0}kg
+                </span>
+
               </div>
               
               {/* Capacity Gauge */}
@@ -546,43 +681,39 @@ export default function CollectorsPage() {
                     {collector.currentLoad || 0}kg / {collector.vehicleCapacity || 0}kg
                   </span>
                 </div>
-                <Progress 
-                  value={collector.capacityPercentage || 0} 
-                  className={`h-2 ${getCapacityColor(collector.capacityPercentage || 0)}`} 
-                />
-                
-                {/* Warning for high capacity */}
-                {collector.capacityPercentage > 90 && (
-                  <div className="flex items-center mt-2 text-red-600 text-sm">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    <span>Near maximum capacity!</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Current Assignment */}
-              <div>
-                <h4 className="font-medium text-sm mb-2 flex items-center">
-                  <Package className="h-4 w-4 mr-2" />
-                  Current Assignments
-                </h4>
-                {collector.assignedPickups?.length > 0 ? (
-                  <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-                    {collector.assignedPickups.map(pickup => (
-                      <div key={pickup.id} className="bg-blue-50 p-2 rounded text-xs">
-                        <div className="flex justify-between">
-                          <span className="font-medium">{pickup.wasteType}</span>
-                          <Badge variant="outline">{pickup.status}</Badge>
-                        </div>
-                        <div className="mt-1 text-gray-600">
-                          {pickup.weight}kg from {pickup.industryName}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">No current assignments</p>
-                )}
+              )}
+
+              <div className="flex justify-between space-x-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleViewCollector(collector)}
+                >
+                  <Eye className="mr-1 h-3 w-3" />
+                  View
+                </Button>
+                <Button
+                  variant={collector.isAvailable ? "destructive" : "default"}
+                  size="sm"
+                  onClick={() =>
+                    toggleAvailability(
+                      collector.id,
+                      collector.isAvailable || false
+                    )
+                  }
+                >
+                  <Ban className="mr-1 h-3 w-3" />
+                  {collector.isAvailable ? "Offline" : "Online"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteCollector(collector)}
+                >
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  Delete
+                </Button>
+
               </div>
             </CardContent>
             <CardFooter className="bg-gray-50 border-t px-6 py-3">
@@ -604,15 +735,13 @@ export default function CollectorsPage() {
           </Card>
         ))}
       </div>
-      
-      {collectors.length === 0 && (
-        <div className="text-center p-12 border rounded-lg bg-gray-50">
-          <User className="h-12 w-12 mx-auto text-gray-400" />
-          <h3 className="mt-4 text-lg font-medium">No Collectors Found</h3>
-          <p className="mt-2 text-gray-600">
-            There are no registered collectors in the system.
+
+      {filteredCollectors.length === 0 && !loading && (
+        <div className="text-center py-8">
+          <p className="text-gray-500">
+            No collectors found matching your search.
           </p>
-          <Button className="mt-4">Add Your First Collector</Button>
+
         </div>
       )}
       
@@ -625,170 +754,175 @@ export default function CollectorsPage() {
               Update collector information and vehicle details.
             </DialogDescription>
           </DialogHeader>
-          
-          {editingCollector && (
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={editingCollector.name}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      name: e.target.value
-                    })}
+          {viewCollector && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage
+                    src={viewCollector.avatar || "/placeholder-user.jpg"}
+                    alt={viewCollector.name}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={editingCollector.email}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      email: e.target.value
-                    })}
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={editingCollector.phone}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      phone: e.target.value
-                    })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={editingCollector.status}
-                    onValueChange={(value) => setEditingCollector({
-                      ...editingCollector,
-                      status: value
-                    })}
+                  <AvatarFallback>
+                    {viewCollector.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-xl font-semibold">
+                    {viewCollector.name}
+                  </h3>
+                  <Badge
+                    variant={
+                      viewCollector.isAvailable ? "default" : "secondary"
+                    }
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="on-duty">On Duty</SelectItem>
-                      <SelectItem value="off-duty">Off Duty</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {viewCollector.isAvailable ? "Available" : "Offline"}
+                  </Badge>
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  value={editingCollector.address}
-                  onChange={(e) => setEditingCollector({
-                    ...editingCollector,
-                    address: e.target.value
-                  })}
-                />
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleType">Vehicle Type</Label>
-                  <Input
-                    id="vehicleType"
-                    value={editingCollector.vehicleType}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      vehicleType: e.target.value
-                    })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleModel">Vehicle Model</Label>
-                  <Input
-                    id="vehicleModel"
-                    value={editingCollector.vehicleModel}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      vehicleModel: e.target.value
-                    })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleCapacity">Vehicle Capacity (kg)</Label>
-                  <Input
-                    id="vehicleCapacity"
-                    type="number"
-                    value={editingCollector.vehicleCapacity}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      vehicleCapacity: parseFloat(e.target.value) || 0
-                    })}
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="licenseNumber">License Number</Label>
-                  <Input
-                    id="licenseNumber"
-                    value={editingCollector.licenseNumber}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      licenseNumber: e.target.value
-                    })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContact">Emergency Contact</Label>
-                  <Input
-                    id="emergencyContact"
-                    value={editingCollector.emergencyContact}
-                    onChange={(e) => setEditingCollector({
-                      ...editingCollector,
-                      emergencyContact: e.target.value
-                    })}
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="workingHours">Working Hours</Label>
-                <Input
-                  id="workingHours"
-                  value={editingCollector.workingHours}
-                  onChange={(e) => setEditingCollector({
-                    ...editingCollector,
-                    workingHours: e.target.value
-                  })}
-                  placeholder="e.g., 9:00 AM - 5:00 PM"
-                />
-              </div>
+
+              <Tabs defaultValue="details" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="assignments">Assignments</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="details" className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Email</Label>
+                      <p className="text-sm text-gray-600">
+                        {viewCollector.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Phone</Label>
+                      <p className="text-sm text-gray-600">
+                        {viewCollector.phone}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Address</Label>
+                      <p className="text-sm text-gray-600">
+                        {viewCollector.address}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Vehicle Capacity</Label>
+                      <p className="text-sm text-gray-600">
+                        {viewCollector.vehicleCapacity}kg
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button
+                      variant={
+                        viewCollector.isAvailable ? "destructive" : "default"
+                      }
+                      onClick={() => {
+                        toggleAvailability(
+                          viewCollector.id,
+                          viewCollector.isAvailable || false
+                        );
+                        setViewCollector({
+                          ...viewCollector,
+                          isAvailable: !viewCollector.isAvailable,
+                        });
+                      }}
+                    >
+                      {viewCollector.isAvailable
+                        ? "Set Offline"
+                        : "Set Available"}
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="assignments" className="py-4">
+                  {(viewCollector.assignedRequests?.length || 0) > 0 ? (
+                    <div className="space-y-2">
+                      {viewCollector.assignedRequests?.map(
+                        (requestId: string) => (
+                          <div key={requestId} className="p-3 border rounded">
+                            <p className="text-sm">Request ID: {requestId}</p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No current assignments</p>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Confirmation Dialog */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Status Change</DialogTitle>
+          </DialogHeader>
+          <p>
+            Are you sure you want to change the availability status of{" "}
+            <span className="font-semibold">{collectorToBlock?.name}</span>?
+          </p>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={isUpdating}>
-              {isUpdating ? "Saving..." : "Save Changes"}
+            <Button onClick={confirmBlockCollector}>Confirm</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              <span>Delete Collector</span>
+            </DialogTitle>
+          </DialogHeader>
+          <p>
+            Are you sure you want to permanently delete{" "}
+            <span className="font-semibold">{collectorToDelete?.name}</span>?
+            All associated data will be removed and this action cannot be
+            undone.
+          </p>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteCollector}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Permanently
+                </>
+              )}
+
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
