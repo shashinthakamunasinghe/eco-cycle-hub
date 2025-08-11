@@ -29,14 +29,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  // Clean up authentication state when component mounts
-  useEffect(() => {
-    const cleanup = async () => {
-      await cleanupFirebaseAuth();
-    };
-    
-    cleanup();
-  }, []);
+  // Removed automatic cleanupFirebaseAuth to allow persistent login
   
   // Function to fix authentication issues
   const fixAuthIssues = async () => {

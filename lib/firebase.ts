@@ -44,6 +44,11 @@ if (typeof window !== "undefined") {
     // Set persistence to session (instead of local storage)
     setPersistence(auth, browserSessionPersistence).catch((error) => {
 
+// Set persistence to local (keep user logged in until logout)
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence)
+    .catch(error => {
+
       console.error("Firebase auth persistence error:", error);
     });
 

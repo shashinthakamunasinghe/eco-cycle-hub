@@ -7,7 +7,7 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  browserSessionPersistence,
+  browserLocalPersistence,
   setPersistence,
 } from "firebase/auth";
 import { cleanupFirebaseAuth } from "@/lib/firebase-auth-cleanup";
@@ -20,8 +20,8 @@ export function useFirebaseAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set persistence to local to maintain login across browser sessions
-    setPersistence(auth, browserSessionPersistence).catch(console.error);
+  // Set persistence to local to maintain login across browser sessions
+  setPersistence(auth, browserLocalPersistence).catch(console.error);
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log("🔄 Auth state changed:", firebaseUser?.uid, firebaseUser?.email);
