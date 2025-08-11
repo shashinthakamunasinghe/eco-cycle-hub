@@ -573,4 +573,10 @@ export const collectorService = {
     
     await updateDoc(docRef, updateData);
   },
+
+  async deleteCollectorProfile(id: string): Promise<void> {
+    const docRef = doc(db, "collectorProfiles", id);
+    await deleteDoc(docRef);
+    console.log(`✅ Collector profile ${id} deleted successfully from Firestore`);
+  },
 };

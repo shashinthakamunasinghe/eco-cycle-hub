@@ -7,13 +7,42 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { collection, onSnapshot, query } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { collectorService } from "@/lib/firebase-services"
 import type { CollectorProfile, PickupRequest } from "@/types"
-import { MapPin, Phone, Mail, Clock, FileText, Truck, Package, User, Edit, AlertCircle } from "lucide-react"
+import { MapPin, Phone, Mail, Clock, FileText, Truck, Package, User, Edit, AlertCircle, UserX, Power, MoreVertical, Trash2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function CollectorsPage() {
   const [collectors, setCollectors] = useState<CollectorProfile[]>([])
   const [pickups, setPickups] = useState<PickupRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingCollector, setEditingCollector] = useState<CollectorProfile | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
     // Set up real-time listeners for collectors and pickups
@@ -125,6 +154,93 @@ export default function CollectorsPage() {
   // Apply load calculations to all collectors
   const collectorsWithLoad = collectors.map(getCollectorWithLoad)
 
+  // Handler functions
+  const handleEditCollector = (collector: CollectorProfile) => {
+    setEditingCollector(collector)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingCollector) return
+    
+    setIsUpdating(true)
+    try {
+      await collectorService.updateCollectorProfile(editingCollector.id, editingCollector)
+      setIsEditDialogOpen(false)
+      setEditingCollector(null)
+      console.log("✅ Collector profile updated successfully")
+    } catch (error) {
+      console.error("❌ Error updating collector profile:", error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleSuspendCollector = async (collector: CollectorProfile) => {
+    if (!confirm(`Are you sure you want to suspend ${collector.name}?`)) return
+    
+    try {
+      await collectorService.updateCollectorProfile(collector.id, {
+        status: "suspended",
+        isAvailable: false
+      })
+      console.log("✅ Collector suspended successfully")
+    } catch (error) {
+      console.error("❌ Error suspending collector:", error)
+    }
+  }
+
+  const handleToggleOffline = async (collector: CollectorProfile) => {
+    const newStatus = collector.status === "offline" ? "active" : "offline"
+    const action = newStatus === "offline" ? "set offline" : "bring online"
+    
+    if (!confirm(`Are you sure you want to ${action} ${collector.name}?`)) return
+    
+    try {
+      await collectorService.updateCollectorProfile(collector.id, {
+        status: newStatus,
+        isAvailable: newStatus === "active"
+      })
+      console.log(`✅ Collector ${action} successfully`)
+    } catch (error) {
+      console.error(`❌ Error changing collector status:`, error)
+    }
+  }
+
+  const handleDeleteCollector = async (collector: CollectorProfile) => {
+    // Check if collector has active assignments
+    const activeAssignments = pickups.filter(
+      pickup => 
+        pickup.collectorId === collector.id && 
+        !['completed', 'cancelled'].includes(pickup.status)
+    )
+
+    if (activeAssignments.length > 0) {
+      alert(`Cannot delete ${collector.name}. They have ${activeAssignments.length} active pickup assignments. Please reassign or complete these pickups first.`)
+      return
+    }
+
+    const confirmMessage = `⚠️ WARNING: This action cannot be undone!\n\nAre you sure you want to permanently delete collector "${collector.name}"?\n\nThis will remove:\n- All profile information\n- Historical data\n- Access to the system\n\nType "DELETE" to confirm:`
+    
+    const userInput = prompt(confirmMessage)
+    if (userInput !== "DELETE") {
+      console.log("Delete operation cancelled")
+      return
+    }
+
+    try {
+      // Delete from collector profiles collection
+      await collectorService.deleteCollectorProfile(collector.id)
+      console.log("✅ Collector deleted successfully")
+      
+      // Optional: You might also want to delete from users collection if they exist there
+      // This depends on your data structure
+    } catch (error) {
+      console.error("❌ Error deleting collector:", error)
+      alert("Failed to delete collector. Please try again.")
+    }
+  }
+
   // Get status badge color
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -136,6 +252,10 @@ export default function CollectorsPage() {
         return "bg-blue-100 text-blue-800"
       case "off-duty":
         return "bg-yellow-100 text-yellow-800"
+      case "offline":
+        return "bg-orange-100 text-orange-800"
+      case "suspended":
+        return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -233,9 +353,50 @@ export default function CollectorsPage() {
                   </CardDescription>
                 </div>
                 <div className="flex space-x-1">
-                  <Button variant="outline" size="icon" className="h-8 w-8">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => handleEditCollector(collector)}
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditCollector(collector)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleOffline(collector)}
+                        className={collector.status === "offline" ? "text-green-600" : "text-yellow-600"}
+                      >
+                        <Power className="h-4 w-4 mr-2" />
+                        {collector.status === "offline" ? "Bring Online" : "Set Offline"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleSuspendCollector(collector)}
+                        className="text-red-600"
+                      >
+                        <UserX className="h-4 w-4 mr-2" />
+                        Suspend Collector
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteCollector(collector)}
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Collector
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>
@@ -345,6 +506,180 @@ export default function CollectorsPage() {
           <Button className="mt-4">Add Your First Collector</Button>
         </div>
       )}
+      
+      {/* Edit Collector Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Collector Profile</DialogTitle>
+            <DialogDescription>
+              Update collector information and vehicle details.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingCollector && (
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={editingCollector.name}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      name: e.target.value
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={editingCollector.email}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      email: e.target.value
+                    })}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={editingCollector.phone}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      phone: e.target.value
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={editingCollector.status}
+                    onValueChange={(value) => setEditingCollector({
+                      ...editingCollector,
+                      status: value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="on-duty">On Duty</SelectItem>
+                      <SelectItem value="off-duty">Off Duty</SelectItem>
+                      <SelectItem value="offline">Offline</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  value={editingCollector.address}
+                  onChange={(e) => setEditingCollector({
+                    ...editingCollector,
+                    address: e.target.value
+                  })}
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleType">Vehicle Type</Label>
+                  <Input
+                    id="vehicleType"
+                    value={editingCollector.vehicleType}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      vehicleType: e.target.value
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleModel">Vehicle Model</Label>
+                  <Input
+                    id="vehicleModel"
+                    value={editingCollector.vehicleModel}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      vehicleModel: e.target.value
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleCapacity">Vehicle Capacity (kg)</Label>
+                  <Input
+                    id="vehicleCapacity"
+                    type="number"
+                    value={editingCollector.vehicleCapacity}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      vehicleCapacity: parseFloat(e.target.value) || 0
+                    })}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="licenseNumber">License Number</Label>
+                  <Input
+                    id="licenseNumber"
+                    value={editingCollector.licenseNumber}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      licenseNumber: e.target.value
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                  <Input
+                    id="emergencyContact"
+                    value={editingCollector.emergencyContact}
+                    onChange={(e) => setEditingCollector({
+                      ...editingCollector,
+                      emergencyContact: e.target.value
+                    })}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="workingHours">Working Hours</Label>
+                <Input
+                  id="workingHours"
+                  value={editingCollector.workingHours}
+                  onChange={(e) => setEditingCollector({
+                    ...editingCollector,
+                    workingHours: e.target.value
+                  })}
+                  placeholder="e.g., 9:00 AM - 5:00 PM"
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
