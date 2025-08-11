@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Star, ShoppingCart, Heart, Search, Eye } from "lucide-react";
+import { Star, ShoppingCart, Search, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { productService } from "@/lib/firebase-services";
@@ -143,12 +143,7 @@ export default function ProductsPage() {
     }
   };
 
-  // Removed wishlist functionality
-  const addToWishlist = (productId: string, productName: string) => {
-    // Function left as a placeholder to avoid breaking existing UI elements
-    // This will be removed in future updates
-    console.log("Wishlist functionality has been removed");
-  };
+  // Wishlist functionality has been completely removed
 
   return (
     <div className="space-y-6">

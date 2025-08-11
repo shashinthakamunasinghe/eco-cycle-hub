@@ -102,7 +102,7 @@ export default function IndustryDashboard() {
   const updateLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (_position) => {
+        () => {
           // Mock reverse geocoding with random locations
           const locations = [
             "Colombo 03, Sri Lanka",
@@ -120,7 +120,7 @@ export default function IndustryDashboard() {
             description: `Your location has been updated to ${newLocation}`,
           });
         },
-        (_error) => {
+        () => {
           toast({
             title: "Location error",
             description: "Unable to get your location. Using default location.",
