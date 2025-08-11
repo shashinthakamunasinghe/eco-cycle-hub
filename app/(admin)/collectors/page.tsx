@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +23,16 @@ import {
   Ban,
   Loader2,
   Trash2,
+  Clock,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -53,6 +63,7 @@ type CollectorWithUser = CollectorProfile & { userInfo?: UserType };
 export default function AdminCollectorsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
   const { register } = useFirebaseAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -60,6 +71,7 @@ export default function AdminCollectorsPage() {
     null
   );
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [collectorToBlock, setCollectorToBlock] =
     useState<CollectorWithUser | null>(null);
@@ -67,6 +79,8 @@ export default function AdminCollectorsPage() {
     useState<CollectorWithUser | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [collectors, setCollectors] = useState<CollectorWithUser[]>([]);
+  // Mock pickups data until we can fetch real data
+  const [pickups, setPickups] = useState<any[]>([]);
 
   const [newCollector, setNewCollector] = useState({
     name: "",
@@ -122,49 +136,55 @@ export default function AdminCollectorsPage() {
     }
   }, [toast]);
 
-
   // Calculate current load for each collector based on assigned pickups
   const getCollectorWithLoad = (collector: CollectorProfile) => {
     // Get all assigned pickups for this collector that are not completed or cancelled
     const collectorPickups = pickups.filter(
-      pickup => 
-        pickup.collectorId === collector.id && 
-        !['completed', 'cancelled'].includes(pickup.status)
-    )
-    
+      (pickup) =>
+        pickup.collectorId === collector.id &&
+        !["completed", "cancelled"].includes(pickup.status)
+    );
+
     // Calculate total weight of assigned pickups
-    const assignedLoad = collectorPickups.reduce((sum, pickup) => sum + pickup.weight, 0)
-    
+    const assignedLoad = collectorPickups.reduce(
+      (sum, pickup) => sum + pickup.weight,
+      0
+    );
+
     // Get vehicle capacity as a number
-    const vehicleCapacity = typeof collector.vehicleCapacity === 'string' 
-      ? parseFloat(collector.vehicleCapacity) 
-      : collector.vehicleCapacity || 0
-    
+    const vehicleCapacity =
+      typeof collector.vehicleCapacity === "string"
+        ? parseFloat(collector.vehicleCapacity)
+        : collector.vehicleCapacity || 0;
+
     // Calculate capacity percentage
-    const capacityPercentage = vehicleCapacity > 0 
-      ? (assignedLoad / vehicleCapacity) * 100 
-      : 0
-    
+    const capacityPercentage =
+      vehicleCapacity > 0 ? (assignedLoad / vehicleCapacity) * 100 : 0;
+
     return {
       ...collector,
       currentLoad: assignedLoad,
       capacityPercentage: Math.min(capacityPercentage, 100), // Cap at 100%
       assignedPickups: collectorPickups,
-    }
-  }
-  
+    };
+  };
+
   // Apply load calculations to all collectors
-  const collectorsWithLoad = collectors.map(getCollectorWithLoad)
+  const collectorsWithLoad = collectors.map(getCollectorWithLoad);
 
   // Calculate total completed pickups from actual pickup data
-  const totalCompletedPickups = pickups.filter(pickup => pickup.status === 'completed').length
-  
+  const totalCompletedPickups = pickups.filter(
+    (pickup) => pickup.status === "completed"
+  ).length;
+
   // Alternative: Calculate by collector profile data
-  const totalCompletedFromProfiles = collectors.reduce((sum, c) => sum + (c.completedPickups || 0), 0)
-  
+  const totalCompletedFromProfiles = collectors.reduce(
+    (sum, c) => sum + (c.completedPickups || 0),
+    0
+  );
+
   // Debug logging
   useEffect(() => {
-
     loadCollectors();
   }, [loadCollectors]);
 
@@ -199,7 +219,6 @@ export default function AdminCollectorsPage() {
         description: "Failed to update collector availability.",
         variant: "destructive",
       });
-
     }
   };
 
@@ -218,12 +237,17 @@ export default function AdminCollectorsPage() {
       });
       return;
     }
-  }
+  };
 
   const handleSyncCompletedPickups = async () => {
-    if (!confirm("This will update all collector profiles with their actual completed pickup counts from the database. Continue?")) return
-    
-    setIsUpdating(true)
+    if (
+      !confirm(
+        "This will update all collector profiles with their actual completed pickup counts from the database. Continue?"
+      )
+    )
+      return;
+
+    setIsUpdating(true);
     try {
       setLoading(true);
 
@@ -284,7 +308,6 @@ export default function AdminCollectorsPage() {
       });
     } finally {
       setLoading(false);
-
     }
   };
 
@@ -330,7 +353,6 @@ export default function AdminCollectorsPage() {
       });
     } finally {
       setLoading(false);
-
     }
   };
 
@@ -355,13 +377,34 @@ export default function AdminCollectorsPage() {
       collector.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Format date utility function
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
-    if (diffMins < 1) return "Just now"
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+  // Format last activity function
+  const formatLastActivity = (timestamp?: Date | string) => {
+    if (!timestamp) return "Never";
+
+    const date =
+      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
   // Show loading state
   if (loading) {
@@ -558,7 +601,6 @@ export default function AdminCollectorsPage() {
               Active Collectors
             </CardTitle>
             <Truck className="h-4 w-4 text-green-600" />
-
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{collectors.length}</p>
@@ -574,7 +616,7 @@ export default function AdminCollectorsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-green-600">
-              {collectors.filter(c => c.isAvailable === true).length}
+              {collectors.filter((c) => c.isAvailable === true).length}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Ready for new pickups
@@ -596,14 +638,12 @@ export default function AdminCollectorsPage() {
                   .length
               }
             </div>
-
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Collectors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
         {filteredCollectors.map((collector) => (
           <Card
             key={collector.id}
@@ -625,7 +665,6 @@ export default function AdminCollectorsPage() {
                   >
                     {collector.isAvailable ? "Available" : "Offline"}
                   </Badge>
-
                 </div>
               </div>
             </CardHeader>
@@ -642,10 +681,12 @@ export default function AdminCollectorsPage() {
                 </div>
                 <div className="flex items-center text-sm">
                   <MapPin className="h-4 w-4 mr-2 text-gray-500" />
-                  <span className="truncate">{collector.address || "No address"}</span>
+                  <span className="truncate">
+                    {collector.address || "No address"}
+                  </span>
                 </div>
               </div>
-              
+
               {/* Vehicle Info */}
               <div className="bg-gray-50 p-3 rounded-md">
                 <h4 className="font-medium text-sm flex items-center">
@@ -662,26 +703,26 @@ export default function AdminCollectorsPage() {
                     <p>{collector.vehicleModel || "Not specified"}</p>
                   </div>
                 </div>
+              </div>
 
-              )}
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <Truck className="h-4 w-4" />
                 <span>
                   {collector.currentLoad || 0}kg /{" "}
                   {collector.vehicleCapacity || 0}kg
                 </span>
-
               </div>
-              
+
               {/* Capacity Gauge */}
               <div>
                 <div className="flex justify-between mb-1 text-sm">
                   <span>Truck Capacity</span>
                   <span className="font-medium">
-                    {collector.currentLoad || 0}kg / {collector.vehicleCapacity || 0}kg
+                    {collector.currentLoad || 0}kg /{" "}
+                    {collector.vehicleCapacity || 0}kg
                   </span>
                 </div>
-              )}
+              </div>
 
               <div className="flex justify-between space-x-2 pt-2">
                 <Button
@@ -713,7 +754,6 @@ export default function AdminCollectorsPage() {
                   <Trash2 className="mr-1 h-3 w-3" />
                   Delete
                 </Button>
-
               </div>
             </CardContent>
             <CardFooter className="bg-gray-50 border-t px-6 py-3">
@@ -728,7 +768,11 @@ export default function AdminCollectorsPage() {
                 </div>
               </div>
               <div className="flex items-center text-xs text-gray-500 mt-1">
-                <span className={`w-2 h-2 rounded-full mr-1 ${collector.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                <span
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    collector.isAvailable ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                ></span>
                 Last activity: {formatLastActivity(collector.lastActivity)}
               </div>
             </CardFooter>
@@ -741,10 +785,9 @@ export default function AdminCollectorsPage() {
           <p className="text-gray-500">
             No collectors found matching your search.
           </p>
-
         </div>
       )}
-      
+
       {/* Edit Collector Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">
@@ -918,9 +961,8 @@ export default function AdminCollectorsPage() {
                   Delete Permanently
                 </>
               )}
-
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
