@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 const slides = [
   {
     id: 1,
-    title: "50% Off Organic Fertilizers",
-    subtitle: "Limited time offer on all organic compost products",
+    title: "50% Off Home Items",
+    subtitle: "Limited time offer on all eco-friendly home products",
     image: "/placeholder.svg?height=200&width=800",
     cta: "Shop Now",
-    link: "/products?category=fertilizers",
+    link: "/products?category=home item",
   },
   {
     id: 2,
