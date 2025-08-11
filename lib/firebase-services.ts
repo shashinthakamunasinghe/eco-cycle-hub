@@ -121,6 +121,70 @@ export const productService = {
       } as unknown as Product;
     });
   },
+
+  async reduceProductStock(productId: string, quantity: number): Promise<void> {
+    const docRef = doc(db, "products", productId);
+    
+    // Get the current product to check stock
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      throw new Error(`Product with ID ${productId} not found`);
+    }
+    
+    const product = docSnap.data() as Product;
+    const currentStock = product.stock || 0;
+    
+    if (currentStock < quantity) {
+      throw new Error(`Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${quantity}`);
+    }
+    
+    const newStock = currentStock - quantity;
+    
+    // Update the product stock
+    await updateDoc(docRef, {
+      stock: newStock,
+      updatedAt: Timestamp.now(),
+    });
+  },
+
+  async reduceMultipleProductsStock(items: { productId: string; quantity: number }[]): Promise<void> {
+    // Use batch operations for better performance and consistency
+    const batch = writeBatch(db);
+    
+    // First, validate all products have sufficient stock
+    const stockValidations = await Promise.all(
+      items.map(async (item) => {
+        const docRef = doc(db, "products", item.productId);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          throw new Error(`Product with ID ${item.productId} not found`);
+        }
+        
+        const product = docSnap.data() as Product;
+        const currentStock = product.stock || 0;
+        
+        if (currentStock < item.quantity) {
+          throw new Error(`Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${item.quantity}`);
+        }
+        
+        return {
+          docRef,
+          newStock: currentStock - item.quantity
+        };
+      })
+    );
+    
+    // If all validations pass, update all products in a batch
+    stockValidations.forEach(({ docRef, newStock }) => {
+      batch.update(docRef, {
+        stock: newStock,
+        updatedAt: Timestamp.now(),
+      });
+    });
+    
+    await batch.commit();
+  },
 };
 
 // User operations

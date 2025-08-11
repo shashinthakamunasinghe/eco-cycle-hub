@@ -127,6 +127,16 @@ export default function ProductsPage() {
 
     const product = products.find((p) => p.id === productId);
     if (product) {
+      // Check if product is in stock
+      if (product.stock <= 0) {
+        toast({
+          title: "Out of stock",
+          description: `${productName} is currently out of stock.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       addItemToCart({
         id: product.id,
         name: product.name,
