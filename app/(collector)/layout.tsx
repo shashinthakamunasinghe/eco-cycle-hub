@@ -39,7 +39,7 @@ export default function CollectorLayout({
       <Navbar />
       <div className="flex pt-16">
         <CollectorSidebar />
-        <main className="flex-1 ml-64 p-6 min-h-screen lg:ml-64 md:ml-0">
+        <main className="flex-1 p-6 min-h-screen lg:ml-64 md:ml-0">
           {children}
         </main>
       </div>
