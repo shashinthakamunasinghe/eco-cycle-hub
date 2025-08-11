@@ -237,6 +237,106 @@ export default function AdminCollectorsPage() {
       });
       return;
     }
+
+    // Password confirmation validation
+    if (newCollector.password !== newCollector.confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "Passwords do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("🔧 Admin: Creating new collector...", {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        vehicleCapacity: newCollector.vehicleCapacity,
+        hasPassword: !!newCollector.password,
+      });
+
+      // Register user with Firebase Auth and create user document
+      const newUser = await register(newCollector.email, newCollector.password, {
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        role: "collector" as const,
+        // Collector specific fields
+        isAvailable: true,
+        truckCapacity: Number.parseInt(newCollector.vehicleCapacity),
+        currentLoad: 0,
+        assignedRequests: [],
+        createdAt: new Date(),
+      });
+
+      // Also create a collector profile in the collectorProfiles collection
+      const collectorProfile: CollectorProfile = {
+        id: newUser.id,
+        name: newCollector.name,
+        email: newCollector.email,
+        phone: newCollector.phone,
+        address: newCollector.address,
+        licenseNumber: newCollector.licenseNumber,
+        vehicleType: newCollector.vehicleType as 'truck' | 'van' | 'motorcycle',
+        vehicleModel: newCollector.vehicleModel,
+        vehicleCapacity: Number.parseInt(newCollector.vehicleCapacity),
+        experience: newCollector.experience,
+        status: 'active' as const,
+        rating: 0,
+        completedPickups: 0,
+        avatar: '/placeholder-user.jpg',
+        joinedDate: new Date().toISOString().split('T')[0],
+        emergencyContact: newCollector.emergencyContact,
+        workingHours: '8:00 AM - 6:00 PM',
+        specializations: [],
+        isAvailable: true,
+        lastActivity: new Date().toISOString(),
+      };
+
+      // Save collector profile
+      await collectorService.setCollectorProfile(newUser.id, collectorProfile);
+
+      console.log("✅ Collector profile created successfully");
+
+      // Reload collectors from Firebase to get the updated list
+      await loadCollectors();
+
+      setIsAddDialogOpen(false);
+      setNewCollector({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        vehicleCapacity: "",
+        vehicleType: "Truck",
+        vehicleModel: "",
+        licenseNumber: "",
+        experience: "0-1 years",
+        emergencyContact: "",
+        password: "",
+        confirmPassword: "",
+      });
+      
+      toast({
+        title: "Collector added",
+        description: `${newCollector.name} has been successfully added as a collector.`,
+      });
+    } catch (error) {
+      console.error("Error adding collector:", error);
+      toast({
+        title: "Error adding collector",
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSyncCompletedPickups = async () => {
