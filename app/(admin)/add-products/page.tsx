@@ -50,11 +50,11 @@ export default function AdminProductsPage() {
     const fetchProducts = async () => {
       try {
         const fetchedProducts = await productService.getAllProducts();
-        
+
         // Check for duplicate IDs and make them unique
         const productMap = new Map<string, boolean>();
         const uniqueProducts: Product[] = [];
-        
+
         fetchedProducts.forEach((product, index) => {
           if (!productMap.has(product.id)) {
             productMap.set(product.id, true);
@@ -62,11 +62,13 @@ export default function AdminProductsPage() {
           } else {
             // Create a new unique ID for duplicate
             const uniqueId = `${product.id}-${index}`;
-            console.log(`Admin: Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`);
+            console.log(
+              `Admin: Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`
+            );
             uniqueProducts.push({ ...product, id: uniqueId });
           }
         });
-        
+
         setProducts(uniqueProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -120,7 +122,8 @@ export default function AdminProductsPage() {
     const existingProduct = products.find(
       (product) =>
         product.name.toLowerCase() === newProduct.name.toLowerCase() &&
-        product.description.toLowerCase() === newProduct.description.toLowerCase()
+        product.description.toLowerCase() ===
+          newProduct.description.toLowerCase()
     );
 
     if (existingProduct) {
@@ -144,9 +147,9 @@ export default function AdminProductsPage() {
         reviews: 0,
       };
 
-      console.log('Adding product:', productToAdd);
+      console.log("Adding product:", productToAdd);
       await productService.addProduct(productToAdd);
-      
+
       const updatedProducts = await productService.getAllProducts();
       setProducts(updatedProducts);
       setIsAddDialogOpen(false);
@@ -172,8 +175,6 @@ export default function AdminProductsPage() {
       });
     }
   };
-
-
 
   const handleEditProduct = async () => {
     if (!currentProduct) return;
@@ -202,7 +203,7 @@ export default function AdminProductsPage() {
 
     try {
       await productService.deleteProduct(currentProduct.id);
-      
+
       const updatedProducts = await productService.getAllProducts();
       setProducts(updatedProducts);
       setIsDeleteDialogOpen(false);
@@ -212,19 +213,22 @@ export default function AdminProductsPage() {
         title: "Product deleted",
         description: `${currentProduct.name} has been removed from the catalog.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting product:", error);
-      
+
       let errorMessage = "Failed to delete product. Please try again.";
-      
-      if (error?.code === 'permission-denied') {
-        errorMessage = "Permission denied. Please ensure you're logged in as an admin.";
-      } else if (error?.code === 'unauthenticated') {
-        errorMessage = "Authentication required. Please log in as an admin.";
-      } else if (error?.message) {
-        errorMessage = error.message;
+
+      if (error && typeof error === "object") {
+        if ("code" in error && error.code === "permission-denied") {
+          errorMessage =
+            "Permission denied. Please ensure you're logged in as an admin.";
+        } else if ("code" in error && error.code === "unauthenticated") {
+          errorMessage = "Authentication required. Please log in as an admin.";
+        } else if ("message" in error && typeof error.message === "string") {
+          errorMessage = error.message;
+        }
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -261,7 +265,7 @@ export default function AdminProductsPage() {
               Add Product
             </Button>
           </DialogTrigger>
-            <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
@@ -403,10 +407,7 @@ export default function AdminProductsPage() {
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProducts.map((product) => (
-          <Card
-            key={product.id}
-            className="hover:shadow-lg transition-shadow"
-          >
+          <Card key={product.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="p-0">
               <div className="relative aspect-square overflow-hidden rounded-t-lg">
                 <Image

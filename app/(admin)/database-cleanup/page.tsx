@@ -4,28 +4,43 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { productService } from "@/lib/firebase-services";
+// We're directly using Firebase API instead of the service layer for this specific cleanup task
 import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+interface DuplicateProduct {
+  id: string;
+  name: string;
+  originalId: string;
+  originalCreated?: string | Date;
+  duplicateCreated?: string | Date;
+}
+
 export default function DatabaseCleanupPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const [duplicates, setDuplicates] = useState<any[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateProduct[]>([]);
   const { toast } = useToast();
 
   const findDuplicates = async () => {
     setIsLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, "products"));
-      const products: any[] = [];
+      const products: Array<{
+        id: string;
+        name: string;
+        description: string;
+        createdAt?: string | Date;
+      }> = [];
       const seenNames = new Map();
-      const foundDuplicates: any[] = [];
+      const foundDuplicates: DuplicateProduct[] = [];
 
       querySnapshot.docs.forEach((doc) => {
         const data = doc.data();
         products.push({
           id: doc.id,
-          ...data,
+          name: data.name || "",
+          description: data.description || "",
+          createdAt: data.createdAt,
         });
       });
 
@@ -130,7 +145,11 @@ export default function DatabaseCleanupPage() {
             <p className="text-sm text-gray-600">
               Scan for duplicate products based on name and description
             </p>
-            <Button onClick={findDuplicates} disabled={isLoading} className="w-full">
+            <Button
+              onClick={findDuplicates}
+              disabled={isLoading}
+              className="w-full"
+            >
               {isLoading ? "Scanning..." : "Find Duplicates"}
             </Button>
             {duplicates.length > 0 && (
@@ -166,7 +185,11 @@ export default function DatabaseCleanupPage() {
             >
               {isLoading ? "Cleaning..." : "Delete Duplicates"}
             </Button>
-            <Button onClick={resetMigrationFlags} variant="outline" className="w-full">
+            <Button
+              onClick={resetMigrationFlags}
+              variant="outline"
+              className="w-full"
+            >
               Reset Migration Flags
             </Button>
           </CardContent>
