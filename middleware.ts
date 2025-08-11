@@ -18,12 +18,13 @@ export function middleware(request: NextRequest) {
     "Content-Security-Policy",
     [
       "default-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebase.com https://*.firebaseio.com https://*.googleapis.com",
-      "frame-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebaseapp.com",
-      "script-src 'self' 'unsafe-inline' https://*.stripe.com https://*.stripe.network https://*.firebaseapp.com https://*.googleapis.com",
-      "style-src 'self' 'unsafe-inline' https://*.stripe.com https://*.stripe.network https://fonts.googleapis.com",
-      "font-src 'self' data: https://*.stripe.com https://*.stripe.network https://fonts.gstatic.com",
-      "img-src 'self' data: https://*.stripe.com https://*.stripe.network https://*.googleapis.com https://www.google.com",
-      "connect-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebase.com https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com wss://*.firestore.googleapis.com",
+      "frame-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebaseapp.com https://js.stripe.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com https://*.stripe.network https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com",
+      "style-src 'self' 'unsafe-inline' https://*.stripe.com https://*.stripe.network https://fonts.googleapis.com https://m.stripe.network https://js.stripe.com",
+      "font-src 'self' data: https://*.stripe.com https://*.stripe.network https://fonts.gstatic.com https://m.stripe.network https://js.stripe.com",
+      "img-src 'self' data: blob: https://*.stripe.com https://*.stripe.network https://*.googleapis.com https://www.google.com https://m.stripe.network",
+      "connect-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebase.com https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com wss://*.firestore.googleapis.com https://m.stripe.network https://m.stripe.com",
+      "media-src 'self' https://*.stripe.com",
     ].join("; ")
   );
 
@@ -47,5 +48,4 @@ export const config = {
      */
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
