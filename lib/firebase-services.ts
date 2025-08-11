@@ -12,7 +12,7 @@ import {
   orderBy,
   limit,
   Timestamp,
-  Firestore,
+  writeBatch,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
