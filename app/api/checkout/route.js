@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
 export async function POST(request) {
   try {
     console.log("App Router API: Received checkout request");
-    
+
     // Check if Stripe secret key is configured
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
@@ -14,20 +14,23 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-    
+
     // Initialize Stripe
     const stripe = new Stripe(stripeSecretKey);
-    
+
     // Get cart data from request body
     const body = await request.json();
     const { items, shipping, tax, userEmail } = body;
-    
-    console.log("App Router API: Request body:", JSON.stringify({
-      itemsCount: items?.length,
-      shipping,
-      tax
-    }));
-    
+
+    console.log(
+      "App Router API: Request body:",
+      JSON.stringify({
+        itemsCount: items?.length,
+        shipping,
+        tax,
+      })
+    );
+
     // Validate input data
     if (!items || !Array.isArray(items) || items.length === 0) {
       console.error("App Router API: Invalid cart data: no items found");
@@ -36,35 +39,45 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Format line items for Stripe
-    const lineItems = items.map(item => {
+    const lineItems = items.map((item) => {
       // Ensure the price is a valid number and convert to cents
-      const unitAmount = item.price ? Math.round(parseFloat(item.price) * 100) : 0;
-      
+      const unitAmount = item.price
+        ? Math.round(parseFloat(item.price) * 100)
+        : 0;
+
       if (unitAmount <= 0) {
-        console.warn(`App Router API: Invalid price for item ${item.name}: ${item.price}`);
+        console.warn(
+          `App Router API: Invalid price for item ${item.name}: ${item.price}`
+        );
       }
-      
+
       // Ensure item has a valid quantity
       const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
-      
-      console.log(`App Router API: Processing item: ${item.name}, price: $${item.price}, quantity: ${quantity}`);
-      
+
+      console.log(
+        `App Router API: Processing item: ${item.name}, price: $${item.price}, quantity: ${quantity}`
+      );
+
       // Stripe requires fully-qualified URLs for images
       let imageArray;
       if (item.image) {
-        // Check if the image URL is already absolute
-        if (item.image.startsWith('http://') || item.image.startsWith('https://')) {
+        try {
+          // Validate the URL
+          new URL(item.image);
           imageArray = [item.image];
-        } else {
-          // Skip images that aren't absolute URLs to avoid Stripe errors
+        } catch (e) {
+          // If URL is invalid, skip it
+          console.warn(
+            `App Router API: Invalid image URL for ${item.name}: ${item.image}`
+          );
           imageArray = undefined;
         }
       } else {
         imageArray = undefined;
       }
-      
+
       return {
         price_data: {
           currency: "usd",
@@ -78,7 +91,7 @@ export async function POST(request) {
         quantity: quantity,
       };
     });
-    
+
     // Add shipping as a separate line item if it's not free
     if (shipping > 0) {
       lineItems.push({
@@ -92,7 +105,7 @@ export async function POST(request) {
         quantity: 1,
       });
     }
-    
+
     // Add tax as a separate line item
     if (tax > 0) {
       lineItems.push({
@@ -106,14 +119,16 @@ export async function POST(request) {
         quantity: 1,
       });
     }
-    
-    console.log("App Router API: Creating Stripe checkout session with line items:", 
-      JSON.stringify({ itemsCount: lineItems.length }));
-    
+
+    console.log(
+      "App Router API: Creating Stripe checkout session with line items:",
+      JSON.stringify({ itemsCount: lineItems.length })
+    );
+
     try {
       // Get the origin for success/cancel URLs
-      const origin = request.headers.get('origin') || 'http://localhost:3000';
-      
+      const origin = request.headers.get("origin") || "http://localhost:3000";
+
       // Create the Stripe checkout session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
@@ -121,22 +136,29 @@ export async function POST(request) {
         line_items: lineItems,
         metadata: {
           orderTime: new Date().toISOString(),
-          userEmail: userEmail || ''
+          userEmail: userEmail || "",
         },
         success_url: `${origin}/orders/success?success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/cart/cancel`,
       });
-      
-      console.log("App Router API: Stripe session created successfully with ID:", session.id);
-      
+
+      console.log(
+        "App Router API: Stripe session created successfully with ID:",
+        session.id
+      );
+
       // Return the session ID
       return NextResponse.json({ id: session.id });
     } catch (stripeError) {
-      console.error("App Router API: Stripe session creation failed:", stripeError);
+      console.error(
+        "App Router API: Stripe session creation failed:",
+        stripeError
+      );
       return NextResponse.json(
-        { 
-          error: stripeError.message || "Error creating Stripe checkout session",
-          code: stripeError.type || 'stripe_error'
+        {
+          error:
+            stripeError.message || "Error creating Stripe checkout session",
+          code: stripeError.type || "stripe_error",
         },
         { status: 500 }
       );
