@@ -81,11 +81,10 @@ export default function ProductsPage() {
 
   const categories = [
     { value: "all", label: "All Categories" },
-    { value: "fertilizers", label: "Fertilizers" },
-    { value: "garden supplies", label: "Garden Supplies" },
+    { value: "home items", label: "Home Items" },
     { value: "mulch", label: "Mulch" },
     { value: "compost", label: "Compost" },
-    { value: "tools", label: "Tools" },
+    { value: "tools", label: "Garden Supplies" },
     { value: "seeds", label: "Seeds" },
   ];
 
