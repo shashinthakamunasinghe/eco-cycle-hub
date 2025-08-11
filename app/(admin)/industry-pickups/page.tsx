@@ -34,7 +34,6 @@ interface AvailableCollector {
   lastActivity?: string | null;
 }
 export default function AdminPickupsPage() {
-
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [availableCollectors, setAvailableCollectors] = useState<
@@ -48,6 +47,7 @@ export default function AdminPickupsPage() {
 
   const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([]);
   const [pickupRequestsLoading, setPickupRequestsLoading] = useState(true);
+  const [collectorsLoading, setCollectorsLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   // Load pickup requests from Firebase
@@ -77,6 +77,7 @@ export default function AdminPickupsPage() {
   useEffect(() => {
     const loadCollectors = async () => {
       try {
+        setCollectorsLoading(true);
         const collectorsData = await collectorService.getAllCollectors();
 
         // Transform collector data to match our interface
@@ -87,6 +88,11 @@ export default function AdminPickupsPage() {
             email: collector.email,
             phone: collector.phone,
             isAvailable: collector.isAvailable || true, // Default to available if not specified
+            vehicleCapacity:
+              collector.truckCapacity ||
+              (collector as any).vehicleCapacity ||
+              100,
+            currentLoad: collector.currentLoad || 0,
           })
         );
 
@@ -102,14 +108,16 @@ export default function AdminPickupsPage() {
           description: "Failed to load collectors for assignment",
           variant: "destructive",
         });
+      } finally {
+        setCollectorsLoading(false);
       }
     };
     loadCollectors();
   }, [toast]);
 
-
   const refreshData = async () => {
     setIsLoading(true);
+    setCollectorsLoading(true);
     try {
       // Reload pickup requests
       const requests = await pickupService.getAllPickupRequests();
@@ -126,6 +134,11 @@ export default function AdminPickupsPage() {
           email: collector.email,
           phone: collector.phone,
           isAvailable: collector.isAvailable || true, // Default to available if not specified
+          vehicleCapacity:
+            collector.truckCapacity ||
+            (collector as any).vehicleCapacity ||
+            100,
+          currentLoad: collector.currentLoad || 0,
         })
       );
 
@@ -144,6 +157,7 @@ export default function AdminPickupsPage() {
       });
     } finally {
       setIsLoading(false);
+      setCollectorsLoading(false);
     }
   };
 
@@ -431,7 +445,6 @@ export default function AdminPickupsPage() {
                       View Details
                     </Button>
                   </div>
-
                 </div>
               </CardContent>
             </Card>
@@ -562,18 +575,24 @@ export default function AdminPickupsPage() {
                     }
                   >
                     <SelectTrigger className="w-40">
-                      <SelectValue placeholder={
-                        collectorsLoading ? "Loading..." : 
-                        availableCollectors.filter(c => c.isAvailable).length === 0 ? "No Collectors" :
-                        "Assign Collector"
-                      } />
+                      <SelectValue
+                        placeholder={
+                          collectorsLoading
+                            ? "Loading..."
+                            : availableCollectors.filter((c) => c.isAvailable)
+                                .length === 0
+                            ? "No Collectors"
+                            : "Assign Collector"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {collectorsLoading ? (
                         <SelectItem value="loading" disabled>
                           Loading collectors...
                         </SelectItem>
-                      ) : availableCollectors.filter(c => c.isAvailable).length === 0 ? (
+                      ) : availableCollectors.filter((c) => c.isAvailable)
+                          .length === 0 ? (
                         <SelectItem value="no-collectors" disabled>
                           No available collectors
                         </SelectItem>
@@ -590,24 +609,44 @@ export default function AdminPickupsPage() {
                                   </span>
                                   <div className="flex items-center gap-1">
                                     <span className="text-muted-foreground">
-                                      {collector.currentLoad || 0}/{collector.vehicleCapacity || 100}kg
+                                      {collector.currentLoad || 0}/
+                                      {collector.vehicleCapacity || 100}kg
                                     </span>
                                     <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                      <div 
+                                      <div
                                         className={`h-full transition-all duration-300 ${
-                                          ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.8 
-                                            ? 'bg-red-500' 
-                                            : ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.6 
-                                              ? 'bg-yellow-500' 
-                                              : 'bg-green-500'
+                                          (collector.currentLoad || 0) /
+                                            (collector.vehicleCapacity || 100) >
+                                          0.8
+                                            ? "bg-red-500"
+                                            : (collector.currentLoad || 0) /
+                                                (collector.vehicleCapacity ||
+                                                  100) >
+                                              0.6
+                                            ? "bg-yellow-500"
+                                            : "bg-green-500"
                                         }`}
-                                        style={{ 
-                                          width: `${Math.min(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100, 100)}%` 
+                                        ref={(el) => {
+                                          if (el) {
+                                            const loadPercentage = Math.min(
+                                              ((collector.currentLoad || 0) /
+                                                (collector.vehicleCapacity ||
+                                                  100)) *
+                                                100,
+                                              100
+                                            );
+                                            el.style.width = `${loadPercentage}%`;
+                                          }
                                         }}
                                       />
                                     </div>
                                     <span className="text-xs text-muted-foreground">
-                                      {Math.round(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100)}%
+                                      {Math.round(
+                                        ((collector.currentLoad || 0) /
+                                          (collector.vehicleCapacity || 100)) *
+                                          100
+                                      )}
+                                      %
                                     </span>
                                   </div>
                                 </div>
