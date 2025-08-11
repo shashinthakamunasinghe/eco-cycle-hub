@@ -8,12 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Package, Eye, Calendar, ShieldAlert, ArrowLeft } from "lucide-react"
+import { Package, Eye, Calendar } from "lucide-react"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
+
+interface OrderItem {
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+}
 
 interface Order {
   id: string
-  items: any[]
+  items: OrderItem[]
   subtotal: number
   shipping: number
   tax: number

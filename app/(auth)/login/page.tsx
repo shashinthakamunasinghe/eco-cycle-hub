@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Recycle, Users, ShoppingBag, RefreshCw, AlertTriangle } from "lucide-react";
-import { cleanupFirebaseAuth, hardResetAuth } from "@/lib/firebase-auth-cleanup";
+import { Recycle, Users, ShoppingBag, RefreshCw } from "lucide-react";
+import {
+  cleanupFirebaseAuth,
+  hardResetAuth,
+} from "@/lib/firebase-auth-cleanup";
 
 import {
   Card,
@@ -28,16 +31,16 @@ export default function LoginPage() {
   const { login, resetPassword } = useFirebaseAuth();
   const router = useRouter();
   const { toast } = useToast();
-  
+
   // Clean up authentication state when component mounts
   useEffect(() => {
     const cleanup = async () => {
       await cleanupFirebaseAuth();
     };
-    
+
     cleanup();
   }, []);
-  
+
   // Function to fix authentication issues
   const fixAuthIssues = async () => {
     setLoading(true);
@@ -46,12 +49,14 @@ export default function LoginPage() {
       setAuthFixed(true);
       toast({
         title: "Authentication reset",
-        description: "Authentication state has been reset. Please try logging in again.",
+        description:
+          "Authentication state has been reset. Please try logging in again.",
       });
     } catch (error) {
       toast({
         title: "Reset failed",
-        description: "Could not reset authentication state. Please try refreshing the page.",
+        description:
+          "Could not reset authentication state. Please try refreshing the page.",
         variant: "destructive",
       });
     } finally {
@@ -68,10 +73,10 @@ export default function LoginPage() {
       });
       return;
     }
-    
+
     setLoading(true);
     setIsResettingPassword(true);
-    
+
     try {
       await resetPassword(email);
       toast({
@@ -81,7 +86,8 @@ export default function LoginPage() {
     } catch (error) {
       toast({
         title: "Reset failed",
-        description: error instanceof Error ? error.message : "Failed to send reset email",
+        description:
+          error instanceof Error ? error.message : "Failed to send reset email",
         variant: "destructive",
       });
     } finally {
@@ -123,12 +129,18 @@ export default function LoginPage() {
       let errorTitle = "Login failed";
       let variant: "default" | "destructive" = "destructive";
       let showResetOption = false;
-      
+
       if (error instanceof Error) {
         console.log("❌ Error message:", error.message);
-        if (error.message.includes("user-not-found") || error.message.includes("auth/user-not-found")) {
+        if (
+          error.message.includes("user-not-found") ||
+          error.message.includes("auth/user-not-found")
+        ) {
           errorMessage = "No account found with this email address";
-        } else if (error.message.includes("wrong-password") || error.message.includes("auth/wrong-password")) {
+        } else if (
+          error.message.includes("wrong-password") ||
+          error.message.includes("auth/wrong-password")
+        ) {
           errorMessage = "Incorrect password";
         } else if (error.message.includes("invalid-email")) {
           errorMessage = "Invalid email format";
@@ -138,30 +150,35 @@ export default function LoginPage() {
             title: "Authentication Error",
             description: (
               <div>
-                <p>We're having trouble logging you in. This could be due to:</p>
+                <p>
+                  We're having trouble logging you in. This could be due to:
+                </p>
                 <ul className="list-disc pl-5 mt-1 mb-2 text-sm">
                   <li>Incorrect email or password</li>
                   <li>Session token issues</li>
                 </ul>
                 <div className="flex flex-col space-y-2 mt-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handlePasswordReset()}
                     className="text-xs bg-transparent hover:bg-green-50 text-green-700 border-green-600"
                   >
                     Reset Password
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={fixAuthIssues}
                     className="text-xs bg-transparent hover:bg-amber-50 text-amber-700 border-amber-600"
                   >
                     <RefreshCw className="mr-1 h-3 w-3" />
                     Fix Login Issues
                   </Button>
-                  <Link href="/fix-auth" className="text-xs text-blue-600 hover:text-blue-800 hover:underline text-center mt-1">
+                  <Link
+                    href="/fix-auth"
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline text-center mt-1"
+                  >
                     Advanced Troubleshooting
                   </Link>
                 </div>
@@ -174,12 +191,13 @@ export default function LoginPage() {
           errorMessage =
             "Account exists but user profile is incomplete. Please contact support.";
         } else if (error.message.includes("auth/invalid-credential")) {
-          errorMessage = "Invalid email or password. Please check your credentials.";
+          errorMessage =
+            "Invalid email or password. Please check your credentials.";
         } else {
           errorMessage = error.message;
         }
       }
-      
+
       // If the error suggests a password reset might help, offer that option
       if (showResetOption) {
         errorMessage += " Would you like to reset your password?";
@@ -190,18 +208,18 @@ export default function LoginPage() {
               {errorMessage}
               <div className="mt-2">
                 <div className="flex flex-col space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handlePasswordReset()}
                     className="text-xs bg-transparent hover:bg-green-50 text-green-700 border-green-600"
                   >
                     Reset Password
                   </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={fixAuthIssues}
                     className="text-xs bg-transparent hover:bg-amber-50 text-amber-700 border-amber-600"
                   >
@@ -221,7 +239,7 @@ export default function LoginPage() {
           variant: variant,
         });
       }
-      
+
       // Clear password field on error for security
       setPassword("");
     } finally {
@@ -242,7 +260,8 @@ export default function LoginPage() {
               Welcome Back
             </CardTitle>
             <CardDescription className="text-sm text-gray-600">
-              Sign in to your <span className="font-medium">EcoCycle Hub</span> account
+              Sign in to your <span className="font-medium">EcoCycle Hub</span>{" "}
+              account
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -266,12 +285,12 @@ export default function LoginPage() {
                   <Label htmlFor="password" className="text-gray-700">
                     Password
                   </Label>
-                  <button 
+                  <button
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePasswordReset();
-                    }} 
+                    }}
                     className="text-xs text-green-700 hover:text-green-800 hover:underline"
                   >
                     Forgot Password?
@@ -292,12 +311,18 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold tracking-wide"
               >
-                {loading ? (isResettingPassword ? "Sending Reset Link..." : "Signing in...") : "Sign in"}
+                {loading
+                  ? isResettingPassword
+                    ? "Sending Reset Link..."
+                    : "Signing in..."
+                  : "Sign in"}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600 mb-2">Don't have an account?</p>
+              <p className="text-sm text-gray-600 mb-2">
+                Don't have an account?
+              </p>
               <div className="flex gap-3">
                 <Button variant="outline" size="sm" asChild className="flex-1">
                   <Link href="/register?type=customer">
@@ -312,17 +337,8 @@ export default function LoginPage() {
                   </Link>
                 </Button>
               </div>
-              
-              {/* Emergency Login Link */}
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500 mb-2">Having trouble logging in?</p>
-                <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700 text-xs" asChild>
-                  <Link href="/emergency-login">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Try Emergency Login
-                  </Link>
-                </Button>
-              </div>
+
+              {/* Removed emergency login link */}
             </div>
           </CardContent>
         </Card>

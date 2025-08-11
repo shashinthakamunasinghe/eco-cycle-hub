@@ -161,7 +161,7 @@ export default function IndustryProfilePage() {
             })
           }
         },
-        (error) => {
+        (_error) => {
           toast({
             title: "Location error",
             description: "Unable to get your location. Please try again.",

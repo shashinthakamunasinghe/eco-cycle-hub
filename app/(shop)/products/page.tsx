@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Star, ShoppingCart, Heart, Search, Eye } from "lucide-react";
+import { Star, ShoppingCart, Search, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { productService } from "@/lib/firebase-services";
@@ -81,7 +81,7 @@ export default function ProductsPage() {
 
   const categories = [
     { value: "all", label: "All Categories" },
-    { value: "home items", label: "Home Items" },
+    { value: "home item", label: "Home Item" },
     { value: "mulch", label: "Mulch" },
     { value: "compost", label: "Compost" },
     { value: "tools", label: "Garden Supplies" },
@@ -126,6 +126,16 @@ export default function ProductsPage() {
 
     const product = products.find((p) => p.id === productId);
     if (product) {
+      // Check if product is in stock
+      if (product.stock <= 0) {
+        toast({
+          title: "Out of stock",
+          description: `${productName} is currently out of stock.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       addItemToCart({
         id: product.id,
         name: product.name,
@@ -142,12 +152,7 @@ export default function ProductsPage() {
     }
   };
 
-  // Removed wishlist functionality
-  const addToWishlist = (productId: string, productName: string) => {
-    // Function left as a placeholder to avoid breaking existing UI elements
-    // This will be removed in future updates
-    console.log("Wishlist functionality has been removed");
-  };
+  // Wishlist functionality has been completely removed
 
   return (
     <div className="space-y-6">

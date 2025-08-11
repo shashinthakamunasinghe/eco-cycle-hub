@@ -299,8 +299,9 @@ export default function ProfilePage() {
                     setCurrentPassword("");
                     setNewPassword("");
                     setConfirmPassword("");
-                  } catch (err: any) {
-                    toast({ title: "Password update failed", description: err.message || "Could not update password.", variant: "destructive" });
+                  } catch (err: Error | unknown) {
+                    const errorMessage = err instanceof Error ? err.message : "Could not update password.";
+                    toast({ title: "Password update failed", description: errorMessage, variant: "destructive" });
                   }
                   setIsUpdatingPassword(false);
                 }}

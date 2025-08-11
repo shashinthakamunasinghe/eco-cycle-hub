@@ -20,20 +20,42 @@ export default function NotificationsPage() {
 
   // Load notifications from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("shopNotifications")
-    if (stored) {
-      setNotifications(JSON.parse(stored))
-    } else {
-      setNotifications([])
-    }
-    // Listen for storage changes (in case another tab updates notifications)
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "shopNotifications") {
-        setNotifications(e.newValue ? JSON.parse(e.newValue) : [])
-      }
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    // Mock notifications
+    const mockNotifications: Notification[] = [
+      {
+        id: "1",
+        title: "Order Shipped",
+        message: "Your order #ORD-1234 has been shipped and is on its way!",
+        type: "order",
+        read: false,
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "2",
+        title: "Special Offer",
+        message: "Get 20% off on all eco-friendly home items this week!",
+        type: "promotion",
+        read: false,
+        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "3",
+        title: "Product Back in Stock",
+        message: "Organic Compost Mix is now back in stock!",
+        type: "general",
+        read: true,
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "4",
+        title: "Order Delivered",
+        message: "Your order #ORD-1230 has been delivered successfully.",
+        type: "order",
+        read: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ]
+    setNotifications(mockNotifications)
   }, [])
 
   const markAsRead = (id: string) => {

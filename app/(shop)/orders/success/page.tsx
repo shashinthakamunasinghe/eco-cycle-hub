@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { CheckCircle, ShoppingBag } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
+import { productService } from "@/lib/firebase-services"
 
 // Define cart item interface for type safety
 interface CartItem {
@@ -101,6 +102,21 @@ export default function SuccessPage() {
 
         // Only save the order if it has items and a total value greater than 0
         if (validatedItems.length > 0 && total > 0) {
+          // Reduce product stock for each item in the order
+          try {
+            const stockReductionItems = validatedItems.map(item => ({
+              productId: item.id,
+              quantity: item.quantity
+            }));
+            
+            await productService.reduceMultipleProductsStock(stockReductionItems);
+            console.log("Stock reduced successfully for", stockReductionItems.length, "products");
+          } catch (stockError) {
+            console.error("Error reducing stock:", stockError);
+            // Note: In a real-world scenario, you might want to handle this differently
+            // For now, we'll log the error but still complete the order since payment was successful
+          }
+          
           // Save to orders in localStorage
           const orders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
           orders.unshift(order)

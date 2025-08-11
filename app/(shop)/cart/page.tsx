@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/contexts/CartContext"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
 import { useRouter } from "next/navigation"
+import { productService } from "@/lib/firebase-services"
 
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart } = useCart()
@@ -55,6 +56,41 @@ export default function CartPage() {
 
     try {
       console.log("Starting checkout process");
+      
+      // Validate stock availability for all cart items
+      console.log("Validating stock for cart items...");
+      const stockValidationPromises = cartItems.map(async (cartItem) => {
+        try {
+          const currentProduct = await productService.getProduct(cartItem.id);
+          if (!currentProduct) {
+            throw new Error(`Product ${cartItem.name} no longer exists`);
+          }
+          
+          if (currentProduct.stock < cartItem.quantity) {
+            throw new Error(`Insufficient stock for ${cartItem.name}. Available: ${currentProduct.stock}, In cart: ${cartItem.quantity}`);
+          }
+          
+          return { valid: true, product: currentProduct };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          return { valid: false, error: errorMessage, productName: cartItem.name };
+        }
+      });
+      
+      const validationResults = await Promise.all(stockValidationPromises);
+      const invalidItems = validationResults.filter(result => !result.valid);
+      
+      if (invalidItems.length > 0) {
+        const errorMessages = invalidItems.map(item => item.error).join("; ");
+        toast({
+          title: "Stock validation failed",
+          description: errorMessages,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Stock validation passed for all items");
       
       // Save user info in localStorage for order association
       if (user) {

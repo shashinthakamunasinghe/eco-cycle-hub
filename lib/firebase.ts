@@ -1,37 +1,64 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth";
+import {
+  getAuth,
+  browserSessionPersistence,
+  setPersistence,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Config with fallback values to prevent build errors during SSR/SSG
 const firebaseConfig = {
-
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'placeholder-api-key-for-build',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'placeholder.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'placeholder-project',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'placeholder.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:000000000000:web:0000000000000000000000',
-
+  apiKey:
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "placeholder-api-key-for-build",
+  authDomain:
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    "placeholder.firebaseapp.com",
+  projectId:
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "placeholder-project",
+  storageBucket:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    "placeholder.appspot.com",
+  messagingSenderId:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
+  appId:
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ||
+    "1:000000000000:web:0000000000000000000000",
 };
 
+// Initialize Firebase with error handling for SSR/SSG
+let app;
+let auth;
+let db;
+let storage;
 
-// Initialize Firebase app
-const app = initializeApp(firebaseConfig);
+// Only initialize Firebase on the client side
+if (typeof window !== "undefined") {
+  try {
+    // Initialize Firebase app
+    app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication with session persistence
-export const auth = getAuth(app);
+    // Initialize Firebase Authentication
+    auth = getAuth(app);
 
-// Set persistence to local (keep user logged in until logout)
+// Set persistence to session (instead of local storage)
 if (typeof window !== 'undefined') {
-  setPersistence(auth, browserLocalPersistence)
+  setPersistence(auth, browserSessionPersistence)
     .catch(error => {
       console.error("Firebase auth persistence error:", error);
     });
+
+    // Initialize Cloud Firestore
+    db = getFirestore(app);
+
+    // Initialize Firebase Storage
+    storage = getStorage(app);
+  } catch (error) {
+    console.error("Firebase initialization error:", error);
+  }
 }
 
-// Initialize Cloud Firestore and get a reference to the service
-export const db = getFirestore(app);
+// Export the Firebase services
+export { auth, db, storage, app };
 
-// Export app instance
-export default app;
+

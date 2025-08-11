@@ -1,13 +1,24 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { mockOrders } from "@/lib/mock-data"
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { mockOrders } from "@/lib/mock-data";
 
 // Define interfaces for type safety
 interface OrderItem {
@@ -50,110 +61,132 @@ interface CustomerOrder {
   total?: number;
 }
 
-import { Package, User, Calendar, DollarSign, Search, Eye, Truck, Home } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Package,
+  User,
+  Calendar,
+  DollarSign,
+  Search,
+  Eye,
+  Truck,
+  Home,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AdminOrdersPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [currentOrder, setCurrentOrder] = useState<Order | null>(null)
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
-  const { toast } = useToast()
-  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const { toast } = useToast();
+
   // Refresh orders when localStorage changes
   useEffect(() => {
     const loadOrders = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         // Get customer orders from localStorage
-        const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]") as CustomerOrder[];
-        
+        const customerOrders = JSON.parse(
+          localStorage.getItem("customerOrders") || "[]"
+        ) as CustomerOrder[];
+
         // Filter out invalid orders (empty items or zero value)
-        const validCustomerOrders = customerOrders.filter(order => 
-          order.items && order.items.length > 0 && order.total && order.total > 0
+        const validCustomerOrders = customerOrders.filter(
+          (order) =>
+            order.items &&
+            order.items.length > 0 &&
+            order.total &&
+            order.total > 0
         );
-        
+
         // Format customer orders to match the admin view requirements
-        const formattedCustomerOrders: Order[] = validCustomerOrders.map((order: CustomerOrder) => ({
-          id: order.id,
-          customerId: order.paymentId?.substring(0, 6) || "customer",
-          customerName: "Customer", // We don't have customer name in localStorage
-          items: order.items.map((item) => ({
-            productId: item.id || "",
-            productName: item.name || "",
-            quantity: item.quantity || 0,
-            price: item.price || 0
-          })),
-          subtotal: order.subtotal || 0,
-          shipping: order.shipping || 0,
-          tax: order.tax || 0, 
-          total: (order.total || 0), // Use the actual total from the order
-          status: order.status || "processing",
-          shippingAddress: "Customer Address", // Placeholder as we don't have address
-          createdAt: new Date(order.createdAt || Date.now()),
-        }));
-        
-        // Combine with mock data - keeping only the original mockOrders
-        const mockOrdersFiltered = mockOrders.filter(mock => 
-          !formattedCustomerOrders.some((customerOrder: Order) => customerOrder.id === mock.id)
+        const formattedCustomerOrders: Order[] = validCustomerOrders.map(
+          (order: CustomerOrder) => ({
+            id: order.id,
+            customerId: order.paymentId?.substring(0, 6) || "customer",
+            customerName: "Customer", // We don't have customer name in localStorage
+            items: order.items.map((item) => ({
+              productId: item.id || "",
+              productName: item.name || "",
+              quantity: item.quantity || 0,
+              price: item.price || 0,
+            })),
+            subtotal: order.subtotal || 0,
+            shipping: order.shipping || 0,
+            tax: order.tax || 0,
+            total: order.total || 0, // Use the actual total from the order
+            status: order.status || "processing",
+            shippingAddress: "Customer Address", // Placeholder as we don't have address
+            createdAt: new Date(order.createdAt || Date.now()),
+          })
         );
-        
-        setOrders([
-          ...formattedCustomerOrders,
-          ...mockOrdersFiltered
-        ]);
+
+        // Combine with mock data - keeping only the original mockOrders
+        const mockOrdersFiltered = mockOrders.filter(
+          (mock) =>
+            !formattedCustomerOrders.some(
+              (customerOrder: Order) => customerOrder.id === mock.id
+            )
+        );
+
+        setOrders([...formattedCustomerOrders, ...mockOrdersFiltered]);
       }
     };
-    
+
     // Load orders on mount
     loadOrders();
-    
+
     // Listen for storage events to refresh orders when they change
-    window.addEventListener('storage', loadOrders);
-    
+    window.addEventListener("storage", loadOrders);
+
     return () => {
-      window.removeEventListener('storage', loadOrders);
+      window.removeEventListener("storage", loadOrders);
     };
   }, []);
 
   // Load customer orders from localStorage and combine with mock data
   const [orders, setOrders] = useState<Order[]>(() => {
     // Only run in browser environment
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Get customer orders from localStorage
-      const customerOrders = JSON.parse(localStorage.getItem("customerOrders") || "[]") as CustomerOrder[];
-      
+      const customerOrders = JSON.parse(
+        localStorage.getItem("customerOrders") || "[]"
+      ) as CustomerOrder[];
+
       // Filter out invalid orders (empty items or zero value)
-      const validCustomerOrders = customerOrders.filter(order => 
-        order.items && order.items.length > 0 && order.total && order.total > 0
+      const validCustomerOrders = customerOrders.filter(
+        (order) =>
+          order.items &&
+          order.items.length > 0 &&
+          order.total &&
+          order.total > 0
       );
-      
+
       // Format customer orders to match the admin view requirements
-      const formattedCustomerOrders: Order[] = validCustomerOrders.map((order: CustomerOrder) => ({
-        id: order.id,
-        customerId: order.paymentId?.substring(0, 6) || "customer",
-        customerName: "Customer", // We don't have customer name in localStorage
-        items: order.items.map((item) => ({
-          productId: item.id,
-          productName: item.name,
-          quantity: item.quantity,
-          price: item.price
-        })),
-        subtotal: order.subtotal || 0,
-        shipping: order.shipping || 0,
-        tax: order.tax || 0,
-        total: order.total || 0, // Use the full total including shipping and tax
-        status: order.status || "processing",
-        shippingAddress: "Customer Address", // Placeholder as we don't have address
-        createdAt: new Date(order.createdAt || Date.now()),
-      }));
-      
+      const formattedCustomerOrders: Order[] = validCustomerOrders.map(
+        (order: CustomerOrder) => ({
+          id: order.id,
+          customerId: order.paymentId?.substring(0, 6) || "customer",
+          customerName: "Customer", // We don't have customer name in localStorage
+          items: order.items.map((item) => ({
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          subtotal: order.subtotal || 0,
+          shipping: order.shipping || 0,
+          tax: order.tax || 0,
+          total: order.total || 0, // Use the full total including shipping and tax
+          status: order.status || "processing",
+          shippingAddress: "Customer Address", // Placeholder as we don't have address
+          createdAt: new Date(order.createdAt || Date.now()),
+        })
+      );
+
       // Combine with mock data
-      return [
-        ...formattedCustomerOrders,
-        ...mockOrders
-      ];
+      return [...formattedCustomerOrders, ...mockOrders];
     }
     // Fallback to mock data for SSR
     return mockOrders;
@@ -163,79 +196,82 @@ export default function AdminOrdersPage() {
     setOrders(
       orders.map((order) => {
         if (order.id === orderId) {
-          const updatedOrder = { ...order, status: newStatus }
+          const updatedOrder = { ...order, status: newStatus };
           if (newStatus === "delivered") {
-            updatedOrder.deliveredAt = new Date()
+            updatedOrder.deliveredAt = new Date();
           }
-          return updatedOrder
+          return updatedOrder;
         }
-        return order
-      }),
-    )
+        return order;
+      })
+    );
 
     if (currentOrder && currentOrder.id === orderId) {
       setCurrentOrder({
         ...currentOrder,
         status: newStatus,
         ...(newStatus === "delivered" ? { deliveredAt: new Date() } : {}),
-      })
+      });
     }
 
     toast({
       title: "Order status updated",
       description: `Order #${orderId} status has been updated to ${newStatus}.`,
-    })
-  }
+    });
+  };
 
   const handlePaymentProcessed = () => {
-    if (!currentOrder) return
+    if (!currentOrder) return;
 
     toast({
       title: "Payment processed",
       description: `Payment for Order #${currentOrder.id} has been processed successfully.`,
-    })
+    });
 
-    setIsPaymentDialogOpen(false)
+    setIsPaymentDialogOpen(false);
 
     // Send notification to customer
     toast({
       title: "Notification sent",
       description: `Payment confirmation notification sent to ${currentOrder.customerName}.`,
-    })
-  }
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "processing":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "shipped":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800";
       case "delivered":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "cancelled":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
-  const viewOrderDetails = (order: any) => {
-    setCurrentOrder(order)
-    setIsViewDialogOpen(true)
-  }
+  const viewOrderDetails = (order: Order) => {
+    setCurrentOrder(order);
+    setIsViewDialogOpen(true);
+  };
 
   const openPaymentDialog = () => {
-    setIsPaymentDialogOpen(true)
-  }
+    setIsPaymentDialogOpen(true);
+  };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.items.some((item) => item.productName.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+      order.items.some((item) =>
+        item.productName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -285,7 +321,9 @@ export default function AdminOrdersPage() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-3">
                     <h3 className="text-lg font-semibold">Order #{order.id}</h3>
-                    <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                    <Badge className={getStatusColor(order.status)}>
+                      {order.status}
+                    </Badge>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
@@ -300,18 +338,27 @@ export default function AdminOrdersPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <DollarSign className="h-4 w-4" />
-                        <span className="font-semibold">${(order.total || 0).toFixed(2)}</span>
+                        <span className="font-semibold">
+                          ${(order.total || 0).toFixed(2)}
+                        </span>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
-                        <span>Ordered: {order.createdAt.toLocaleDateString()}</span>
+                        <span>
+                          Ordered: {order.createdAt.toLocaleDateString()}
+                        </span>
                       </div>
                       {order.deliveredAt && (
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-4 w-4" />
-                          <span>Delivered: {order.deliveredAt ? order.deliveredAt.toLocaleDateString() : 'Not delivered yet'}</span>
+                          <span>
+                            Delivered:{" "}
+                            {order.deliveredAt
+                              ? order.deliveredAt.toLocaleDateString()
+                              : "Not delivered yet"}
+                          </span>
                         </div>
                       )}
                       <div className="text-xs text-gray-500">
@@ -323,9 +370,10 @@ export default function AdminOrdersPage() {
                   <div className="mt-3 pt-3 border-t">
                     <h4 className="text-sm font-medium mb-2">Items:</h4>
                     <div className="space-y-1">
-                      {order.items.map((item: any, index: number) => (
+                      {order.items.map((item: OrderItem, index: number) => (
                         <div key={index} className="text-sm text-gray-600">
-                          {item.quantity}x {item.productName} - ${(item.price * item.quantity).toFixed(2)}
+                          {item.quantity}x {item.productName} - $
+                          {(item.price * item.quantity).toFixed(2)}
                         </div>
                       ))}
                     </div>
@@ -334,16 +382,26 @@ export default function AdminOrdersPage() {
 
                 <div className="flex flex-col space-y-2 ml-4">
                   {order.status === "processing" && (
-                    <Button size="sm" onClick={() => updateOrderStatus(order.id, "shipped")}>
+                    <Button
+                      size="sm"
+                      onClick={() => updateOrderStatus(order.id, "shipped")}
+                    >
                       Mark as Shipped
                     </Button>
                   )}
                   {order.status === "shipped" && (
-                    <Button size="sm" onClick={() => updateOrderStatus(order.id, "delivered")}>
+                    <Button
+                      size="sm"
+                      onClick={() => updateOrderStatus(order.id, "delivered")}
+                    >
                       Mark as Delivered
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => viewOrderDetails(order)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => viewOrderDetails(order)}
+                  >
                     <Eye className="h-4 w-4 mr-1" />
                     View Details
                   </Button>
@@ -357,7 +415,9 @@ export default function AdminOrdersPage() {
       {filteredOrders.length === 0 && (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No orders found matching your criteria.</p>
+          <p className="text-gray-500">
+            No orders found matching your criteria.
+          </p>
         </div>
       )}
 
@@ -378,13 +438,17 @@ export default function AdminOrdersPage() {
               <TabsContent value="details" className="space-y-4 py-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-semibold">Order #{currentOrder.id}</h3>
+                    <h3 className="text-xl font-semibold">
+                      Order #{currentOrder.id}
+                    </h3>
                     <p className="text-sm text-gray-500">
                       Placed on {currentOrder.createdAt.toLocaleDateString()} at{" "}
                       {currentOrder.createdAt.toLocaleTimeString()}
                     </p>
                   </div>
-                  <Badge className={getStatusColor(currentOrder.status)}>{currentOrder.status}</Badge>
+                  <Badge className={getStatusColor(currentOrder.status)}>
+                    {currentOrder.status}
+                  </Badge>
                 </div>
 
                 <div className="border rounded-lg overflow-hidden">
@@ -418,24 +482,31 @@ export default function AdminOrdersPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {currentOrder.items.map((item: any, index: number) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.productName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${item.price.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${(item.price * item.quantity).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
+                      {currentOrder.items.map(
+                        (item: OrderItem, index: number) => (
+                          <tr key={index}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.productName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.quantity}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              ${item.price.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>
-                        <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                        <td
+                          colSpan={3}
+                          className="px-6 py-4 text-right text-sm font-medium text-gray-900"
+                        >
                           Total
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -448,20 +519,28 @@ export default function AdminOrdersPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Shipping Information</h4>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">
+                      Shipping Information
+                    </h4>
                     <div className="p-3 border rounded-lg">
                       <div className="flex items-start space-x-2">
                         <Home className="h-4 w-4 text-gray-500 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium">{currentOrder.customerName}</p>
-                          <p className="text-sm text-gray-600">{currentOrder.shippingAddress}</p>
+                          <p className="text-sm font-medium">
+                            {currentOrder.customerName}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {currentOrder.shippingAddress}
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Order Timeline</h4>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">
+                      Order Timeline
+                    </h4>
                     <div className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-center space-x-2">
                         <div className="h-2 w-2 rounded-full bg-green-500"></div>
@@ -474,7 +553,8 @@ export default function AdminOrdersPage() {
                         <div className="flex items-center space-x-2">
                           <div className="h-2 w-2 rounded-full bg-blue-500"></div>
                           <p className="text-sm">
-                            <span className="font-medium">Shipped</span> - {new Date().toLocaleDateString()}
+                            <span className="font-medium">Shipped</span> -{" "}
+                            {new Date().toLocaleDateString()}
                           </p>
                         </div>
                       )}
@@ -483,7 +563,9 @@ export default function AdminOrdersPage() {
                           <div className="h-2 w-2 rounded-full bg-green-500"></div>
                           <p className="text-sm">
                             <span className="font-medium">Delivered</span> -{" "}
-                            {currentOrder.deliveredAt ? currentOrder.deliveredAt.toLocaleDateString() : 'Not delivered yet'}
+                            {currentOrder.deliveredAt
+                              ? currentOrder.deliveredAt.toLocaleDateString()
+                              : "Not delivered yet"}
                           </p>
                         </div>
                       )}
@@ -493,13 +575,21 @@ export default function AdminOrdersPage() {
 
                 <div className="flex justify-end space-x-2 pt-4">
                   {currentOrder.status === "processing" && (
-                    <Button onClick={() => updateOrderStatus(currentOrder.id, "shipped")}>
+                    <Button
+                      onClick={() =>
+                        updateOrderStatus(currentOrder.id, "shipped")
+                      }
+                    >
                       <Truck className="h-4 w-4 mr-1" />
                       Mark as Shipped
                     </Button>
                   )}
                   {currentOrder.status === "shipped" && (
-                    <Button onClick={() => updateOrderStatus(currentOrder.id, "delivered")}>
+                    <Button
+                      onClick={() =>
+                        updateOrderStatus(currentOrder.id, "delivered")
+                      }
+                    >
                       <Package className="h-4 w-4 mr-1" />
                       Mark as Delivered
                     </Button>
@@ -514,21 +604,29 @@ export default function AdminOrdersPage() {
                       <User className="h-8 w-8 text-gray-500" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">{currentOrder.customerName}</h3>
-                      <p className="text-sm text-gray-500">Customer ID: {currentOrder.customerId}</p>
+                      <h3 className="text-lg font-semibold">
+                        {currentOrder.customerName}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Customer ID: {currentOrder.customerId}
+                      </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Contact Information</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">
+                        Contact Information
+                      </h4>
                       <div className="p-3 border rounded-lg">
                         <p className="text-sm">Email: customer@example.com</p>
                         <p className="text-sm">Phone: +94 77 123 4567</p>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Order History</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">
+                        Order History
+                      </h4>
                       <div className="p-3 border rounded-lg">
                         <p className="text-sm">Total Orders: 5</p>
                         <p className="text-sm">Total Spent: $245.67</p>
@@ -541,53 +639,68 @@ export default function AdminOrdersPage() {
               <TabsContent value="payment" className="space-y-4 py-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Payment Information</h3>
+                    <h3 className="text-lg font-semibold">
+                      Payment Information
+                    </h3>
                     <Button onClick={openPaymentDialog}>Process Payment</Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Payment Method</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">
+                        Payment Method
+                      </h4>
                       <div className="p-3 border rounded-lg">
-                        <p className="text-sm">Credit Card ending in ****1234</p>
+                        <p className="text-sm">
+                          Credit Card ending in ****1234
+                        </p>
                         <p className="text-sm text-gray-500">Visa</p>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Payment Status</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">
+                        Payment Status
+                      </h4>
                       <div className="p-3 border rounded-lg">
-                        <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                        <Badge className="bg-green-100 text-green-800">
+                          Paid
+                        </Badge>
                         <p className="text-sm text-gray-500 mt-1">
-                          Processed on {currentOrder.createdAt.toLocaleDateString()}
+                          Processed on{" "}
+                          {currentOrder.createdAt.toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Transaction Details</h4>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">
+                      Transaction Details
+                    </h4>
                     <div className="p-3 border rounded-lg">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal:</span>
                         <span>${(currentOrder.subtotal || 0).toFixed(2)}</span>
                       </div>
-                      
+
                       {/* Only show shipping in the details */}
-                      {currentOrder.shipping !== undefined && currentOrder.shipping > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Shipping:</span>
-                          <span>${currentOrder.shipping.toFixed(2)}</span>
-                        </div>
-                      )}
-                      
+                      {currentOrder.shipping !== undefined &&
+                        currentOrder.shipping > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span>Shipping:</span>
+                            <span>${currentOrder.shipping.toFixed(2)}</span>
+                          </div>
+                        )}
+
                       {/* Only show tax in the details */}
-                      {currentOrder.tax !== undefined && currentOrder.tax > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Tax:</span>
-                          <span>${currentOrder.tax.toFixed(2)}</span>
-                        </div>
-                      )}
-                      
+                      {currentOrder.tax !== undefined &&
+                        currentOrder.tax > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span>Tax:</span>
+                            <span>${currentOrder.tax.toFixed(2)}</span>
+                          </div>
+                        )}
+
                       <div className="flex justify-between text-sm font-medium border-t pt-2 mt-2">
                         <span>Total:</span>
                         <span>${(currentOrder.total || 0).toFixed(2)}</span>
@@ -609,10 +722,14 @@ export default function AdminOrdersPage() {
           </DialogHeader>
           <div className="py-4">
             <p className="mb-4">
-              Process payment for Order #{currentOrder?.id} - ${(currentOrder?.total || 0).toFixed(2)}
+              Process payment for Order #{currentOrder?.id} - $
+              {(currentOrder?.total || 0).toFixed(2)}
             </p>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPaymentDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={handlePaymentProcessed}>Process Payment</Button>
@@ -621,5 +738,5 @@ export default function AdminOrdersPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
