@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl;
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/admin", "/industry", "/collector", "/shop"]
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+  const protectedRoutes = ["/admin", "/industry", "/collector", "/shop"];
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
 
   // Create the base response
-  const response = NextResponse.next()
+  const response = NextResponse.next();
 
   // Add Content Security Policy headers
   response.headers.set(
@@ -23,15 +25,15 @@ export function middleware(request: NextRequest) {
       "img-src 'self' data: https://*.stripe.com https://*.stripe.network https://*.googleapis.com https://www.google.com",
       "connect-src 'self' https://*.stripe.com https://*.stripe.network https://*.firebase.com https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com wss://*.firestore.googleapis.com",
     ].join("; ")
-  )
+  );
 
   if (isProtectedRoute) {
     // In a real app, you would check for a valid JWT token
     // For demo purposes, we'll allow access
-    return response
+    return response;
   }
 
-  return response
+  return response;
 }
 
 export const config = {
@@ -43,7 +45,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
-}
+};
