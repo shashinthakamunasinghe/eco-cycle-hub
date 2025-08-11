@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, browserSessionPersistence, setPersistence } from "firebase/auth";
+import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -22,9 +22,9 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication with session persistence
 export const auth = getAuth(app);
 
-// Set persistence to session (instead of local storage)
+// Set persistence to local (keep user logged in until logout)
 if (typeof window !== 'undefined') {
-  setPersistence(auth, browserSessionPersistence)
+  setPersistence(auth, browserLocalPersistence)
     .catch(error => {
       console.error("Firebase auth persistence error:", error);
     });
