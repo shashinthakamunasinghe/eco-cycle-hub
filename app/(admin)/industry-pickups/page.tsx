@@ -29,9 +29,12 @@ interface AvailableCollector {
   isAvailable: boolean;
   email: string;
   phone?: string;
+  vehicleCapacity?: number;
+  currentLoad?: number;
+  lastActivity?: string | null;
 }
-
 export default function AdminPickupsPage() {
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [availableCollectors, setAvailableCollectors] = useState<
@@ -103,6 +106,7 @@ export default function AdminPickupsPage() {
     };
     loadCollectors();
   }, [toast]);
+
 
   const refreshData = async () => {
     setIsLoading(true);
@@ -427,6 +431,7 @@ export default function AdminPickupsPage() {
                       View Details
                     </Button>
                   </div>
+
                 </div>
               </CardContent>
             </Card>
@@ -557,16 +562,59 @@ export default function AdminPickupsPage() {
                     }
                   >
                     <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Assign Collector" />
+                      <SelectValue placeholder={
+                        collectorsLoading ? "Loading..." : 
+                        availableCollectors.filter(c => c.isAvailable).length === 0 ? "No Collectors" :
+                        "Assign Collector"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableCollectors
-                        .filter((c) => c.isAvailable)
-                        .map((collector) => (
-                          <SelectItem key={collector.id} value={collector.id}>
-                            {collector.name}
-                          </SelectItem>
-                        ))}
+                      {collectorsLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Loading collectors...
+                        </SelectItem>
+                      ) : availableCollectors.filter(c => c.isAvailable).length === 0 ? (
+                        <SelectItem value="no-collectors" disabled>
+                          No available collectors
+                        </SelectItem>
+                      ) : (
+                        availableCollectors
+                          .filter((c) => c.isAvailable)
+                          .map((collector) => (
+                            <SelectItem key={collector.id} value={collector.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{collector.name}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                    Available
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-muted-foreground">
+                                      {collector.currentLoad || 0}/{collector.vehicleCapacity || 100}kg
+                                    </span>
+                                    <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className={`h-full transition-all duration-300 ${
+                                          ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.8 
+                                            ? 'bg-red-500' 
+                                            : ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.6 
+                                              ? 'bg-yellow-500' 
+                                              : 'bg-green-500'
+                                        }`}
+                                        style={{ 
+                                          width: `${Math.min(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100, 100)}%` 
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {Math.round(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                      )}
                     </SelectContent>
                   </Select>
                 )}

@@ -122,7 +122,49 @@ export default function AdminCollectorsPage() {
     }
   }, [toast]);
 
+
+  // Calculate current load for each collector based on assigned pickups
+  const getCollectorWithLoad = (collector: CollectorProfile) => {
+    // Get all assigned pickups for this collector that are not completed or cancelled
+    const collectorPickups = pickups.filter(
+      pickup => 
+        pickup.collectorId === collector.id && 
+        !['completed', 'cancelled'].includes(pickup.status)
+    )
+    
+    // Calculate total weight of assigned pickups
+    const assignedLoad = collectorPickups.reduce((sum, pickup) => sum + pickup.weight, 0)
+    
+    // Get vehicle capacity as a number
+    const vehicleCapacity = typeof collector.vehicleCapacity === 'string' 
+      ? parseFloat(collector.vehicleCapacity) 
+      : collector.vehicleCapacity || 0
+    
+    // Calculate capacity percentage
+    const capacityPercentage = vehicleCapacity > 0 
+      ? (assignedLoad / vehicleCapacity) * 100 
+      : 0
+    
+    return {
+      ...collector,
+      currentLoad: assignedLoad,
+      capacityPercentage: Math.min(capacityPercentage, 100), // Cap at 100%
+      assignedPickups: collectorPickups,
+    }
+  }
+  
+  // Apply load calculations to all collectors
+  const collectorsWithLoad = collectors.map(getCollectorWithLoad)
+
+  // Calculate total completed pickups from actual pickup data
+  const totalCompletedPickups = pickups.filter(pickup => pickup.status === 'completed').length
+  
+  // Alternative: Calculate by collector profile data
+  const totalCompletedFromProfiles = collectors.reduce((sum, c) => sum + (c.completedPickups || 0), 0)
+  
+  // Debug logging
   useEffect(() => {
+
     loadCollectors();
   }, [loadCollectors]);
 
@@ -157,6 +199,7 @@ export default function AdminCollectorsPage() {
         description: "Failed to update collector availability.",
         variant: "destructive",
       });
+
     }
   };
 
@@ -175,7 +218,12 @@ export default function AdminCollectorsPage() {
       });
       return;
     }
+  }
 
+  const handleSyncCompletedPickups = async () => {
+    if (!confirm("This will update all collector profiles with their actual completed pickup counts from the database. Continue?")) return
+    
+    setIsUpdating(true)
     try {
       setLoading(true);
 
@@ -236,6 +284,7 @@ export default function AdminCollectorsPage() {
       });
     } finally {
       setLoading(false);
+
     }
   };
 
@@ -281,6 +330,7 @@ export default function AdminCollectorsPage() {
       });
     } finally {
       setLoading(false);
+
     }
   };
 
@@ -305,12 +355,21 @@ export default function AdminCollectorsPage() {
       collector.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  // Show loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading collectors...</span>
+      <div className="flex items-center justify-center h-[80vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading collector data...</p>
         </div>
       </div>
     );
@@ -318,7 +377,6 @@ export default function AdminCollectorsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -500,11 +558,10 @@ export default function AdminCollectorsPage() {
               Active Collectors
             </CardTitle>
             <Truck className="h-4 w-4 text-green-600" />
+
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {collectors.filter((c) => c.isAvailable).length}
-            </div>
+            <p className="text-3xl font-bold">{collectors.length}</p>
           </CardContent>
         </Card>
 
@@ -516,9 +573,12 @@ export default function AdminCollectorsPage() {
             <Truck className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {collectors.filter((c) => !c.isAvailable).length}
-            </div>
+            <p className="text-3xl font-bold text-green-600">
+              {collectors.filter(c => c.isAvailable === true).length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ready for new pickups
+            </p>
           </CardContent>
         </Card>
 
@@ -536,12 +596,14 @@ export default function AdminCollectorsPage() {
                   .length
               }
             </div>
+
           </CardContent>
         </Card>
       </div>
-
+      
       {/* Collectors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
         {filteredCollectors.map((collector) => (
           <Card
             key={collector.id}
@@ -563,19 +625,44 @@ export default function AdminCollectorsPage() {
                   >
                     {collector.isAvailable ? "Available" : "Offline"}
                   </Badge>
+
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Mail className="h-4 w-4" />
-                <span>{collector.email}</span>
-              </div>
-              {collector.phone && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <Phone className="h-4 w-4" />
-                  <span>{collector.phone}</span>
+            <CardContent className="space-y-4">
+              {/* Contact Info */}
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <Mail className="h-4 w-4 mr-2 text-gray-500" />
+                  <span>{collector.email}</span>
                 </div>
+                <div className="flex items-center text-sm">
+                  <Phone className="h-4 w-4 mr-2 text-gray-500" />
+                  <span>{collector.phone || "No phone"}</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <MapPin className="h-4 w-4 mr-2 text-gray-500" />
+                  <span className="truncate">{collector.address || "No address"}</span>
+                </div>
+              </div>
+              
+              {/* Vehicle Info */}
+              <div className="bg-gray-50 p-3 rounded-md">
+                <h4 className="font-medium text-sm flex items-center">
+                  <Truck className="h-4 w-4 mr-2" />
+                  Vehicle Details
+                </h4>
+                <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                  <div>
+                    <p className="text-gray-600">Type:</p>
+                    <p>{collector.vehicleType || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Model:</p>
+                    <p>{collector.vehicleModel || "Not specified"}</p>
+                  </div>
+                </div>
+
               )}
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <Truck className="h-4 w-4" />
@@ -583,11 +670,16 @@ export default function AdminCollectorsPage() {
                   {collector.currentLoad || 0}kg /{" "}
                   {collector.vehicleCapacity || 0}kg
                 </span>
+
               </div>
-              {collector.currentLocation && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4" />
-                  <span>Currently active</span>
+              
+              {/* Capacity Gauge */}
+              <div>
+                <div className="flex justify-between mb-1 text-sm">
+                  <span>Truck Capacity</span>
+                  <span className="font-medium">
+                    {collector.currentLoad || 0}kg / {collector.vehicleCapacity || 0}kg
+                  </span>
                 </div>
               )}
 
@@ -621,8 +713,25 @@ export default function AdminCollectorsPage() {
                   <Trash2 className="mr-1 h-3 w-3" />
                   Delete
                 </Button>
+
               </div>
             </CardContent>
+            <CardFooter className="bg-gray-50 border-t px-6 py-3">
+              <div className="flex justify-between w-full">
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Joined {formatDate(collector.joinedDate)}
+                </div>
+                <div className="flex items-center text-xs">
+                  <FileText className="h-3 w-3 mr-1" />
+                  {collector.completedPickups || 0} pickups completed
+                </div>
+              </div>
+              <div className="flex items-center text-xs text-gray-500 mt-1">
+                <span className={`w-2 h-2 rounded-full mr-1 ${collector.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                Last activity: {formatLastActivity(collector.lastActivity)}
+              </div>
+            </CardFooter>
           </Card>
         ))}
       </div>
@@ -632,14 +741,18 @@ export default function AdminCollectorsPage() {
           <p className="text-gray-500">
             No collectors found matching your search.
           </p>
+
         </div>
       )}
-
-      {/* View Collector Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
+      
+      {/* Edit Collector Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Collector Details</DialogTitle>
+            <DialogTitle>Edit Collector Profile</DialogTitle>
+            <DialogDescription>
+              Update collector information and vehicle details.
+            </DialogDescription>
           </DialogHeader>
           {viewCollector && (
             <div className="space-y-6 py-4">
@@ -805,8 +918,9 @@ export default function AdminCollectorsPage() {
                   Delete Permanently
                 </>
               )}
+
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
