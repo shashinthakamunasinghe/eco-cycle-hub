@@ -82,8 +82,7 @@ export default function AdminProductsPage() {
 
   const categories = [
     "all",
-    "fertilizers",
-    "garden supplies",
+    "home item",
     "mulch",
     "compost",
     "tools",

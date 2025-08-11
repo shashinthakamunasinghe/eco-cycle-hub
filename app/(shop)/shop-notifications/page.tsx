@@ -32,7 +32,7 @@ export default function NotificationsPage() {
       {
         id: "2",
         title: "Special Offer",
-        message: "Get 20% off on all eco-friendly fertilizers this week!",
+        message: "Get 20% off on all eco-friendly home items this week!",
         type: "promotion",
         read: false,
         createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
