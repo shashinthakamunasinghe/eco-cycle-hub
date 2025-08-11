@@ -198,16 +198,16 @@ export default function HomePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Leaf className="h-6 w-6 text-green-600" />
-                    <span>Organic Fertilizers</span>
+                    <span>Home Items</span>
                   </CardTitle>
                   <CardDescription>
-                    Premium compost and organic fertilizers
+                    Premium eco-friendly home products
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• Made from recycled organic waste</li>
-                    <li>• Rich in nutrients</li>
+                    <li>• Made from recycled materials</li>
+                    <li>• Rich in functionality</li>
                     <li>• Environmentally friendly</li>
                   </ul>
                 </CardContent>
@@ -217,17 +217,17 @@ export default function HomePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Recycle className="h-6 w-6 text-blue-600" />
-                    <span>Garden Supplies</span>
+                    <span>Mulch & Compost</span>
                   </CardTitle>
                   <CardDescription>
-                    Sustainable gardening products
+                    Sustainable soil enhancement products
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• Biodegradable plant pots</li>
-                    <li>• Recycled mulch</li>
-                    <li>• Eco-friendly tools</li>
+                    <li>• Premium organic mulch</li>
+                    <li>• Nutrient-rich compost</li>
+                    <li>• Soil improvement solutions</li>
                   </ul>
                 </CardContent>
               </Card>

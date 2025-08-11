@@ -81,8 +81,7 @@ export default function ProductsPage() {
 
   const categories = [
     { value: "all", label: "All Categories" },
-    { value: "fertilizers", label: "Fertilizers" },
-    { value: "garden supplies", label: "Garden Supplies" },
+    { value: "home item", label: "Home Item" },
     { value: "mulch", label: "Mulch" },
     { value: "compost", label: "Compost" },
     { value: "tools", label: "Tools" },
@@ -127,6 +126,16 @@ export default function ProductsPage() {
 
     const product = products.find((p) => p.id === productId);
     if (product) {
+      // Check if product is in stock
+      if (product.stock <= 0) {
+        toast({
+          title: "Out of stock",
+          description: `${productName} is currently out of stock.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       addItemToCart({
         id: product.id,
         name: product.name,
