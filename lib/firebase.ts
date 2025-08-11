@@ -15,14 +15,14 @@ const firebaseConfig = {
 
 };
 
-// Initialize Firebase with error handling for SSR/SSG
-let firebaseApp;
+
+// Initialize Firebase app
+const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Authentication with session persistence
 export const auth = getAuth(app);
 
 // Set persistence to session (instead of local storage)
-// This helps prevent auth token issues across sessions
 if (typeof window !== 'undefined') {
   setPersistence(auth, browserSessionPersistence)
     .catch(error => {
@@ -33,6 +33,5 @@ if (typeof window !== 'undefined') {
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
 
-
 // Export app instance
-export default firebaseApp;
+export default app;
