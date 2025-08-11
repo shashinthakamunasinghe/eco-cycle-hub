@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Truck, Package, CheckCircle, MapPin, Battery, Navigation, User } from "lucide-react"
+import { Truck, Package, CheckCircle, MapPin, Battery, Navigation, User, Menu } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
@@ -16,7 +16,7 @@ import type { PickupRequest, CollectorProfile } from "@/types"
 export default function CollectorDashboard() {
   const [isAvailable, setIsAvailable] = useState(true)
   const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([])
-  const [allPickups, setAllPickups] = useState<PickupRequest[]>([]) // Store all pickups for stats
+  const [allPickups, setAllPickups] = useState<PickupRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [collectorProfile, setCollectorProfile] = useState<CollectorProfile | null>(null)
   const { toast } = useToast()
@@ -308,64 +308,69 @@ export default function CollectorDashboard() {
   const capacityPercentage = (stats.currentLoad / stats.totalCapacity) * 100
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      {/* Header - Mobile optimized */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Collector Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Collector Dashboard</h1>
           {user && collectorProfile && (
-            <p className="text-sm text-gray-600 mt-1">
-              Logged in as: {collectorProfile.name} ({user.email}) - Collector ID: {collectorProfile.id}
+            <p className="text-xs sm:text-sm text-gray-600 mt-1 break-all">
+              <span className="hidden sm:inline">Logged in as: {collectorProfile.name} ({user.email}) - Collector ID: {collectorProfile.id}</span>
+              <span className="sm:hidden">{collectorProfile.name}</span>
             </p>
           )}
           {user && !collectorProfile && (
-            <p className="text-sm text-gray-600 mt-1">
-              Logged in as: {user.name} ({user.email}) - User ID: {user.id}
+            <p className="text-xs sm:text-sm text-gray-600 mt-1 break-all">
+              <span className="hidden sm:inline">Logged in as: {user.name} ({user.email}) - User ID: {user.id}</span>
+              <span className="sm:hidden">{user.name}</span>
             </p>
           )}
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-full p-2.5 shadow-lg">
-              <User className="h-4 w-4 text-white" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-full p-2 sm:p-2.5 shadow-lg">
+              <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
             </div>
-            <Label htmlFor="availability">Available for pickups</Label>
+            <Label htmlFor="availability" className="text-sm">Available for pickups</Label>
             <Switch id="availability" checked={isAvailable} onCheckedChange={handleAvailabilityChange} />
           </div>
-          <Badge variant={isAvailable ? "default" : "secondary"}>{isAvailable ? "Online" : "Offline"}</Badge>
+          <Badge variant={isAvailable ? "default" : "secondary"} className="text-xs">
+            {isAvailable ? "Online" : "Offline"}
+          </Badge>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+      {/* Stats Cards - Mobile responsive grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Assigned Pickups</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Assigned</CardTitle>
+            <Package className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.assignedPickups}</div>
-            <p className="text-xs text-muted-foreground">Pending collection</p>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.assignedPickups}</div>
+            <p className="text-xs text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.completedToday}</div>
-            <p className="text-xs text-muted-foreground">Pickups completed</p>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.completedToday}</div>
+            <p className="text-xs text-muted-foreground">Today</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Truck Capacity</CardTitle>
-            <Truck className="h-4 w-4 text-orange-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Capacity</CardTitle>
+            <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{capacityPercentage.toFixed(0)}%</div>
+            <div className="text-xl sm:text-2xl font-bold text-orange-600">{capacityPercentage.toFixed(0)}%</div>
             <p className="text-xs text-muted-foreground">
               {stats.currentLoad}kg / {stats.totalCapacity}kg
             </p>
@@ -378,14 +383,14 @@ export default function CollectorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Location Status</CardTitle>
-            <MapPin className="h-4 w-4 text-purple-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">GPS Status</CardTitle>
+            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">Active</div>
-            <p className="text-xs text-muted-foreground">GPS tracking enabled</p>
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">Active</div>
+            <p className="text-xs text-muted-foreground">Tracking enabled</p>
           </CardContent>
         </Card>
       </div>
@@ -393,7 +398,7 @@ export default function CollectorDashboard() {
       {/* Assigned Pickups */}
       <Card>
         <CardHeader>
-          <CardTitle>Assigned Pickups</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Assigned Pickups</CardTitle>
           <CardDescription>Your current pickup assignments</CardDescription>
         </CardHeader>
         <CardContent>
@@ -414,53 +419,83 @@ export default function CollectorDashboard() {
             <>
               <div className="space-y-4">
                 {assignedPickups.map((pickup) => (
-                  <div key={pickup.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="font-semibold">{pickup.industryName}</h3>
-                          <Badge className={getStatusColor(pickup.status)}>{pickup.status.replace("-", " ")}</Badge>
-                          <Badge className={getPriorityColor(pickup.priority)}>{pickup.priority}</Badge>
+                  <div key={pickup.id} className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-sm sm:text-base truncate">{pickup.industryName}</h3>
+                          <Badge className={`${getStatusColor(pickup.status)} text-xs`}>
+                            {pickup.status.replace("-", " ")}
+                          </Badge>
+                          <Badge className={`${getPriorityColor(pickup.priority)} text-xs`}>
+                            {pickup.priority}
+                          </Badge>
                         </div>
-                        <div className="space-y-1 text-sm text-gray-600">
+                        <div className="space-y-1 text-xs sm:text-sm text-gray-600">
                           <div className="flex items-center space-x-2">
-                            <Package className="h-4 w-4" />
-                            <span>
+                            <Package className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                            <span className="truncate">
                               {pickup.wasteType} - {pickup.weight}kg
                             </span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{pickup.location?.address || 'Address not available'}</span>
+                          <div className="flex items-start space-x-2">
+                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
+                            <span className="break-words">{pickup.location?.address || 'Address not available'}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Navigation className="h-4 w-4" />
-                            <span>Location coordinates: {pickup.location?.lat ? `${pickup.location.lat.toFixed(4)}, ${pickup.location.lng.toFixed(4)}` : 'Not available'}</span>
-                          </div>
+                          {pickup.location?.lat && (
+                            <div className="flex items-center space-x-2">
+                              <Navigation className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                              <span className="text-xs truncate">
+                                {pickup.location.lat.toFixed(4)}, {pickup.location.lng.toFixed(4)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col space-y-2">
+                      <div className="flex flex-row sm:flex-col gap-2 sm:space-y-2 sm:space-x-0">
                         {pickup.status === "assigned" && (
                           <>
-                            <Button size="sm" onClick={() => acceptPickup(pickup.id)} className="bg-green-600 hover:bg-green-700">
-                              Accept & Start
+                            <Button 
+                              size="sm" 
+                              onClick={() => acceptPickup(pickup.id)} 
+                              className="bg-green-600 hover:bg-green-700 text-xs flex-1 sm:flex-none"
+                            >
+                              Accept
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={() => rejectPickup(pickup.id)}>
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={() => rejectPickup(pickup.id)}
+                              className="text-xs flex-1 sm:flex-none"
+                            >
                               Reject
                             </Button>
                           </>
                         )}
                         {pickup.status === "on-way" && (
-                          <Button size="sm" onClick={() => updatePickupStatus(pickup.id, "picked-up")} className="bg-blue-600 hover:bg-blue-700">
+                          <Button 
+                            size="sm" 
+                            onClick={() => updatePickupStatus(pickup.id, "picked-up")} 
+                            className="bg-blue-600 hover:bg-blue-700 text-xs"
+                          >
                             Mark Picked Up
                           </Button>
                         )}
                         {pickup.status === "picked-up" && (
-                          <Button size="sm" onClick={() => updatePickupStatus(pickup.id, "completed")} className="bg-purple-600 hover:bg-purple-700">
+                          <Button 
+                            size="sm" 
+                            onClick={() => updatePickupStatus(pickup.id, "completed")} 
+                            className="bg-purple-600 hover:bg-purple-700 text-xs"
+                          >
                             Complete
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => navigateToLocation(pickup)}>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => navigateToLocation(pickup)}
+                          className="text-xs"
+                        >
                           Navigate
                         </Button>
                       </div>
@@ -478,26 +513,26 @@ export default function CollectorDashboard() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Quick Actions & Vehicle Status - Mobile responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full justify-start" asChild>
+            <Button className="w-full justify-start text-sm" asChild>
               <Link href="/collector-map">
                 <MapPin className="mr-2 h-4 w-4" />
                 View Map & Navigate
               </Link>
             </Button>
-            <Button variant="outline" className="w-full justify-start" asChild>
+            <Button variant="outline" className="w-full justify-start text-sm" asChild>
               <Link href="/assigned-pickups">
                 <Package className="mr-2 h-4 w-4" />
                 Manage Pickups
               </Link>
             </Button>
-            <Button variant="outline" className="w-full justify-start" asChild>
+            <Button variant="outline" className="w-full justify-start text-sm" asChild>
               <Link href="/collector-profile">
                 <Truck className="mr-2 h-4 w-4" />
                 Update Vehicle Info
@@ -508,7 +543,7 @@ export default function CollectorDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Vehicle Status</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Vehicle Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
