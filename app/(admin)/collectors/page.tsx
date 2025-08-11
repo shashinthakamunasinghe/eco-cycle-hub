@@ -75,6 +75,7 @@ export default function CollectorsPage() {
           isAvailable: data.isAvailable || false,
           currentLoad: data.currentLoad || 0,
           currentLocation: data.currentLocation || null,
+          lastActivity: data.lastActivity || null,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         } as CollectorProfile)
@@ -169,8 +170,10 @@ export default function CollectorsPage() {
       console.log("- Profile completed totals:", totalCompletedFromProfiles)
       console.log("- Collectors with completedPickups:", collectors.map(c => ({
         name: c.name,
-        completedPickups: c.completedPickups || 0
+        completedPickups: c.completedPickups || 0,
+        isAvailable: c.isAvailable
       })))
+      console.log("- Available collectors:", collectors.filter(c => c.isAvailable).length)
       console.log("- Pickup statuses:", [...new Set(pickups.map(p => p.status))])
     }
   }, [collectors, pickups, totalCompletedPickups, totalCompletedFromProfiles])
@@ -332,6 +335,23 @@ export default function CollectorsPage() {
     })
   }
 
+  // Format last activity time
+  const formatLastActivity = (lastActivity: string | null | undefined) => {
+    if (!lastActivity) return "Never"
+    const date = new Date(lastActivity)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
   // Show loading state
   if (loading) {
     return (
@@ -380,11 +400,14 @@ export default function CollectorsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Active Now</CardTitle>
+            <CardTitle className="text-lg">Available Online</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-green-600">
-              {collectors.filter(c => c.status?.toLowerCase() === "active").length}
+              {collectors.filter(c => c.isAvailable === true).length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ready for new pickups
             </p>
           </CardContent>
         </Card>
@@ -415,12 +438,21 @@ export default function CollectorsPage() {
             <CardHeader className="pb-2">
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle>{collector.name}</CardTitle>
-                  <CardDescription className="flex items-center mt-1">
+                  <CardTitle className="flex items-center">
+                    <span className={`w-3 h-3 rounded-full mr-2 ${collector.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                    {collector.name}
+                  </CardTitle>
+                  <CardDescription className="flex items-center mt-1 space-x-2">
                     <Badge className={getStatusColor(collector.status)}>
                       {collector.status || "Unknown Status"}
                     </Badge>
-                    <span className="ml-2 text-sm">ID: {collector.id.substring(0, 6)}...</span>
+                    <Badge 
+                      variant={collector.isAvailable ? "default" : "secondary"}
+                      className={collector.isAvailable ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
+                    >
+                      {collector.isAvailable ? "Online" : "Offline"}
+                    </Badge>
+                    <span className="text-sm">ID: {collector.id.substring(0, 6)}...</span>
                   </CardDescription>
                 </div>
                 <div className="flex space-x-1">
@@ -553,14 +585,20 @@ export default function CollectorsPage() {
                 )}
               </div>
             </CardContent>
-            <CardFooter className="bg-gray-50 flex justify-between border-t px-6 py-3">
-              <div className="flex items-center text-xs text-gray-500">
-                <Clock className="h-3 w-3 mr-1" />
-                Joined {formatDate(collector.joinedDate)}
+            <CardFooter className="bg-gray-50 border-t px-6 py-3">
+              <div className="flex justify-between w-full">
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Joined {formatDate(collector.joinedDate)}
+                </div>
+                <div className="flex items-center text-xs">
+                  <FileText className="h-3 w-3 mr-1" />
+                  {collector.completedPickups || 0} pickups completed
+                </div>
               </div>
-              <div className="flex items-center text-xs">
-                <FileText className="h-3 w-3 mr-1" />
-                {collector.completedPickups || 0} pickups completed
+              <div className="flex items-center text-xs text-gray-500 mt-1">
+                <span className={`w-2 h-2 rounded-full mr-1 ${collector.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                Last activity: {formatLastActivity(collector.lastActivity)}
               </div>
             </CardFooter>
           </Card>

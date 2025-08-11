@@ -105,9 +105,13 @@ export default function CollectorDashboard() {
       console.log("✅ Found/created collector profile:", { 
         id: userCollectorProfile.id, 
         name: userCollectorProfile.name, 
-        email: userCollectorProfile.email 
+        email: userCollectorProfile.email,
+        isAvailable: userCollectorProfile.isAvailable 
       });
       setCollectorProfile(userCollectorProfile);
+      
+      // Set availability from profile
+      setIsAvailable(userCollectorProfile.isAvailable !== false); // Default to true if undefined
       
       // Now get pickups using the collector profile ID
       console.log("📡 Fetching pickups for collector ID:", userCollectorProfile.id);
@@ -182,6 +186,7 @@ export default function CollectorDashboard() {
       if (collectorProfile?.id) {
         await collectorService.updateCollectorProfile(collectorProfile.id, {
           isAvailable: available,
+          lastActivity: new Date().toISOString(), // Add timestamp for when availability was last changed
         })
       }
 
