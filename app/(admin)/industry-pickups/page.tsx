@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Package, MapPin, Clock, User, Search, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { collection, onSnapshot, query } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 import { collectorService, pickupService } from "@/lib/firebase-services"
 import type { CollectorProfile, PickupRequest } from "@/types"
 
@@ -18,74 +20,133 @@ interface AvailableCollector {
   isAvailable: boolean;
   email: string;
   phone?: string;
+  vehicleCapacity?: number;
+  currentLoad?: number;
+  lastActivity?: string | null;
 }
 
 export default function AdminPickupsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [availableCollectors, setAvailableCollectors] = useState<AvailableCollector[]>([])
-  const [collectorsLoading, setCollectorsLoading] = useState(true)
   const { toast } = useToast()
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [currentPickup, setCurrentPickup] = useState<PickupRequest | null>(null)
 
   const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([])
   const [pickupRequestsLoading, setPickupRequestsLoading] = useState(true)
+  const [collectorsLoading, setCollectorsLoading] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [rawCollectors, setRawCollectors] = useState<AvailableCollector[]>([])
 
-  // Load pickup requests from Firebase
-  useEffect(() => {
-    const loadPickupRequests = async () => {
-      try {
-        setPickupRequestsLoading(true)
-        const requests = await pickupService.getAllPickupRequests()
-        setPickupRequests(requests)
-      } catch (error) {
-        console.error("Error loading pickup requests:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load pickup requests",
-          variant: "destructive",
-        })
-      } finally {
-        setPickupRequestsLoading(false)
+  // Function to calculate real-time current load for collectors
+  const calculateCollectorLoads = useCallback((collectors: AvailableCollector[], pickups: PickupRequest[]) => {
+    return collectors.map(collector => {
+      // Calculate current load from assigned pickups that are not completed or cancelled
+      const assignedPickups = pickups.filter(pickup => 
+        pickup.collectorId === collector.id && 
+        pickup.status === "assigned"
+      )
+      
+      const currentLoad = assignedPickups.reduce((total, pickup) => {
+        return total + (pickup.weight || 0)
+      }, 0)
+
+      return {
+        ...collector,
+        currentLoad: Math.round(currentLoad)
       }
-    }
+    })
+  }, [])
 
-    loadPickupRequests()
-  }, [toast])
-
-  // Load collectors from Firebase
+  // Update available collectors whenever raw collectors or pickup requests change
   useEffect(() => {
-    const loadCollectors = async () => {
-      try {
-        setCollectorsLoading(true)
-        const collectorsData = await collectorService.getAllCollectors()
-        
-        // Transform collector data to match our interface
-        const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
-          id: collector.id,
-          name: collector.name,
-          email: collector.email,
-          phone: collector.phone,
-          isAvailable: collector.isAvailable || true, // Default to available if not specified
-        }))
-        
-        setAvailableCollectors(formattedCollectors)
-        console.log("📋 Loaded collectors for assignment:", formattedCollectors)
-      } catch (error) {
-        console.error("❌ Error loading collectors:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load collectors for assignment",
-          variant: "destructive",
-        })
-      } finally {
-        setCollectorsLoading(false)
-      }
+    if (rawCollectors.length > 0) {
+      const collectorsWithLoads = calculateCollectorLoads(rawCollectors, pickupRequests)
+      setAvailableCollectors(collectorsWithLoads)
+      console.log("🚛 Collector loads updated:", collectorsWithLoads.map(c => ({
+        name: c.name,
+        currentLoad: c.currentLoad,
+        capacity: c.vehicleCapacity,
+        percentage: Math.round(((c.currentLoad || 0) / (c.vehicleCapacity || 100)) * 100)
+      })))
     }
+  }, [rawCollectors, pickupRequests, calculateCollectorLoads])
 
-    loadCollectors()
+  // Real-time listeners for pickup requests and collectors
+  useEffect(() => {
+    // Set up real-time listener for pickup requests
+    const pickupsQuery = query(collection(db, "pickupRequests"))
+    const unsubscribePickups = onSnapshot(pickupsQuery, (snapshot) => {
+      const pickupData: PickupRequest[] = []
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        pickupData.push({
+          id: doc.id,
+          industryId: data.industryId || "",
+          industryName: data.industryName || "",
+          wasteType: data.wasteType || "",
+          weight: data.weight || 0,
+          location: data.location || { lat: 0, lng: 0, address: "" },
+          status: data.status || "pending",
+          collectorId: data.collectorId || "",
+          collectorName: data.collectorName || "",
+          priority: data.priority || "medium",
+          requestedAt: data.requestedAt?.toDate() || new Date(),
+          scheduledAt: data.scheduledAt?.toDate() || undefined,
+          completedAt: data.completedAt?.toDate() || undefined,
+          cancelledAt: data.cancelledAt?.toDate() || undefined,
+          notes: data.notes || "",
+        } as PickupRequest)
+      })
+      setPickupRequests(pickupData)
+      setPickupRequestsLoading(false)
+    }, (error) => {
+      console.error("Error fetching pickup requests:", error)
+      setPickupRequestsLoading(false)
+      toast({
+        title: "Error",
+        description: "Failed to load pickup requests",
+        variant: "destructive",
+      })
+    })
+
+    // Set up real-time listener for collector profiles
+    const collectorsQuery = query(collection(db, "collectorProfiles"))
+    const unsubscribeCollectors = onSnapshot(collectorsQuery, (snapshot) => {
+      const collectorData: AvailableCollector[] = []
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        collectorData.push({
+          id: doc.id,
+          name: data.name || "Unknown",
+          email: data.email || "",
+          phone: data.phone || "",
+          isAvailable: data.isAvailable || false,
+          vehicleCapacity: data.vehicleCapacity || 0,
+          currentLoad: 0, // Will be calculated from assigned pickups
+          lastActivity: data.lastActivity || null,
+        } as AvailableCollector)
+      })
+      
+      // Store raw collector data
+      setRawCollectors(collectorData)
+      setCollectorsLoading(false)
+      console.log("📋 Real-time collectors update:", collectorData.filter(c => c.isAvailable).length, "available")
+    }, (error) => {
+      console.error("Error fetching collectors:", error)
+      setCollectorsLoading(false)
+      toast({
+        title: "Error",
+        description: "Failed to load collectors",
+        variant: "destructive",
+      })
+    })
+
+    return () => {
+      unsubscribePickups()
+      unsubscribeCollectors()
+    }
   }, [toast])
 
   const refreshData = async () => {
@@ -95,16 +156,19 @@ export default function AdminPickupsPage() {
       const requests = await pickupService.getAllPickupRequests()
       setPickupRequests(requests)
       
-      // Reload collectors
-      const collectorsData = await collectorService.getAllCollectors()
+      // Reload collectors from profiles
+      const collectorsData = await collectorService.getAllCollectorProfiles()
       
       // Transform collector data to match our interface
-      const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: any) => ({
+      const formattedCollectors: AvailableCollector[] = collectorsData.map((collector: CollectorProfile) => ({
         id: collector.id,
         name: collector.name,
         email: collector.email,
         phone: collector.phone,
-        isAvailable: collector.isAvailable || true, // Default to available if not specified
+        isAvailable: collector.isAvailable || false,
+        vehicleCapacity: collector.vehicleCapacity || 0,
+        currentLoad: collector.currentLoad || 0,
+        lastActivity: collector.lastActivity || null,
       }))
       
       setAvailableCollectors(formattedCollectors)
@@ -151,13 +215,16 @@ export default function AdminPickupsPage() {
       )
 
       // Refresh available collectors to get updated availability
-      const updatedCollectorsData = await collectorService.getAvailableCollectors();
-      const formattedUpdatedCollectors: AvailableCollector[] = updatedCollectorsData.map((collector: any) => ({
+      const updatedCollectorsData = await collectorService.getAllCollectorProfiles();
+      const formattedUpdatedCollectors: AvailableCollector[] = updatedCollectorsData.map((collector: CollectorProfile) => ({
         id: collector.id,
         name: collector.name,
         email: collector.email,
         phone: collector.phone,
-        isAvailable: collector.isAvailable || true,
+        isAvailable: collector.isAvailable || false,
+        vehicleCapacity: collector.vehicleCapacity || 0,
+        currentLoad: collector.currentLoad || 0,
+        lastActivity: collector.lastActivity || null,
       }))
       setAvailableCollectors(formattedUpdatedCollectors);
 
@@ -337,16 +404,59 @@ export default function AdminPickupsPage() {
                   {request.status === "pending" && (
                     <Select onValueChange={(value) => assignCollector(request.id, value)}>
                       <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Assign Collector" />
+                        <SelectValue placeholder={
+                          collectorsLoading ? "Loading..." : 
+                          availableCollectors.filter(c => c.isAvailable).length === 0 ? "No Collectors" :
+                          "Assign Collector"
+                        } />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableCollectors
-                          .filter((c) => c.isAvailable)
-                          .map((collector) => (
-                            <SelectItem key={collector.id} value={collector.id}>
-                              {collector.name}
-                            </SelectItem>
-                          ))}
+                        {collectorsLoading ? (
+                          <SelectItem value="loading" disabled>
+                            Loading collectors...
+                          </SelectItem>
+                        ) : availableCollectors.filter(c => c.isAvailable).length === 0 ? (
+                          <SelectItem value="no-collectors" disabled>
+                            No available collectors
+                          </SelectItem>
+                        ) : (
+                          availableCollectors
+                            .filter((c) => c.isAvailable)
+                            .map((collector) => (
+                              <SelectItem key={collector.id} value={collector.id}>
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{collector.name}</span>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                      Available
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground">
+                                        {collector.currentLoad || 0}/{collector.vehicleCapacity || 100}kg
+                                      </span>
+                                      <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full transition-all duration-300 ${
+                                            ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.8 
+                                              ? 'bg-red-500' 
+                                              : ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.6 
+                                                ? 'bg-yellow-500' 
+                                                : 'bg-green-500'
+                                          }`}
+                                          style={{ 
+                                            width: `${Math.min(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100, 100)}%` 
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="text-xs text-muted-foreground">
+                                        {Math.round(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))
+                        )}
                       </SelectContent>
                     </Select>
                   )}
@@ -448,16 +558,59 @@ export default function AdminPickupsPage() {
                 {currentPickup.status === "pending" && (
                   <Select onValueChange={(value) => assignCollector(currentPickup.id, value)}>
                     <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Assign Collector" />
+                      <SelectValue placeholder={
+                        collectorsLoading ? "Loading..." : 
+                        availableCollectors.filter(c => c.isAvailable).length === 0 ? "No Collectors" :
+                        "Assign Collector"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableCollectors
-                        .filter((c) => c.isAvailable)
-                        .map((collector) => (
-                          <SelectItem key={collector.id} value={collector.id}>
-                            {collector.name}
-                          </SelectItem>
-                        ))}
+                      {collectorsLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Loading collectors...
+                        </SelectItem>
+                      ) : availableCollectors.filter(c => c.isAvailable).length === 0 ? (
+                        <SelectItem value="no-collectors" disabled>
+                          No available collectors
+                        </SelectItem>
+                      ) : (
+                        availableCollectors
+                          .filter((c) => c.isAvailable)
+                          .map((collector) => (
+                            <SelectItem key={collector.id} value={collector.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{collector.name}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                    Available
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-muted-foreground">
+                                      {collector.currentLoad || 0}/{collector.vehicleCapacity || 100}kg
+                                    </span>
+                                    <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className={`h-full transition-all duration-300 ${
+                                          ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.8 
+                                            ? 'bg-red-500' 
+                                            : ((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) > 0.6 
+                                              ? 'bg-yellow-500' 
+                                              : 'bg-green-500'
+                                        }`}
+                                        style={{ 
+                                          width: `${Math.min(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100, 100)}%` 
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {Math.round(((collector.currentLoad || 0) / (collector.vehicleCapacity || 100)) * 100)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                      )}
                     </SelectContent>
                   </Select>
                 )}
