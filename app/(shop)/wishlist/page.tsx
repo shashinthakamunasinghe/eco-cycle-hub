@@ -20,6 +20,10 @@ interface WishlistItem {
   rating: number
 }
 
+interface CartItem extends WishlistItem {
+  quantity: number
+}
+
 export default function WishlistPage() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const { toast } = useToast()
@@ -40,8 +44,8 @@ export default function WishlistPage() {
   }
 
   const addToCart = (item: WishlistItem) => {
-    const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
-    const existingItem = cartItems.find((cartItem: any) => cartItem.id === item.id)
+    const cartItems: CartItem[] = JSON.parse(localStorage.getItem("cartItems") || "[]")
+    const existingItem = cartItems.find((cartItem) => cartItem.id === item.id)
 
     if (existingItem) {
       existingItem.quantity += 1

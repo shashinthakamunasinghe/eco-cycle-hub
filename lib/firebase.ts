@@ -43,6 +43,7 @@ if (typeof window !== "undefined") {
 
     // Set persistence to session (instead of local storage)
     setPersistence(auth, browserSessionPersistence).catch((error) => {
+
       console.error("Firebase auth persistence error:", error);
     });
 
@@ -59,5 +60,4 @@ if (typeof window !== "undefined") {
 // Export the Firebase services
 export { auth, db, storage, app };
 
-// Export app as default
-export default app;
+
