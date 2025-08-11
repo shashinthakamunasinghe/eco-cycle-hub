@@ -20,7 +20,7 @@ export default function CancelPage() {
             Your checkout process was cancelled and no payment was made.
           </p>
           <p className="text-sm text-gray-500">
-            Your items are still in your cart if you'd like to try again.
+            Your items are still in your cart if you&apos;d like to try again.
           </p>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">

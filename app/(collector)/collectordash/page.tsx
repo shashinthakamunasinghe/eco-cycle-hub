@@ -47,61 +47,22 @@ export default function CollectorDashboard() {
     try {
       setLoading(true)
       
-      // First, try to get the collector profile using the user ID directly
-      console.log("📡 Fetching collector profile for user ID:", user.id);
-      let userCollectorProfile = await collectorService.getCollectorProfile(user.id);
+      // First, get the collector profile for this user
+      console.log("📡 Fetching collector profile for email:", user.email);
+      const allCollectors = await collectorService.getAllCollectorProfiles();
+      const userCollectorProfile = allCollectors.find(c => c.email === user.email);
       
-      // If not found by user ID, try to find by email in all profiles
       if (!userCollectorProfile) {
-        console.log("❌ No collector profile found for user ID, trying email lookup:", user.email);
-        const allCollectors = await collectorService.getAllCollectorProfiles();
-        userCollectorProfile = allCollectors.find(c => c.email === user.email) || null;
+        console.log("❌ No collector profile found for user email:", user.email);
+        toast({
+          title: "Profile not found",
+          description: "No collector profile found for your account",
+          variant: "destructive",
+        });
+        return;
       }
       
-      // If still not found, create a default profile
-      if (!userCollectorProfile) {
-        console.log("❌ No collector profile found for user email, creating default profile");
-        
-        // Create a default collector profile
-        const defaultProfile = {
-          id: user.id,
-          name: user.name || 'Unknown Collector',
-          email: user.email,
-          phone: user.phone || '',
-          address: user.address || '',
-          licenseNumber: '',
-          vehicleType: 'truck' as const,
-          vehicleModel: '',
-          vehicleCapacity: 1000,
-          experience: '',
-          status: 'active' as const,
-          rating: 0,
-          completedPickups: 0,
-          avatar: '/placeholder-user.jpg',
-          joinedDate: new Date().toISOString().split('T')[0],
-          emergencyContact: '',
-          workingHours: '8:00 AM - 6:00 PM',
-          specializations: [],
-          isAvailable: true,
-        };
-        
-        // Save the default profile to Firebase
-        try {
-          await collectorService.setCollectorProfile(user.id, defaultProfile);
-          userCollectorProfile = defaultProfile;
-          console.log("✅ Created default collector profile:", userCollectorProfile);
-        } catch (error) {
-          console.error("❌ Error creating default profile:", error);
-          toast({
-            title: "Profile creation failed",
-            description: "Failed to create collector profile. Please contact support.",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      
-      console.log("✅ Found/created collector profile:", { 
+      console.log("✅ Found collector profile:", { 
         id: userCollectorProfile.id, 
         name: userCollectorProfile.name, 
         email: userCollectorProfile.email 
@@ -130,7 +91,7 @@ export default function CollectorDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, user?.email, user?.name, user?.phone, user?.address, toast])
+  }, [user?.id, user?.email, toast])
 
   useEffect(() => {
     loadPickups()
