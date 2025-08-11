@@ -143,12 +143,19 @@ export default function CollectorDashboard() {
     try {
       setIsAvailable(available)
       
-      // Update collector availability in Firebase using collector profile ID
+      // Update collector availability in both places for consistency
       if (collectorProfile?.id) {
-        await collectorService.updateCollectorProfile(collectorProfile.id, {
-          isAvailable: available,
-          lastActivity: new Date().toISOString(), // Add timestamp for when availability was last changed
-        })
+        await Promise.all([
+          // Update collector profile
+          collectorService.updateCollectorProfile(collectorProfile.id, {
+            isAvailable: available,
+            lastActivity: new Date().toISOString(),
+          }),
+          // Update user record as well for admin dashboard sync
+          collectorService.updateCollectorAvailability(collectorProfile.id, available)
+        ]);
+        
+        console.log(`✅ Availability updated: ${available ? "Online" : "Offline"} for collector ${collectorProfile.name}`);
       }
 
       toast({
@@ -164,6 +171,8 @@ export default function CollectorDashboard() {
         description: "Failed to update availability status",
         variant: "destructive",
       })
+      // Revert local state on error
+      setIsAvailable(!available)
     }
   }
 
