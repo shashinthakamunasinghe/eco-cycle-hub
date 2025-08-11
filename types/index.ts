@@ -92,6 +92,7 @@ export interface CollectorProfile {
     lat: number
     lng: number
   }
+  lastActivity?: string // ISO date string of last activity/availability change
   createdAt?: Date
   updatedAt?: Date
 }

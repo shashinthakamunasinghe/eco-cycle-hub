@@ -78,32 +78,6 @@ export default function PickupHistoryPage() {
     }
   }, [user?.id, toast]);
 
-  const handleCancelRequest = async (request: PickupRequest) => {
-    if (!request.id) return;
-
-    try {
-      await pickupService.updatePickupRequest(request.id, {
-        status: "cancelled",
-        cancelledAt: new Date(),
-      });
-
-      toast({
-        title: "Success",
-        description: "Request cancelled successfully",
-      });
-
-      loadRequests(); // Reload the requests
-      setIsConfirmCancelOpen(false);
-      setPickupToCancel(null);
-    } catch (error) {
-      console.error("Error cancelling request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel request. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   useEffect(() => {
     if (user?.id) {
@@ -192,7 +166,10 @@ export default function PickupHistoryPage() {
                   variant="secondary"
                   className={getStatusColor(item.status)}
                 >
-                  {item.status}
+                  <span className="flex items-center gap-1">
+                    {getStatusIcon(item.status)}
+                    {item.status}
+                  </span>
                 </Badge>
               </div>
 
@@ -227,10 +204,7 @@ export default function PickupHistoryPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setCurrentPickup(item);
-                  setIsViewDialogOpen(true);
-                }}
+                onClick={() => viewPickupDetails(item)}
               >
                 View Details
               </Button>
@@ -239,10 +213,7 @@ export default function PickupHistoryPage() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => {
-                    setPickupToCancel(item);
-                    setIsConfirmCancelOpen(true);
-                  }}
+                  onClick={() => confirmCancelPickup(item)}
                 >
                   Cancel
                 </Button>
