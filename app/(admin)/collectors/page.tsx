@@ -154,6 +154,27 @@ export default function CollectorsPage() {
   // Apply load calculations to all collectors
   const collectorsWithLoad = collectors.map(getCollectorWithLoad)
 
+  // Calculate total completed pickups from actual pickup data
+  const totalCompletedPickups = pickups.filter(pickup => pickup.status === 'completed').length
+  
+  // Alternative: Calculate by collector profile data
+  const totalCompletedFromProfiles = collectors.reduce((sum, c) => sum + (c.completedPickups || 0), 0)
+  
+  // Debug logging
+  useEffect(() => {
+    if (collectors.length > 0 && pickups.length > 0) {
+      console.log("📊 Pickup Statistics:")
+      console.log("- Total pickups in database:", pickups.length)
+      console.log("- Completed pickups:", totalCompletedPickups)
+      console.log("- Profile completed totals:", totalCompletedFromProfiles)
+      console.log("- Collectors with completedPickups:", collectors.map(c => ({
+        name: c.name,
+        completedPickups: c.completedPickups || 0
+      })))
+      console.log("- Pickup statuses:", [...new Set(pickups.map(p => p.status))])
+    }
+  }, [collectors, pickups, totalCompletedPickups, totalCompletedFromProfiles])
+
   // Handler functions
   const handleEditCollector = (collector: CollectorProfile) => {
     setEditingCollector(collector)
@@ -204,6 +225,38 @@ export default function CollectorsPage() {
       console.log(`✅ Collector ${action} successfully`)
     } catch (error) {
       console.error(`❌ Error changing collector status:`, error)
+    }
+  }
+
+  const handleSyncCompletedPickups = async () => {
+    if (!confirm("This will update all collector profiles with their actual completed pickup counts from the database. Continue?")) return
+    
+    setIsUpdating(true)
+    try {
+      console.log("🔄 Syncing completed pickups for all collectors...")
+      
+      for (const collector of collectors) {
+        // Count completed pickups for this collector
+        const collectorCompletedPickups = pickups.filter(
+          pickup => pickup.collectorId === collector.id && pickup.status === 'completed'
+        ).length
+        
+        // Update profile if the count is different
+        if (collectorCompletedPickups !== (collector.completedPickups || 0)) {
+          await collectorService.updateCollectorProfile(collector.id, {
+            completedPickups: collectorCompletedPickups
+          })
+          console.log(`✅ Updated ${collector.name}: ${collectorCompletedPickups} completed pickups`)
+        }
+      }
+      
+      console.log("✅ Completed pickup sync finished")
+      alert("Completed pickup counts have been synchronized!")
+    } catch (error) {
+      console.error("❌ Error syncing completed pickups:", error)
+      alert("Error occurred during sync. Check console for details.")
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -299,6 +352,16 @@ export default function CollectorsPage() {
           <Button variant="outline">
             Export Data
           </Button>
+          {totalCompletedFromProfiles !== totalCompletedPickups && (
+            <Button 
+              variant="outline" 
+              onClick={handleSyncCompletedPickups}
+              disabled={isUpdating}
+              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+            >
+              {isUpdating ? "Syncing..." : "Sync Pickup Counts"}
+            </Button>
+          )}
           <Button>
             Add New Collector
           </Button>
@@ -331,8 +394,16 @@ export default function CollectorsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-blue-600">
-              {collectors.reduce((sum, c) => sum + (c.completedPickups || 0), 0)}
+              {totalCompletedPickups}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Completed status in database
+            </p>
+            {totalCompletedFromProfiles !== totalCompletedPickups && (
+              <p className="text-xs text-orange-600 mt-1">
+                Profile totals: {totalCompletedFromProfiles} (may need sync)
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
