@@ -13,6 +13,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useRouter } from "next/navigation";
 import { productService } from "@/lib/firebase-services";
+import { addShopNotification } from "@/lib/shop-notification";
 
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart } = useCart();
@@ -250,6 +251,13 @@ export default function CartPage() {
           ? `${errorMessage}\n${actionMessage}`
           : errorMessage,
         variant: "destructive",
+      });
+      addShopNotification({
+        title: "Order Not Successful",
+        message: actionMessage
+          ? `${errorMessage}\n${actionMessage}`
+          : errorMessage,
+        type: "order",
       });
     }
   };

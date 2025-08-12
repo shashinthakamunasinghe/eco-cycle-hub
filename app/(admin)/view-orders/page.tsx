@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { orderService } from "@/lib/firebase-services";
+import { addShopNotification } from "@/lib/shop-notification";
 
 // Define interfaces for type safety
 interface OrderItem {
@@ -196,6 +197,15 @@ export default function AdminOrdersPage() {
       title: "Order status updated",
       description: `Order #${orderId} status has been updated to ${newStatus}.`,
     });
+
+    // Add notification for shipped status
+    if (newStatus === "shipped") {
+      addShopNotification({
+        title: "Order Shipped",
+        message: `Your order #${orderId} has been shipped and is on its way!`,
+        type: "order",
+      });
+    }
   };
 
   const handlePaymentProcessed = () => {
