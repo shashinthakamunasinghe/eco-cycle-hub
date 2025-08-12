@@ -1,15 +1,139 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Users, Truck, Package, ShoppingCart, TrendingUp, AlertTriangle, Clock, MapPin } from "lucide-react"
 import Link from "next/link"
 
+interface AdminStats {
+  totalUsers: number;
+  usersByRole: {
+    admin: number;
+    industry: number;
+    collector: number;
+    customer: number;
+  };
+}
+
+// Animated Counter Component
+interface AnimatedCounterProps {
+  end: number;
+  duration?: number;
+  isLoading?: boolean;
+  prefix?: string;
+  suffix?: string;
+  className?: string;
+  delay?: number;
+}
+
+function AnimatedCounter({ end, duration = 2000, isLoading, prefix = "", suffix = "", className = "text-2xl font-bold", delay = 0 }: AnimatedCounterProps) {
+  const [count, setCount] = useState(0);
+  const countRef = useRef(0);
+  const requestRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isLoading) {
+      // Show a pulsing animation while loading
+      setCount(0);
+      return;
+    }
+
+    const startAnimation = () => {
+      const animate = (timestamp: number) => {
+        if (!startTimeRef.current) {
+          startTimeRef.current = timestamp;
+        }
+
+        const progress = Math.min((timestamp - startTimeRef.current) / duration, 1);
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const currentCount = Math.floor(easeOutQuart * end);
+
+        setCount(currentCount);
+        countRef.current = currentCount;
+
+        if (progress < 1) {
+          requestRef.current = requestAnimationFrame(animate);
+        }
+      };
+
+      // Reset animation
+      startTimeRef.current = null;
+      requestRef.current = requestAnimationFrame(animate);
+    };
+
+    // Add delay before starting animation
+    const timeoutId = setTimeout(startAnimation, delay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
+    };
+  }, [end, duration, isLoading, delay]);
+
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <span className="inline-block animate-pulse">{prefix}</span>
+        <span className="inline-block">-</span>
+        <span className="inline-block animate-bounce delay-75">-</span>
+        <span className="inline-block animate-bounce delay-150">-</span>
+        <span className="inline-block animate-pulse">{suffix}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {prefix}{count.toLocaleString()}{suffix}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
-  // Mock data
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Key to trigger re-animation
+
+  // Fetch admin statistics from the database
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/admin/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setAdminStats(data);
+        } else {
+          const errorText = await response.text();
+          setError(`Failed to fetch admin stats: ${response.status} ${errorText}`);
+          console.error('Failed to fetch admin stats:', response.status, errorText);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setError(`Error fetching admin stats: ${errorMessage}`);
+        console.error('Error fetching admin stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [refreshKey]);
+
+  const refreshStats = () => {
+    setRefreshKey(prev => prev + 1); // Increment key to trigger useEffect and re-animation
+  };
+
+  // Mock data for other stats (you can expand the API later)
   const stats = {
-    totalUsers: 1247,
+    totalUsers: adminStats?.totalUsers || 0,
     activeCollectors: 23,
     pendingPickups: 8,
     totalOrders: 156,
@@ -72,6 +196,9 @@ export default function AdminDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <div className="flex space-x-2">
+          <Button variant="outline" onClick={refreshStats} disabled={loading}>
+            {loading ? "Loading..." : "Refresh Stats"}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/admin-map">View Map</Link>
           </Button>
@@ -81,6 +208,14 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card>
@@ -89,10 +224,23 @@ export default function AdminDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <AnimatedCounter 
+              key={`total-users-${refreshKey}`}
+              end={stats.totalUsers} 
+              duration={2000} 
+              delay={100}
+              isLoading={loading}
+              className="text-2xl font-bold"
+            />
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="inline h-3 w-3 mr-1" />
-              +12% from last month
+              {loading ? (
+                <span className="animate-pulse">Loading user details...</span>
+              ) : adminStats ? (
+                `${adminStats.usersByRole.customer} customers, ${adminStats.usersByRole.industry} industries, ${adminStats.usersByRole.collector} collectors`
+              ) : (
+                "Real-time count from database"
+              )}
             </p>
           </CardContent>
         </Card>
@@ -103,7 +251,14 @@ export default function AdminDashboard() {
             <Truck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.activeCollectors}</div>
+            <AnimatedCounter 
+              key={`active-collectors-${refreshKey}`}
+              end={stats.activeCollectors} 
+              duration={1500} 
+              delay={200}
+              isLoading={loading}
+              className="text-2xl font-bold text-green-600"
+            />
             <p className="text-xs text-muted-foreground">Currently online</p>
           </CardContent>
         </Card>
@@ -114,7 +269,14 @@ export default function AdminDashboard() {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pendingPickups}</div>
+            <AnimatedCounter 
+              key={`pending-pickups-${refreshKey}`}
+              end={stats.pendingPickups} 
+              duration={1000} 
+              delay={300}
+              isLoading={loading}
+              className="text-2xl font-bold text-yellow-600"
+            />
             <p className="text-xs text-muted-foreground">Awaiting assignment</p>
           </CardContent>
         </Card>
@@ -125,7 +287,14 @@ export default function AdminDashboard() {
             <ShoppingCart className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalOrders}</div>
+            <AnimatedCounter 
+              key={`total-orders-${refreshKey}`}
+              end={stats.totalOrders} 
+              duration={1800} 
+              delay={400}
+              isLoading={loading}
+              className="text-2xl font-bold text-blue-600"
+            />
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
@@ -136,7 +305,15 @@ export default function AdminDashboard() {
             <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">${stats.monthlyRevenue}</div>
+            <AnimatedCounter 
+              key={`revenue-${refreshKey}`}
+              end={stats.monthlyRevenue} 
+              duration={2200} 
+              delay={500}
+              isLoading={loading}
+              prefix="$"
+              className="text-2xl font-bold text-purple-600"
+            />
             <p className="text-xs text-muted-foreground">Monthly revenue</p>
           </CardContent>
         </Card>
@@ -147,7 +324,15 @@ export default function AdminDashboard() {
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.wasteCollected} kg</div>
+            <AnimatedCounter 
+              key={`waste-collected-${refreshKey}`}
+              end={stats.wasteCollected} 
+              duration={2500} 
+              delay={600}
+              isLoading={loading}
+              suffix=" kg"
+              className="text-2xl font-bold text-orange-600"
+            />
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>

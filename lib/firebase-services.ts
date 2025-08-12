@@ -14,6 +14,7 @@ import {
   Timestamp,
   writeBatch,
   Firestore,
+  getCountFromServer,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -219,6 +220,50 @@ export const userService = {
         updatedAt: data.updatedAt?.toDate(),
       } as unknown as User;
     });
+  },
+
+  async getUserCount(): Promise<number> {
+    try {
+      const snapshot = await getCountFromServer(collection(getDb(), "users"));
+      return snapshot.data().count;
+    } catch (error) {
+      console.error("Error getting user count:", error);
+      // Fallback to counting all documents if getCountFromServer fails
+      const querySnapshot = await getDocs(collection(getDb(), "users"));
+      return querySnapshot.size;
+    }
+  },
+
+  async getUserCountByRole(): Promise<Record<string, number>> {
+    try {
+      const roles = ['admin', 'industry', 'collector', 'customer'];
+      const counts: Record<string, number> = {};
+      
+      for (const role of roles) {
+        try {
+          const q = query(collection(getDb(), "users"), where("role", "==", role));
+          const snapshot = await getCountFromServer(q);
+          counts[role] = snapshot.data().count;
+        } catch (error) {
+          console.error(`Error getting count for role ${role}:`, error);
+          // Fallback to manual count
+          const querySnapshot = await getDocs(query(collection(getDb(), "users"), where("role", "==", role)));
+          counts[role] = querySnapshot.size;
+        }
+      }
+      
+      return counts;
+    } catch (error) {
+      console.error("Error getting user counts by role:", error);
+      // Fallback to getting all users and counting manually
+      const allUsers = await this.getAllUsers();
+      return {
+        admin: allUsers.filter(user => user.role === 'admin').length,
+        industry: allUsers.filter(user => user.role === 'industry').length,
+        collector: allUsers.filter(user => user.role === 'collector').length,
+        customer: allUsers.filter(user => user.role === 'customer').length,
+      };
+    }
   },
 
   async getUsersByRole(role: User["role"]): Promise<User[]> {
