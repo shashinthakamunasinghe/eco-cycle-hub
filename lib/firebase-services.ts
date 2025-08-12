@@ -13,6 +13,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  Firestore,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -632,14 +633,74 @@ export const collectorService = {
   },
 
   async deleteCollector(id: string): Promise<void> {
-    const collector = await this.getCollector(id);
-    if (!collector) throw new Error("Collector not found");
-
-    // Delete the collector document from Firestore
-    const docRef = doc(getDb(), "users", id);
-    await deleteDoc(docRef);
-
-    console.log(`✅ Collector ${id} deleted successfully from Firestore`);
+    console.log(`🗑️ Starting deletion process for collector ${id}`);
+    
+    const batch = writeBatch(db);
+    
+    try {
+      // 1. Check if collector exists in users collection
+      const userDocRef = doc(db, "users", id);
+      const userDoc = await getDoc(userDocRef);
+      
+      // 2. Check if collector profile exists
+      const profileDocRef = doc(db, "collectorProfiles", id);
+      const profileDoc = await getDoc(profileDocRef);
+      
+      if (!userDoc.exists() && !profileDoc.exists()) {
+        throw new Error("Collector not found in either users or profiles collection");
+      }
+      
+      // 3. Get collector's assigned requests for cleanup
+      let assignedRequests: string[] = [];
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        assignedRequests = userData.assignedRequests || [];
+      }
+      
+      // 4. Clean up assigned pickup requests
+      if (assignedRequests.length > 0) {
+        console.log(`🧹 Cleaning up ${assignedRequests.length} assigned requests`);
+        for (const requestId of assignedRequests) {
+          const requestDocRef = doc(db, "pickupRequests", requestId);
+          batch.update(requestDocRef, {
+            collectorId: null,
+            collectorName: null,
+            status: "pending", // Reset status to pending
+            updatedAt: Timestamp.now()
+          });
+        }
+      }
+      
+      // 5. Delete from users collection if exists
+      if (userDoc.exists()) {
+        console.log(`🗑️ Deleting user document for collector ${id}`);
+        batch.delete(userDocRef);
+      }
+      
+      // 6. Delete from collectorProfiles collection if exists
+      if (profileDoc.exists()) {
+        console.log(`🗑️ Deleting profile document for collector ${id}`);
+        batch.delete(profileDocRef);
+      }
+      
+      // 7. Clean up notifications related to this collector
+      const notificationsQuery = query(
+        collection(db, "notifications"),
+        where("userId", "==", id)
+      );
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      notificationsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      // 8. Commit all deletions in a batch
+      await batch.commit();
+      
+      console.log(`✅ Collector ${id} and all related data deleted successfully`);
+    } catch (error) {
+      console.error(`❌ Error deleting collector ${id}:`, error);
+      throw new Error(`Failed to delete collector: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 
   // Collector Profile operations (separate collection)
