@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { onSnapshot, collection, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { collectorService, pickupService } from "@/lib/firebase-services";
-import type { PickupRequest } from "@/types";
+import type { PickupRequest, CollectorProfile, User as UserType } from "@/types";
 
 interface AvailableCollector {
   id: string;
@@ -31,7 +33,9 @@ interface AvailableCollector {
   phone?: string;
   vehicleCapacity?: number;
   currentLoad?: number;
-  lastActivity?: string | null;
+  lastActivity?: string;
+  availableCapacity?: number;
+  capacityPercentage?: number;
 }
 export default function AdminPickupsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,48 +76,148 @@ export default function AdminPickupsPage() {
     loadPickupRequests();
   }, [toast]);
 
-  // Load collectors from Firebase
+  // Load collectors with real-time updates
+  const loadCollectors = useCallback(async () => {
+    try {
+      setCollectorsLoading(true);
+      console.log("🔄 Loading collectors with real-time data for pickup assignment...");
+      
+      // Get collector profiles which have the most up-to-date availability data
+      const collectorProfiles = await collectorService.getAllCollectorProfiles();
+      console.log("📊 Collector profiles loaded for assignment:", collectorProfiles.length);
+      
+      // Also get user data for additional information
+      const userData = await collectorService.getAllCollectors();
+      console.log("👥 User data loaded for assignment:", userData.length);
+      
+      // Merge collector profiles with user data and calculate available capacity
+      const formattedCollectors: AvailableCollector[] = collectorProfiles.map((profile) => {
+        const user = userData.find(u => u.id === profile.id || u.email === profile.email);
+        const vehicleCapacity = profile.vehicleCapacity || user?.truckCapacity || 1000;
+        const currentLoad = user?.currentLoad || 0;
+        const availableCapacity = vehicleCapacity - currentLoad;
+        const capacityPercentage = (currentLoad / vehicleCapacity) * 100;
+        
+        return {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone || user?.phone,
+          // Use profile data as primary source for availability
+          isAvailable: profile.isAvailable !== undefined ? profile.isAvailable : (user?.isAvailable || false),
+          vehicleCapacity,
+          currentLoad,
+          availableCapacity,
+          capacityPercentage,
+          lastActivity: profile.lastActivity
+        };
+      });
+
+      console.log("✅ Formatted collectors for assignment:", formattedCollectors.map(c => ({
+        name: c.name,
+        isAvailable: c.isAvailable,
+        availableCapacity: c.availableCapacity,
+        capacityPercentage: c.capacityPercentage
+      })));
+
+      setAvailableCollectors(formattedCollectors);
+    } catch (error) {
+      console.error("❌ Error loading collectors for assignment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load collectors for assignment",
+        variant: "destructive",
+      });
+    } finally {
+      setCollectorsLoading(false);
+    }
+  }, [toast]);
+
+  // Set up real-time listeners for collector availability updates
+  useEffect(() => {
+    if (!db) return;
+
+    console.log("🔄 Setting up real-time listeners for pickup assignment...");
+
+    // Listen to collector profiles for real-time availability updates
+    const collectorProfilesQuery = query(collection(db, "collectorProfiles"));
+    const unsubscribeProfiles = onSnapshot(collectorProfilesQuery, (snapshot) => {
+      console.log("📡 Real-time update received for collectors in pickup assignment");
+      
+      snapshot.docChanges().forEach((change) => {
+        const profileData = { id: change.doc.id, ...change.doc.data() } as CollectorProfile;
+        
+        if (change.type === "modified") {
+          console.log("🔄 Collector profile updated in assignment:", {
+            id: profileData.id,
+            name: profileData.name,
+            isAvailable: profileData.isAvailable,
+            lastActivity: profileData.lastActivity
+          });
+          
+          // Update the specific collector in our state
+          setAvailableCollectors(prevCollectors => 
+            prevCollectors.map(collector => 
+              collector.id === profileData.id 
+                ? { 
+                    ...collector, 
+                    isAvailable: profileData.isAvailable !== undefined ? profileData.isAvailable : collector.isAvailable,
+                    lastActivity: profileData.lastActivity || collector.lastActivity
+                  }
+                : collector
+            )
+          );
+        }
+      });
+    });
+
+    // Listen to users collection for capacity updates
+    const usersQuery = query(collection(db, "users"), where("role", "==", "collector"));
+    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "modified") {
+          const userData = { id: change.doc.id, ...change.doc.data() } as UserType;
+          console.log("👥 User capacity updated in assignment:", {
+            id: userData.id,
+            name: userData.name,
+            currentLoad: userData.currentLoad
+          });
+          
+          // Update collector capacity data
+          setAvailableCollectors(prevCollectors => 
+            prevCollectors.map(collector => {
+              if (collector.id === userData.id) {
+                const vehicleCapacity = collector.vehicleCapacity || 1000;
+                const currentLoad = userData.currentLoad || 0;
+                const availableCapacity = vehicleCapacity - currentLoad;
+                const capacityPercentage = (currentLoad / vehicleCapacity) * 100;
+                
+                return { 
+                  ...collector, 
+                  currentLoad,
+                  availableCapacity,
+                  capacityPercentage
+                };
+              }
+              return collector;
+            })
+          );
+        }
+      });
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      console.log("🧹 Cleaning up pickup assignment real-time listeners");
+      unsubscribeProfiles();
+      unsubscribeUsers();
+    };
+  }, []);
+
   // Load collectors from Firebase
   useEffect(() => {
-    const loadCollectors = async () => {
-      try {
-        setCollectorsLoading(true);
-        const collectorsData = await collectorService.getAllCollectors();
-
-        // Transform collector data to match our interface
-        const formattedCollectors: AvailableCollector[] = collectorsData.map(
-          (collector) => ({
-            id: collector.id,
-            name: collector.name,
-            email: collector.email,
-            phone: collector.phone,
-            isAvailable: collector.isAvailable || true, // Default to available if not specified
-            vehicleCapacity:
-              collector.truckCapacity ||
-              (collector as any).vehicleCapacity ||
-              100,
-            currentLoad: collector.currentLoad || 0,
-          })
-        );
-
-        setAvailableCollectors(formattedCollectors);
-        console.log(
-          "📋 Loaded collectors for assignment:",
-          formattedCollectors
-        );
-      } catch (error) {
-        console.error("❌ Error loading collectors:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load collectors for assignment",
-          variant: "destructive",
-        });
-      } finally {
-        setCollectorsLoading(false);
-      }
-    };
     loadCollectors();
-  }, [toast]);
+  }, [loadCollectors]);
 
   const refreshData = async () => {
     setIsLoading(true);

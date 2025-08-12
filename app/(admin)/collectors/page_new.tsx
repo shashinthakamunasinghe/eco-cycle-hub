@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { onSnapshot, collection, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
   Card,
   CardContent,
@@ -70,7 +68,6 @@ type CollectorWithUser = CollectorProfile & { userInfo?: UserType };
 export default function AdminCollectorsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const { toast } = useToast();
   const { register } = useFirebaseAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -99,44 +96,33 @@ export default function AdminCollectorsPage() {
     confirmPassword: "",
   });
 
-  // Load collectors from Firebase with real-time updates
+  // Load collectors from Firebase
   const loadCollectors = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("🔄 Loading collectors with real-time data...");
-      
-      // Get collector profiles which have the most up-to-date availability data
-      const collectorProfiles = await collectorService.getAllCollectorProfiles();
-      console.log("📊 Collector profiles loaded:", collectorProfiles.length);
-      
-      // Also get user data for additional information
-      const userData = await collectorService.getAllCollectors();
-      console.log("👥 User data loaded:", userData.length);
-      
-      // Merge collector profiles with user data
-      const mergedCollectors = collectorProfiles.map((profile) => {
-        const user = userData.find(u => u.id === profile.id || u.email === profile.email);
+      const collectorsData = await collectorService.getAllCollectors();
+      const transformedCollectors = collectorsData.map((user) => {
+        const userWithCollectorFields = user as UserWithCollectorFields;
         return {
-          ...profile,
-          // Use profile data as primary source, fall back to user data
-          isAvailable: profile.isAvailable !== undefined ? profile.isAvailable : (user?.isAvailable || false),
-          truckCapacity: profile.vehicleCapacity || user?.truckCapacity || 0,
-          currentLoad: user?.currentLoad || 0,
-          assignedRequests: user?.assignedRequests || [],
+          ...user,
+          licenseNumber: userWithCollectorFields.licenseNumber || "",
+          vehicleType: userWithCollectorFields.vehicleType || "Truck",
+          vehicleModel: userWithCollectorFields.vehicleModel || "",
+          vehicleCapacity: user.truckCapacity || 0,
+          experience: userWithCollectorFields.experience || "",
+          status: user.isAvailable ? "active" : "inactive",
+          rating: userWithCollectorFields.rating || 0,
+          completedPickups: userWithCollectorFields.completedPickups || 0,
+          joinedDate: user.createdAt.toISOString(),
+          emergencyContact: userWithCollectorFields.emergencyContact || "",
+          workingHours: userWithCollectorFields.workingHours || "9 AM - 5 PM",
+          specializations: userWithCollectorFields.specializations || [],
           userInfo: user,
         };
       }) as CollectorWithUser[];
-      
-      console.log("✅ Merged collector data:", mergedCollectors.map(c => ({
-        id: c.id, 
-        name: c.name, 
-        isAvailable: c.isAvailable,
-        lastActivity: c.lastActivity
-      })));
-      
-      setCollectors(mergedCollectors);
+      setCollectors(transformedCollectors);
     } catch (error) {
-      console.error("❌ Error loading collectors:", error);
+      console.error("Error loading collectors:", error);
       toast({
         title: "Error",
         description: "Failed to load collectors data.",
@@ -147,95 +133,6 @@ export default function AdminCollectorsPage() {
     }
   }, [toast]);
 
-  // Set up real-time listeners for collector availability updates
-  useEffect(() => {
-    if (!db) return;
-
-    console.log("🔄 Setting up real-time listeners for collector data...");
-
-    // Listen to collector profiles for real-time availability updates
-    const collectorProfilesQuery = query(collection(db, "collectorProfiles"));
-    const unsubscribeProfiles = onSnapshot(collectorProfilesQuery, (snapshot) => {
-      console.log("📡 Real-time update received for collector profiles");
-      setLastUpdate(new Date());
-      
-      snapshot.docChanges().forEach((change) => {
-        const profileData = { id: change.doc.id, ...change.doc.data() } as CollectorProfile;
-        
-        if (change.type === "modified") {
-          console.log("🔄 Collector profile updated:", {
-            id: profileData.id,
-            name: profileData.name,
-            isAvailable: profileData.isAvailable,
-            lastActivity: profileData.lastActivity
-          });
-          
-          // Update the specific collector in our state
-          setCollectors(prevCollectors => 
-            prevCollectors.map(collector => 
-              collector.id === profileData.id 
-                ? { 
-                    ...collector, 
-                    isAvailable: profileData.isAvailable !== undefined ? profileData.isAvailable : collector.isAvailable,
-                    lastActivity: profileData.lastActivity || collector.lastActivity,
-                    status: (profileData.isAvailable !== undefined ? profileData.isAvailable : collector.isAvailable) ? "active" : "inactive"
-                  }
-                : collector
-            )
-          );
-        }
-      });
-    }, (error) => {
-      console.error("❌ Error in real-time listener:", error);
-    });
-
-    // Listen to users collection for additional real-time updates
-    const usersQuery = query(collection(db, "users"), where("role", "==", "collector"));
-    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "modified") {
-          const userData = { id: change.doc.id, ...change.doc.data() } as UserType;
-          console.log("👥 User data updated:", {
-            id: userData.id,
-            name: userData.name,
-            isAvailable: userData.isAvailable
-          });
-          
-          // Update collector data with user info
-          setCollectors(prevCollectors => 
-            prevCollectors.map(collector => 
-              collector.id === userData.id 
-                ? { 
-                    ...collector, 
-                    currentLoad: userData.currentLoad || collector.currentLoad,
-                    assignedRequests: userData.assignedRequests || collector.assignedRequests,
-                    userInfo: userData
-                  }
-                : collector
-            )
-          );
-        }
-      });
-    });
-
-    // Cleanup listeners on unmount
-    return () => {
-      console.log("🧹 Cleaning up real-time listeners");
-      unsubscribeProfiles();
-      unsubscribeUsers();
-    };
-  }, []);
-
-  // Auto-refresh data every 30 seconds as backup
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log("🔄 Auto-refresh collector data (backup)");
-      loadCollectors();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [loadCollectors]);
-
   useEffect(() => {
     loadCollectors();
   }, [loadCollectors]);
@@ -243,39 +140,20 @@ export default function AdminCollectorsPage() {
   const toggleAvailability = async (collectorId: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
     try {
-      console.log(`🔄 Updating availability for collector ${collectorId}: ${currentStatus} -> ${newStatus}`);
-      
-      // Update both user record and collector profile for consistency
-      await Promise.all([
-        collectorService.updateCollectorAvailability(collectorId, newStatus),
-        collectorService.updateCollectorProfile(collectorId, { 
-          isAvailable: newStatus,
-          lastActivity: new Date().toISOString()
-        })
-      ]);
-      
-      // Update local state immediately for responsive UI
-      setCollectors(prevCollectors =>
-        prevCollectors.map((collector) =>
+      await collectorService.updateCollectorAvailability(collectorId, newStatus);
+      setCollectors(
+        collectors.map((collector) =>
           collector.id === collectorId
-            ? { 
-                ...collector, 
-                isAvailable: newStatus,
-                status: newStatus ? "active" : "inactive",
-                lastActivity: new Date().toISOString()
-              }
+            ? { ...collector, isAvailable: newStatus }
             : collector
         )
       );
-      
       toast({
         title: "Availability updated",
         description: `Collector is now ${newStatus ? "available" : "offline"}.`,
       });
-      
-      console.log(`✅ Availability updated successfully for collector ${collectorId}`);
     } catch (error) {
-      console.error("❌ Error updating availability:", error);
+      console.error("Error updating availability:", error);
       toast({
         title: "Error",
         description: "Failed to update collector availability.",
@@ -479,25 +357,16 @@ export default function AdminCollectorsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Collectors Management</h1>
-          <div className="flex items-center space-x-2">
-            <p className="text-gray-600">Manage waste collectors and their assignments</p>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-green-600">Live Updates</span>
-              <span className="text-xs text-gray-400">
-                (Last: {lastUpdate.toLocaleTimeString()})
-              </span>
-            </div>
-          </div>
+          <p className="text-gray-600">Manage waste collectors and their assignments</p>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Export Data
           </Button>
-          <Button variant="outline" size="sm" onClick={loadCollectors} disabled={loading}>
-            <RotateCcw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Syncing...' : 'Sync Data'}
+          <Button variant="outline" size="sm">
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Sync Pickup Counts
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -608,7 +477,6 @@ export default function AdminCollectorsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{collectors.length}</div>
-            <p className="text-xs text-muted-foreground">Registered collectors</p>
           </CardContent>
         </Card>
 
@@ -627,14 +495,12 @@ export default function AdminCollectorsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Offline Collectors</CardTitle>
-            <FileText className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium">Total Pickups Completed</CardTitle>
+            <FileText className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {collectors.filter((c) => c.isAvailable === false).length}
-            </div>
-            <p className="text-xs text-muted-foreground">Currently offline</p>
+            <div className="text-2xl font-bold text-blue-600">47</div>
+            <p className="text-xs text-muted-foreground">Completed status in database</p>
           </CardContent>
         </Card>
       </div>
@@ -693,24 +559,16 @@ export default function AdminCollectorsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant={collector.isAvailable ? "default" : "secondary"}
-                          className={
-                            collector.isAvailable
-                              ? "bg-green-100 text-green-800 border-green-300"
-                              : "bg-red-100 text-red-800 border-red-300"
-                          }
-                        >
-                          <div className={`w-2 h-2 rounded-full mr-1 ${
-                            collector.isAvailable ? "bg-green-500" : "bg-red-500"
-                          }`}></div>
-                          {collector.isAvailable ? "Available" : "Offline"}
-                        </Badge>
-                        {collector.isAvailable && (
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Real-time status"></div>
-                        )}
-                      </div>
+                      <Badge
+                        variant={collector.isAvailable ? "default" : "secondary"}
+                        className={
+                          collector.isAvailable
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }
+                      >
+                        {collector.isAvailable ? "Available" : "Offline"}
+                      </Badge>
                       <div className="text-xs text-gray-500">
                         Joined {formatDate(collector.joinedDate)}
                       </div>
