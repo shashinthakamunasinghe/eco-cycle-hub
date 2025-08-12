@@ -9,7 +9,26 @@ import { Package, MapPin, Navigation, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"
 import { pickupService, collectorService } from "@/lib/firebase-services"
-import type { CollectorProfile, PickupRequest } from "@/types"
+import type { CollectorProfile } from "@/types"
+import type { PickupRequest as FirebasePickupRequest } from "@/types"
+
+interface PickupRequest {
+  id: string
+  industryName: string
+  wasteType: string
+  weight: number
+  status: "assigned" | "on-way" | "picked-up" | "completed" | "pending" | "cancelled"
+  location: {
+    address: string
+    lat: number
+    lng: number
+  }
+  priority: "high" | "medium" | "low"
+  requestedAt: Date | string
+  scheduledAt?: Date | string
+  collectorId?: string
+  collectorName?: string
+}
 
 export default function CollectorPickupsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
@@ -33,13 +52,14 @@ export default function CollectorPickupsPage() {
           return
         }
 
-        // Get ALL pickups for this collector (including completed ones)
+        // Get assigned pickups for this collector
         const allPickups = await pickupService.getAllPickupRequests()
-        const collectorPickups = allPickups.filter(
-          (pickup: PickupRequest) => pickup.collectorId === collectorProfile.id
+        const assignedPickups = allPickups.filter(
+          (pickup: FirebasePickupRequest) => pickup.collectorId === collectorProfile.id && 
+          ['assigned', 'on-way', 'picked-up'].includes(pickup.status)
         )
 
-        setPickups(collectorPickups)
+        setPickups(assignedPickups)
       } catch (error) {
         console.error('Error loading pickups:', error)
         toast({
@@ -75,11 +95,6 @@ export default function CollectorPickupsPage() {
         title: "Status updated",
         description: `Pickup has been ${statusMessages[newStatus] || "updated"}.`,
       })
-
-      // If completed, update the filter to show completed if it's currently on "all"
-      if (newStatus === "completed" && statusFilter === "all") {
-        // Optionally keep the current filter to show the updated status
-      }
     } catch (error) {
       console.error('Error updating status:', error)
       toast({
@@ -120,7 +135,7 @@ export default function CollectorPickupsPage() {
       case "picked-up":
         return "bg-green-100 text-green-800"
       case "completed":
-        return "bg-green-100 text-green-800"
+        return "bg-gray-100 text-gray-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -195,14 +210,6 @@ export default function CollectorPickupsPage() {
                       <Clock className="h-4 w-4" />
                       <span>Requested: {new Date(pickup.requestedAt).toLocaleString()}</span>
                     </div>
-                    {pickup.status === "completed" && (
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-green-600" />
-                        <span className="text-green-600 font-medium">
-                          Completed: {pickup.completedAt ? new Date(pickup.completedAt).toLocaleString() : 'Recently completed'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div className="flex flex-col space-y-2">
@@ -221,16 +228,9 @@ export default function CollectorPickupsPage() {
                       Complete
                     </Button>
                   )}
-                  {pickup.status === "completed" && (
-                    <div className="text-center py-2">
-                      <span className="text-green-600 font-medium text-sm">✓ Completed</span>
-                    </div>
-                  )}
-                  {pickup.status !== "completed" && (
-                    <Button size="sm" variant="outline" onClick={() => navigateToLocation(pickup)}>
-                      Navigate
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" onClick={() => navigateToLocation(pickup)}>
+                    Navigate
+                  </Button>
                 </div>
               </div>
             </CardContent>

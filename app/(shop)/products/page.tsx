@@ -49,11 +49,11 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
       try {
         const fetchedProducts = await productService.getAllProducts();
-        
+
         // Check for duplicate IDs and make them unique
         const productMap = new Map<string, boolean>();
         const uniqueProducts: Product[] = [];
-        
+
         fetchedProducts.forEach((product, index) => {
           if (!productMap.has(product.id)) {
             productMap.set(product.id, true);
@@ -61,11 +61,13 @@ export default function ProductsPage() {
           } else {
             // Create a new unique ID for duplicate
             const uniqueId = `${product.id}-${index}`;
-            console.log(`Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`);
+            console.log(
+              `Found duplicate product ID: ${product.id}, assigning new ID: ${uniqueId}`
+            );
             uniqueProducts.push({ ...product, id: uniqueId });
           }
         });
-        
+
         setProducts(uniqueProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -81,10 +83,10 @@ export default function ProductsPage() {
 
   const categories = [
     { value: "all", label: "All Categories" },
-    { value: "home item", label: "Home Item" },
+    { value: "home items", label: "Home Items" },
     { value: "mulch", label: "Mulch" },
     { value: "compost", label: "Compost" },
-    { value: "tools", label: "Tools" },
+    { value: "tools", label: "Garden Supplies" },
     { value: "seeds", label: "Seeds" },
   ];
 
@@ -112,7 +114,7 @@ export default function ProductsPage() {
   });
 
   const { addToCart: addItemToCart } = useCart();
-  
+
   const addToCart = (productId: string, productName: string) => {
     if (!user) {
       toast({
@@ -135,16 +137,16 @@ export default function ProductsPage() {
         });
         return;
       }
-      
+
       addItemToCart({
         id: product.id,
         name: product.name,
         price: product.price,
         image: product.image || "/placeholder.svg",
         quantity: 1,
-        stock: product.stock
+        stock: product.stock,
       });
-      
+
       toast({
         title: "Added to cart",
         description: `${productName} has been added to your cart.`,
@@ -217,7 +219,10 @@ export default function ProductsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {(() => {
           // Debug products IDs
-          console.log("Rendering products with IDs:", sortedProducts.map(p => p.id));
+          console.log(
+            "Rendering products with IDs:",
+            sortedProducts.map((p) => p.id)
+          );
           return null;
         })()}
         {sortedProducts.map((product, idx) => (
@@ -381,71 +386,52 @@ export default function ProductsPage() {
       {/* Join the Circular Economy Section */}
       <section className="mt-16 py-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg">
         <div className="text-center px-8">
-          <div className="flex items-center justify-center space-x-8 md:space-x-16 mb-8">
-            <div className="flex items-center space-x-4 text-white">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+          <div className="flex items-center justify-center space-x-4 md:space-x-10 mb-4">
+            <div className="flex items-center space-x-2 text-white">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                 <svg
-                  className="h-8 w-8"
+                  className="h-6 w-6"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z" />
                 </svg>
               </div>
-              <span className="text-2xl font-bold">Industries</span>
+              <span className="text-base font-semibold">Industries</span>
             </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-              <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                <svg
-                  className="h-3 w-3 text-green-600"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
-              </div>
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-lg">
+              <svg
+                className="h-8 w-8 md:h-12 md:w-12 text-green-600"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
             </div>
-
-            <div className="flex items-center space-x-4 text-white">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="flex items-center space-x-2 text-white">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                 <svg
-                  className="h-8 w-8"
+                  className="h-6 w-6"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                 </svg>
               </div>
-              <span className="text-2xl font-bold">Customers</span>
+              <span className="text-base font-semibold">Customers</span>
             </div>
           </div>
-
           <div className="text-white">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Join the Circular Economy
+            <h2 className="text-3xl md:text-4xl font-bold mb-2">
+              Connecting the Circular Economy
             </h2>
-            <p className="text-xl md:text-2xl opacity-90 mb-8">
-              Every product you purchase helps transform waste into valuable
-              resources. Together, we are building a more sustainable future.
+            <p className="text-lg md:text-xl opacity-90 mb-8">
+              From waste to wealth, from industry to customer – we are building
+              a sustainable future together
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-white text-green-600 hover:bg-gray-100"
-              >
-                Learn More About Our Process
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-green-600"
-              >
-                Become an Industry Partner
-              </Button>
-            </div>
+            {/* Buttons removed as requested */}
           </div>
         </div>
       </section>

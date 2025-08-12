@@ -129,25 +129,25 @@ export const mockProducts: Product[] = [
   },
 ];
 
-export const mockOrders: Order[] = [
-  {
-    id: "1",
-    customerId: "4",
-    customerName: "Jane Customer",
-    items: [
-      {
-        productId: "1",
-        productName: "Organic Compost Fertilizer",
-        quantity: 2,
-        price: 25.99,
-      },
-    ],
-    total: 51.98,
-    status: "processing",
-    shippingAddress: "123 Green Street, Eco City",
-    createdAt: new Date(),
-  },
-];
+// export const mockOrders: Order[] = [
+//   {
+//     id: "1",
+//     customerId: "4",
+//     customerName: "Jane Customer",
+//     items: [
+//       {
+//         productId: "1",
+//         productName: "Organic Compost Fertilizer",
+//         quantity: 2,
+//         price: 25.99,
+//       },
+//     ],
+//     total: 51.98,
+//     status: "processing",
+//     shippingAddress: "123 Green Street, Eco City",
+//     createdAt: new Date(),
+//   },
+// ];
 
 export const mockNotifications: Notification[] = [
   {
