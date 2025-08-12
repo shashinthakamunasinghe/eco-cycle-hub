@@ -1,13 +1,19 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { CheckCircle, ShoppingBag } from "lucide-react"
-import { useCart } from "@/contexts/CartContext"
-import { productService } from "@/lib/firebase-services"
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, ShoppingBag } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { productService, orderService } from "@/lib/firebase-services";
 
 // Define cart item interface for type safety
 interface CartItem {
@@ -20,45 +26,53 @@ interface CartItem {
 }
 
 export default function SuccessPage() {
-  const searchParams = useSearchParams() || new URLSearchParams()
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
-  const [orderNumber, setOrderNumber] = useState("")
-  const { clearCart } = useCart()
+  const searchParams = useSearchParams() || new URLSearchParams();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [orderNumber, setOrderNumber] = useState("");
+  const { clearCart } = useCart();
 
-  const success = searchParams?.get("success") || ""
-  const sessionId = searchParams?.get("session_id") || ""
+  const success = searchParams?.get("success") || "";
+  const sessionId = searchParams?.get("session_id") || "";
 
   useEffect(() => {
     // If there's no success query param or session ID, redirect to orders
     if (!success || !sessionId) {
-      router.push("/orders")
-      return
+      router.push("/orders");
+      return;
     }
 
     async function processOrder() {
       try {
-        setIsLoading(true)
+        setIsLoading(true);
 
         // Create a unique order ID
-        const newOrderId = `ORD-${Date.now()}`
-        setOrderNumber(newOrderId)
+        const newOrderId = `ORD-${Date.now()}`;
+        setOrderNumber(newOrderId);
 
         // Get cart items from localStorage
-        const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]") as CartItem[];
+        const cartItems = JSON.parse(
+          localStorage.getItem("cartItems") || "[]"
+        ) as CartItem[];
 
         // Check if cart is empty or has only zero-value items
-        if (!cartItems.length || !cartItems.some(item => (item.price || 0) > 0)) {
-          console.warn("No valid items in cart, but attempting to create order");
+        if (
+          !cartItems.length ||
+          !cartItems.some((item) => (item.price || 0) > 0)
+        ) {
+          console.warn(
+            "No valid items in cart, but attempting to create order"
+          );
           // We'll still continue to handle the case, but log a warning
         }
 
         // Calculate order totals with safety checks for undefined or non-numeric values
         const subtotal = cartItems.reduce((sum: number, item: CartItem) => {
           // Ensure price and quantity are valid numbers
-          const price = typeof item.price === 'number' ? item.price : 0;
-          const quantity = typeof item.quantity === 'number' ? item.quantity : 1;
-          return sum + (price * quantity);
+          const price = typeof item.price === "number" ? item.price : 0;
+          const quantity =
+            typeof item.quantity === "number" ? item.quantity : 1;
+          return sum + price * quantity;
         }, 0);
         const shipping = subtotal > 50 ? 0 : 5.99;
         const tax = subtotal * 0.08;
@@ -67,10 +81,10 @@ export default function SuccessPage() {
         // Ensure each item has valid properties
         const validatedItems = cartItems.map((item: CartItem) => ({
           ...item,
-          price: typeof item.price === 'number' ? item.price : 0,
-          quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+          price: typeof item.price === "number" ? item.price : 0,
+          quantity: typeof item.quantity === "number" ? item.quantity : 1,
           name: item.name || "Product",
-          image: item.image || "/placeholder.svg"
+          image: item.image || "/placeholder.svg",
         }));
 
         // Get the current user info from localStorage
@@ -93,62 +107,109 @@ export default function SuccessPage() {
           status: "paid",
           paymentId: sessionId,
           createdAt: new Date().toISOString(),
-          subtotal: subtotal,  // Price of items only
-          shipping: shipping,  // Shipping cost
-          tax: tax,            // Tax amount
-          total: total,        // Total with shipping and tax
-          userEmail: userEmail // Associate with the logged-in user
-        }
+          subtotal: subtotal, // Price of items only
+          shipping: shipping, // Shipping cost
+          tax: tax, // Tax amount
+          total: total, // Total with shipping and tax
+          userEmail: userEmail, // Associate with the logged-in user
+          firebaseId: null as string | null, // Firebase order ID (will be set after saving)
+        };
 
         // Only save the order if it has items and a total value greater than 0
         if (validatedItems.length > 0 && total > 0) {
           // Reduce product stock for each item in the order
           try {
-            const stockReductionItems = validatedItems.map(item => ({
+            const stockReductionItems = validatedItems.map((item) => ({
               productId: item.id,
-              quantity: item.quantity
+              quantity: item.quantity,
             }));
-            
-            await productService.reduceMultipleProductsStock(stockReductionItems);
-            console.log("Stock reduced successfully for", stockReductionItems.length, "products");
+
+            await productService.reduceMultipleProductsStock(
+              stockReductionItems
+            );
+            console.log(
+              "Stock reduced successfully for",
+              stockReductionItems.length,
+              "products"
+            );
           } catch (stockError) {
             console.error("Error reducing stock:", stockError);
             // Note: In a real-world scenario, you might want to handle this differently
             // For now, we'll log the error but still complete the order since payment was successful
           }
-          
-          // Save to orders in localStorage
-          const orders = JSON.parse(localStorage.getItem("customerOrders") || "[]")
-          orders.unshift(order)
-          localStorage.setItem("customerOrders", JSON.stringify(orders))
+
+          // Save to Firebase and localStorage (for backward compatibility)
+          try {
+            // Save to Firebase
+            const firebaseOrder = {
+              id: newOrderId, // Include the custom order ID
+              customerId: userEmail,
+              customerName: "Customer", // You can enhance this with actual user data
+              items: validatedItems.map((item) => ({
+                productId: item.id,
+                productName: item.name,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+              total: total,
+              status: "processing" as const,
+              shippingAddress: "Customer Address", // You can enhance this with actual address
+              createdAt: new Date(),
+            };
+
+            const firebaseOrderId = await orderService.createOrder(
+              firebaseOrder
+            );
+            console.log("Order saved to Firebase with ID:", firebaseOrderId);
+
+            // Update order with Firebase ID (should match the custom ID now)
+            order.firebaseId = firebaseOrderId;
+          } catch (firebaseError) {
+            console.error("Error saving order to Firebase:", firebaseError);
+            // Continue with localStorage save even if Firebase fails
+          }
+
+          // Save to localStorage as backup
+          const orders = JSON.parse(
+            localStorage.getItem("customerOrders") || "[]"
+          );
+          orders.unshift(order);
+          localStorage.setItem("customerOrders", JSON.stringify(orders));
 
           // Add order success notification to localStorage
-          const notifications = JSON.parse(localStorage.getItem("shopNotifications") || "[]")
+          const notifications = JSON.parse(
+            localStorage.getItem("shopNotifications") || "[]"
+          );
           notifications.unshift({
             id: `notif-${Date.now()}`,
             title: "Order Successful",
             message: `Your order ${newOrderId} was placed successfully!`,
             type: "order",
             read: false,
-            createdAt: new Date().toISOString()
-          })
-          localStorage.setItem("shopNotifications", JSON.stringify(notifications))
+            createdAt: new Date().toISOString(),
+          });
+          localStorage.setItem(
+            "shopNotifications",
+            JSON.stringify(notifications)
+          );
         } else {
-          console.log("Skipped saving invalid order (empty items or zero value)")
+          console.log(
+            "Skipped saving invalid order (empty items or zero value)"
+          );
         }
 
         // Clear cart
-        clearCart()
+        clearCart();
 
-        setIsLoading(false)
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error processing order:", error)
-        setIsLoading(false)
+        console.error("Error processing order:", error);
+        setIsLoading(false);
       }
     }
 
-    processOrder()
-  }, [success, sessionId, router])
+    processOrder();
+  }, [success, sessionId, router]);
 
   if (isLoading) {
     return (
@@ -162,7 +223,7 @@ export default function SuccessPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -172,11 +233,14 @@ export default function SuccessPage() {
           <div className="mx-auto rounded-full bg-green-100 p-3 mb-4">
             <CheckCircle className="h-12 w-12 text-green-600" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">Payment Successful!</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Payment Successful!
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4 pb-6">
           <p>
-            Thank you for your purchase. Your order has been processed successfully.
+            Thank you for your purchase. Your order has been processed
+            successfully.
           </p>
           <p className="text-gray-600">
             Order number: <span className="font-medium">{orderNumber}</span>
@@ -198,5 +262,5 @@ export default function SuccessPage() {
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }

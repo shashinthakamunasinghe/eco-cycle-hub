@@ -27,16 +27,23 @@ service cloud.firestore {
 
     // Orders collection
     match /orders/{orderId} {
-      // Users can read and create their own orders
-      allow read, create: if request.auth != null && 
-        resource.data.customerId == request.auth.uid;
-      // Users can update their own orders, admins can update any
-      allow update: if request.auth != null && 
-        (resource.data.customerId == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      // Admins can read all orders
+      // Users can read their own orders (by email)
       allow read: if request.auth != null && 
+        (resource.data.customerId == request.auth.token.email || 
+         resource.data.customerId == request.auth.uid);
+      // Users can create orders with their email as customerId
+      allow create: if request.auth != null && 
+        (request.resource.data.customerId == request.auth.token.email ||
+         request.resource.data.customerId == request.auth.uid);
+      // Admins can read and manage all orders
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Users can update their own orders status (for cancellation, etc.)
+      allow update: if request.auth != null && 
+        (resource.data.customerId == request.auth.token.email || 
+         resource.data.customerId == request.auth.uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
     }
 
     // Pickup requests collection

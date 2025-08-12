@@ -66,35 +66,35 @@ export interface Collector {
 }
 
 export interface CollectorProfile {
-  id: string
-  name: string
-  email: string
-  phone: string
-  address: string
-  licenseNumber: string
-  vehicleType: string
-  vehicleModel: string
-  vehicleCapacity: number
-  experience: string
-  status: string
-  rating: number
-  completedPickups: number
-  avatar?: string
-  joinedDate: string
-  emergencyContact: string
-  workingHours: string
-  specializations: string[]
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  licenseNumber: string;
+  vehicleType: string;
+  vehicleModel: string;
+  vehicleCapacity: number;
+  experience: string;
+  status: string;
+  rating: number;
+  completedPickups: number;
+  avatar?: string;
+  joinedDate: string;
+  emergencyContact: string;
+  workingHours: string;
+  specializations: string[];
   // Admin dashboard specific fields
-  isAvailable?: boolean
-  currentLoad?: number
-  assignedRequests?: string[]
+  isAvailable?: boolean;
+  currentLoad?: number;
+  assignedRequests?: string[];
   currentLocation?: {
-    lat: number
-    lng: number
-  }
-  lastActivity?: string // ISO date string of last activity/availability change
-  createdAt?: Date
-  updatedAt?: Date
+    lat: number;
+    lng: number;
+  };
+  lastActivity?: string; // ISO date string of last activity/availability change
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Product {
@@ -114,6 +114,9 @@ export interface Order {
   customerId: string;
   customerName: string;
   items: OrderItem[];
+  subtotal?: number;
+  shipping?: number;
+  tax?: number;
   total: number;
   status: "processing" | "shipped" | "delivered" | "cancelled";
   shippingAddress: string;

@@ -38,12 +38,10 @@ function getDb(): Firestore {
 // Product operations
 export const productService = {
   async getAllProducts(): Promise<Product[]> {
-
     const querySnapshot = await getDocs(collection(db, "products"));
     const products: Product[] = [];
-    
-    querySnapshot.docs.forEach((doc) => {
 
+    querySnapshot.docs.forEach((doc) => {
       const data = doc.data();
       products.push({
         id: doc.id,
@@ -52,7 +50,7 @@ export const productService = {
         updatedAt: data.updatedAt?.toDate(),
       } as unknown as Product);
     });
-    
+
     return products;
   },
 
@@ -70,7 +68,6 @@ export const productService = {
   },
 
   async addProduct(product: Omit<Product, "id">): Promise<string> {
-
     // Check for existing product with same name and description to prevent duplicates
     const existingQuery = query(
       collection(db, "products"),
@@ -78,13 +75,14 @@ export const productService = {
       where("description", "==", product.description)
     );
     const existingSnapshot = await getDocs(existingQuery);
-    
-    if (!existingSnapshot.empty) {
-      throw new Error("A product with this name and description already exists");
-    }
-    
-    const docRef = await addDoc(collection(db, "products"), {
 
+    if (!existingSnapshot.empty) {
+      throw new Error(
+        "A product with this name and description already exists"
+      );
+    }
+
+    const docRef = await addDoc(collection(db, "products"), {
       ...product,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -124,22 +122,24 @@ export const productService = {
 
   async reduceProductStock(productId: string, quantity: number): Promise<void> {
     const docRef = doc(db, "products", productId);
-    
+
     // Get the current product to check stock
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
       throw new Error(`Product with ID ${productId} not found`);
     }
-    
+
     const product = docSnap.data() as Product;
     const currentStock = product.stock || 0;
-    
+
     if (currentStock < quantity) {
-      throw new Error(`Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${quantity}`);
+      throw new Error(
+        `Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${quantity}`
+      );
     }
-    
+
     const newStock = currentStock - quantity;
-    
+
     // Update the product stock
     await updateDoc(docRef, {
       stock: newStock,
@@ -147,34 +147,38 @@ export const productService = {
     });
   },
 
-  async reduceMultipleProductsStock(items: { productId: string; quantity: number }[]): Promise<void> {
+  async reduceMultipleProductsStock(
+    items: { productId: string; quantity: number }[]
+  ): Promise<void> {
     // Use batch operations for better performance and consistency
     const batch = writeBatch(db);
-    
+
     // First, validate all products have sufficient stock
     const stockValidations = await Promise.all(
       items.map(async (item) => {
         const docRef = doc(db, "products", item.productId);
         const docSnap = await getDoc(docRef);
-        
+
         if (!docSnap.exists()) {
           throw new Error(`Product with ID ${item.productId} not found`);
         }
-        
+
         const product = docSnap.data() as Product;
         const currentStock = product.stock || 0;
-        
+
         if (currentStock < item.quantity) {
-          throw new Error(`Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${item.quantity}`);
+          throw new Error(
+            `Insufficient stock for product ${product.name}. Available: ${currentStock}, Requested: ${item.quantity}`
+          );
         }
-        
+
         return {
           docRef,
-          newStock: currentStock - item.quantity
+          newStock: currentStock - item.quantity,
         };
       })
     );
-    
+
     // If all validations pass, update all products in a batch
     stockValidations.forEach(({ docRef, newStock }) => {
       batch.update(docRef, {
@@ -182,7 +186,7 @@ export const productService = {
         updatedAt: Timestamp.now(),
       });
     });
-    
+
     await batch.commit();
   },
 };
@@ -272,12 +276,25 @@ export const orderService = {
     );
   },
 
-  async createOrder(order: Omit<Order, "id">): Promise<string> {
-    const docRef = await addDoc(collection(getDb(), "orders"), {
-      ...order,
-      createdAt: Timestamp.now(),
-    });
-    return docRef.id;
+  async createOrder(
+    order: Omit<Order, "id"> & { id?: string }
+  ): Promise<string> {
+    // If an ID is provided (like ORD-123456), use it as the document ID
+    if (order.id) {
+      const docRef = doc(getDb(), "orders", order.id);
+      await setDoc(docRef, {
+        ...order,
+        createdAt: Timestamp.now(),
+      });
+      return order.id;
+    } else {
+      // Otherwise, let Firebase auto-generate the ID
+      const docRef = await addDoc(collection(getDb(), "orders"), {
+        ...order,
+        createdAt: Timestamp.now(),
+      });
+      return docRef.id;
+    }
   },
 
   async updateOrderStatus(id: string, status: Order["status"]): Promise<void> {
@@ -358,10 +375,8 @@ export const pickupService = {
     collectorId: string
   ): Promise<PickupRequest[]> {
     const q = query(
-
       collection(db, "pickupRequests"),
       where("collectorId", "==", collectorId)
-
     );
     const querySnapshot = await getDocs(q);
     const pickups = querySnapshot.docs.map((doc) => {
@@ -375,9 +390,11 @@ export const pickupService = {
         cancelledAt: data.cancelledAt?.toDate(),
       } as PickupRequest;
     });
-    
+
     // Sort in memory instead of requiring an index
-    return pickups.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+    return pickups.sort(
+      (a, b) => b.requestedAt.getTime() - a.requestedAt.getTime()
+    );
   },
 
   async createPickupRequest(
@@ -656,29 +673,37 @@ export const collectorService = {
     } as unknown as CollectorProfile;
   },
 
-  async setCollectorProfile(id: string, profileData: Partial<CollectorProfile>): Promise<void> {
+  async setCollectorProfile(
+    id: string,
+    profileData: Partial<CollectorProfile>
+  ): Promise<void> {
     const docRef = doc(db, "collectorProfiles", id);
     const updateData = {
       ...profileData,
       updatedAt: Timestamp.now(),
     };
-    
+
     await setDoc(docRef, updateData, { merge: true });
   },
 
-  async updateCollectorProfile(id: string, updates: Partial<CollectorProfile>): Promise<void> {
+  async updateCollectorProfile(
+    id: string,
+    updates: Partial<CollectorProfile>
+  ): Promise<void> {
     const docRef = doc(db, "collectorProfiles", id);
     const updateData = {
       ...updates,
       updatedAt: Timestamp.now(),
     };
-    
+
     await updateDoc(docRef, updateData);
   },
 
   async deleteCollectorProfile(id: string): Promise<void> {
     const docRef = doc(db, "collectorProfiles", id);
     await deleteDoc(docRef);
-    console.log(`✅ Collector profile ${id} deleted successfully from Firestore`);
+    console.log(
+      `✅ Collector profile ${id} deleted successfully from Firestore`
+    );
   },
 };
