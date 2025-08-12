@@ -81,6 +81,7 @@ export default function AdminCollectorsPage() {
   const [collectorToBlock, setCollectorToBlock] = useState<CollectorWithUser | null>(null);
   const [collectorToDelete, setCollectorToDelete] = useState<CollectorWithUser | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
   const [collectors, setCollectors] = useState<CollectorWithUser[]>([]);
   const [pickups, setPickups] = useState<any[]>([]);
 
@@ -388,29 +389,48 @@ export default function AdminCollectorsPage() {
 
   const handleDeleteCollector = (collector: CollectorWithUser) => {
     setCollectorToDelete(collector);
+    setConfirmText(""); // Reset confirmation text
     setIsDeleteDialogOpen(true);
   };
 
   const confirmDeleteCollector = async () => {
     if (!collectorToDelete) return;
+    
+    if (confirmText.toLowerCase() !== "confirm") {
+      toast({
+        title: "Confirmation Required",
+        description: "Please type 'confirm' to proceed with deletion.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setLoading(true);
+      console.log(`🗑️ Attempting to delete collector: ${collectorToDelete.name} (${collectorToDelete.id})`);
+      
       await collectorService.deleteCollector(collectorToDelete.id);
+      
+      // Remove from local state
       setCollectors(collectors.filter((c) => c.id !== collectorToDelete.id));
+      
+      // Close dialog and reset state
       setIsDeleteDialogOpen(false);
       setCollectorToDelete(null);
+      setConfirmText("");
 
       toast({
-        title: "Collector deleted",
-        description: `${collectorToDelete.name} has been permanently deleted from the system.`,
+        title: "Collector deleted successfully",
+        description: `${collectorToDelete.name} and all associated data have been permanently removed from the system.`,
         variant: "destructive",
       });
+      
+      console.log(`✅ Collector ${collectorToDelete.name} deleted successfully`);
     } catch (error) {
       console.error("❌ Error deleting collector:", error);
       toast({
         title: "Error deleting collector",
-        description: "Failed to delete collector. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete collector. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -1101,24 +1121,92 @@ export default function AdminCollectorsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) {
+            setConfirmText("");
+            setCollectorToDelete(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
-              <Trash2 className="h-5 w-5 text-red-600" />
+            <DialogTitle className="flex items-center space-x-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
               <span>Delete Collector</span>
             </DialogTitle>
           </DialogHeader>
-          <p>
-            Are you sure you want to permanently delete{" "}
-            <span className="font-semibold">{collectorToDelete?.name}</span>? All associated data
-            will be removed and this action cannot be undone.
-          </p>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-800">
+                <strong>⚠️ This action cannot be undone!</strong>
+              </p>
+              <p className="text-sm text-red-700 mt-2">
+                This will permanently delete{" "}
+                <span className="font-semibold">{collectorToDelete?.name}</span> and:
+              </p>
+              <ul className="text-sm text-red-700 mt-2 list-disc list-inside">
+                <li>All collector profile data</li>
+                <li>Assigned pickup requests (will be reset to pending)</li>
+                <li>All notifications</li>
+                <li>Account access</li>
+              </ul>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirm-text" className="text-sm font-medium">
+                Type <span className="font-mono bg-gray-100 px-1 rounded">confirm</span> to proceed:
+              </Label>
+              <Input
+                id="confirm-text"
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="Type 'confirm' here"
+                className={`font-mono ${
+                  confirmText && confirmText.toLowerCase() !== "confirm" 
+                    ? "border-red-300 focus:border-red-500" 
+                    : confirmText.toLowerCase() === "confirm" 
+                      ? "border-green-300 focus:border-green-500" 
+                      : ""
+                }`}
+                autoComplete="off"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && confirmText.toLowerCase() === "confirm") {
+                    confirmDeleteCollector();
+                  }
+                }}
+              />
+              {confirmText && confirmText.toLowerCase() !== "confirm" && (
+                <p className="text-xs text-red-600">
+                  Please type exactly "confirm" to enable deletion
+                </p>
+              )}
+              {confirmText.toLowerCase() === "confirm" && (
+                <p className="text-xs text-green-600">
+                  ✓ Confirmation text verified
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setConfirmText("");
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteCollector} disabled={loading}>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteCollector} 
+              disabled={loading || confirmText.toLowerCase() !== "confirm"}
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
