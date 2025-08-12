@@ -25,8 +25,12 @@ import {
   RefreshCw,
   Users,
   Target,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AdminMapComponent } from "@/components/Admin/AdminMapComponent";
+import { pickupService, collectorService } from "@/lib/firebase-services";
+import type { PickupRequest, User } from "@/types";
 
 interface CollectorLocation {
   id: string;
@@ -36,6 +40,8 @@ interface CollectorLocation {
   assignedPickup: string | null;
   truckCapacity: number;
   currentLoad: number;
+  email: string;
+  phone?: string;
 }
 
 interface PickupLocation {
@@ -46,6 +52,10 @@ interface PickupLocation {
   priority: string;
   weight: number;
   address: string;
+  status: string;
+  requestedAt: Date;
+  collectorId?: string;
+  collectorName?: string;
 }
 
 export default function AdminMapPage() {
@@ -59,85 +69,109 @@ export default function AdminMapPage() {
   );
   const [mapCenter, setMapCenter] = useState({ lat: 6.9271, lng: 79.8612 });
   const [mapZoom, setMapZoom] = useState(12);
+  const [loading, setLoading] = useState(true);
+  const [collectors, setCollectors] = useState<CollectorLocation[]>([]);
+  const [pendingPickups, setPendingPickups] = useState<PickupLocation[]>([]);
 
-  const [liveData, setLiveData] = useState({
-    activeCollectors: [
-      {
-        id: "3",
-        name: "John Collector",
-        location: { lat: 6.9271, lng: 79.8612 },
-        status: "on-way",
-        assignedPickup: "Green Industries Ltd",
-        truckCapacity: 1000,
-        currentLoad: 450,
-      },
-      {
-        id: "4",
-        name: "Jane Smith",
-        location: { lat: 6.9344, lng: 79.8428 },
-        status: "available",
-        assignedPickup: null,
-        truckCapacity: 1500,
-        currentLoad: 0,
-      },
-      {
-        id: "5",
-        name: "Mike Johnson",
-        location: { lat: 6.9147, lng: 79.8731 },
-        status: "available",
-        assignedPickup: null,
-        truckCapacity: 800,
-        currentLoad: 200,
-      },
-    ],
-    pendingPickups: [
-      {
-        id: "1",
-        industryName: "Tech Manufacturing",
-        location: { lat: 6.9147, lng: 79.8731 },
-        wasteType: "Electronic Waste",
-        priority: "high",
-        weight: 150,
-        address: "123 Tech Park, Colombo",
-      },
-      {
-        id: "2",
-        industryName: "Eco Solutions",
-        location: { lat: 6.92, lng: 79.85 },
-        wasteType: "Plastic Waste",
-        priority: "medium",
-        weight: 200,
-        address: "456 Eco Street, Colombo",
-      },
-      {
-        id: "3",
-        industryName: "Green Manufacturing",
-        location: { lat: 6.9344, lng: 79.8428 },
-        wasteType: "Organic Waste",
-        priority: "low",
-        weight: 300,
-        address: "789 Green Ave, Colombo",
-      },
-    ],
-  });
-
-  // Simulate real-time updates
+  // Load real data from Firebase
   useEffect(() => {
+    const loadMapData = async () => {
+      try {
+        setLoading(true);
+
+        // Load all collectors
+        const allCollectors = await collectorService.getAllCollectors();
+        const transformedCollectors: CollectorLocation[] = allCollectors.map(
+          (collector: User) => ({
+            id: collector.id,
+            name: collector.name,
+            email: collector.email,
+            phone: collector.phone,
+            location: collector.currentLocation || {
+              lat: 6.9271,
+              lng: 79.8612,
+            }, // Default to Colombo if no location
+            status: collector.isAvailable ? "available" : "busy",
+            assignedPickup: null, // Will be determined from pickup requests
+            truckCapacity: (collector as any).truckCapacity || 1000,
+            currentLoad: (collector as any).currentLoad || 0,
+          })
+        );
+
+        // Load pending pickup requests
+        const allPickups = await pickupService.getAllPickupRequests();
+        const pendingPickupRequests = allPickups.filter(
+          (pickup: PickupRequest) =>
+            pickup.status === "pending" || pickup.status === "assigned"
+        );
+
+        // Transform pickup requests to match our interface
+        const transformedPickups: PickupLocation[] = pendingPickupRequests.map(
+          (pickup: PickupRequest) => ({
+            id: pickup.id,
+            industryName: pickup.industryName,
+            location: pickup.location,
+            wasteType: pickup.wasteType,
+            priority: (pickup as any).priority || "medium",
+            weight: pickup.weight,
+            address: pickup.location.address,
+            status: pickup.status,
+            requestedAt: pickup.requestedAt,
+            collectorId: pickup.collectorId,
+            collectorName: pickup.collectorName,
+          })
+        );
+
+        // Update collectors with their assigned pickups
+        const updatedCollectors = transformedCollectors.map((collector) => {
+          const assignedPickup = transformedPickups.find(
+            (pickup) => pickup.collectorId === collector.id
+          );
+          return {
+            ...collector,
+            assignedPickup: assignedPickup ? assignedPickup.industryName : null,
+            status: assignedPickup ? "on-way" : "available",
+          };
+        });
+
+        setCollectors(updatedCollectors);
+        setPendingPickups(
+          transformedPickups.filter((pickup) => pickup.status === "pending")
+        );
+      } catch (error) {
+        console.error("Error loading map data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load map data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMapData();
+  }, [toast]);
+
+  // Real-time updates (simplified for now)
+  useEffect(() => {
+    if (collectors.length === 0) return;
+
     const interval = setInterval(() => {
-      setLiveData((prevData) => ({
-        ...prevData,
-        activeCollectors: prevData.activeCollectors.map((collector) => ({
+      // Simulate small location updates for active collectors
+      setCollectors((prevCollectors) =>
+        prevCollectors.map((collector) => ({
           ...collector,
           location: {
-            lat: collector.location.lat + (Math.random() - 0.5) * 0.001,
-            lng: collector.location.lng + (Math.random() - 0.5) * 0.001,
+            lat: collector.location.lat + (Math.random() - 0.5) * 0.0005,
+            lng: collector.location.lng + (Math.random() - 0.5) * 0.0005,
           },
-        })),
-      }));
-    }, 5000); // Update every 5 seconds
+        }))
+      );
+    }, 10000); // Update every 10 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [collectors.length]);
 
   const trackCollector = (collector: CollectorLocation) => {
     setTrackedCollector(collector);
@@ -151,31 +185,57 @@ export default function AdminMapPage() {
     });
   };
 
-  const assignCollectorToPickup = (pickupId: string, collectorId: string) => {
-    const collector = liveData.activeCollectors.find(
-      (c) => c.id === collectorId
-    );
-    const pickup = liveData.pendingPickups.find((p) => p.id === pickupId);
+  const assignCollectorToPickup = async (
+    pickupId: string,
+    collectorId: string
+  ) => {
+    try {
+      const collector = collectors.find((c) => c.id === collectorId);
+      const pickup = pendingPickups.find((p) => p.id === pickupId);
 
-    if (!collector || !pickup) return;
+      if (!collector || !pickup) {
+        toast({
+          title: "Error",
+          description: "Collector or pickup not found",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // Update collector status
-    setLiveData((prevData) => ({
-      ...prevData,
-      activeCollectors: prevData.activeCollectors.map((c) =>
-        c.id === collectorId
-          ? { ...c, status: "on-way", assignedPickup: pickup.industryName }
-          : c
-      ),
-      pendingPickups: prevData.pendingPickups.filter((p) => p.id !== pickupId),
-    }));
+      // Update in Firebase
+      await pickupService.assignCollector(
+        pickupId,
+        collectorId,
+        collector.name
+      );
 
-    setIsAssignDialogOpen(false);
+      // Update local state
+      setCollectors((prevCollectors) =>
+        prevCollectors.map((c) =>
+          c.id === collectorId
+            ? { ...c, status: "on-way", assignedPickup: pickup.industryName }
+            : c
+        )
+      );
 
-    toast({
-      title: "Collector assigned",
-      description: `${collector.name} has been assigned to ${pickup.industryName}.`,
-    });
+      setPendingPickups((prevPickups) =>
+        prevPickups.filter((p) => p.id !== pickupId)
+      );
+
+      setIsAssignDialogOpen(false);
+
+      toast({
+        title: "Collector assigned",
+        description: `${collector.name} has been assigned to ${pickup.industryName}.`,
+      });
+    } catch (error) {
+      console.error("Error assigning collector:", error);
+      toast({
+        title: "Error",
+        description: "Failed to assign collector",
+        variant: "destructive",
+      });
+    }
   };
 
   const openAssignDialog = (pickup: PickupLocation) => {
@@ -184,14 +244,14 @@ export default function AdminMapPage() {
   };
 
   const centerOnCollectors = () => {
-    if (liveData.activeCollectors.length === 0) return;
+    if (collectors.length === 0) return;
 
     const avgLat =
-      liveData.activeCollectors.reduce((sum, c) => sum + c.location.lat, 0) /
-      liveData.activeCollectors.length;
+      collectors.reduce((sum: number, c) => sum + c.location.lat, 0) /
+      collectors.length;
     const avgLng =
-      liveData.activeCollectors.reduce((sum, c) => sum + c.location.lng, 0) /
-      liveData.activeCollectors.length;
+      collectors.reduce((sum: number, c) => sum + c.location.lng, 0) /
+      collectors.length;
 
     setMapCenter({ lat: avgLat, lng: avgLng });
     setMapZoom(13);
@@ -203,14 +263,14 @@ export default function AdminMapPage() {
   };
 
   const showAllPickups = () => {
-    if (liveData.pendingPickups.length === 0) return;
+    if (pendingPickups.length === 0) return;
 
     const avgLat =
-      liveData.pendingPickups.reduce((sum, p) => sum + p.location.lat, 0) /
-      liveData.pendingPickups.length;
+      pendingPickups.reduce((sum: number, p) => sum + p.location.lat, 0) /
+      pendingPickups.length;
     const avgLng =
-      liveData.pendingPickups.reduce((sum, p) => sum + p.location.lng, 0) /
-      liveData.pendingPickups.length;
+      pendingPickups.reduce((sum: number, p) => sum + p.location.lng, 0) /
+      pendingPickups.length;
 
     setMapCenter({ lat: avgLat, lng: avgLng });
     setMapZoom(12);
@@ -221,12 +281,77 @@ export default function AdminMapPage() {
     });
   };
 
-  const refreshData = () => {
-    // Simulate data refresh
-    toast({
-      title: "Data refreshed",
-      description: "Live tracking data has been updated.",
-    });
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      // Reload data from Firebase
+      const allCollectors = await collectorService.getAllCollectors();
+      const transformedCollectors: CollectorLocation[] = allCollectors.map(
+        (collector: User) => ({
+          id: collector.id,
+          name: collector.name,
+          email: collector.email,
+          phone: collector.phone,
+          location: collector.currentLocation || { lat: 6.9271, lng: 79.8612 },
+          status: collector.isAvailable ? "available" : "busy",
+          assignedPickup: null,
+          truckCapacity: (collector as any).truckCapacity || 1000,
+          currentLoad: (collector as any).currentLoad || 0,
+        })
+      );
+
+      const allPickups = await pickupService.getAllPickupRequests();
+      const pendingPickupRequests = allPickups.filter(
+        (pickup: PickupRequest) =>
+          pickup.status === "pending" || pickup.status === "assigned"
+      );
+
+      const transformedPickups: PickupLocation[] = pendingPickupRequests.map(
+        (pickup: PickupRequest) => ({
+          id: pickup.id,
+          industryName: pickup.industryName,
+          location: pickup.location,
+          wasteType: pickup.wasteType,
+          priority: (pickup as any).priority || "medium",
+          weight: pickup.weight,
+          address: pickup.location.address,
+          status: pickup.status,
+          requestedAt: pickup.requestedAt,
+          collectorId: pickup.collectorId,
+          collectorName: pickup.collectorName,
+        })
+      );
+
+      const updatedCollectors = transformedCollectors.map((collector) => {
+        const assignedPickup = transformedPickups.find(
+          (pickup) => pickup.collectorId === collector.id
+        );
+        return {
+          ...collector,
+          assignedPickup: assignedPickup ? assignedPickup.industryName : null,
+          status: assignedPickup ? "on-way" : "available",
+        };
+      });
+
+      setCollectors(updatedCollectors);
+      setPendingPickups(
+        transformedPickups.filter((pickup) => pickup.status === "pending")
+      );
+
+      toast({
+        title: "Data refreshed",
+        description: "Live tracking data has been updated.",
+      });
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -246,121 +371,42 @@ export default function AdminMapPage() {
               <CardTitle className="flex items-center justify-between">
                 <span>Live Tracking Map</span>
                 <div className="flex items-center space-x-2">
-                  <Badge variant="secondary">
-                    {liveData.activeCollectors.length} Collectors
-                  </Badge>
-                  <Badge variant="outline">
-                    {liveData.pendingPickups.length} Pending
-                  </Badge>
+                  {loading ? (
+                    <Badge variant="secondary">
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Loading...
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge variant="secondary">
+                        {collectors.length} Collectors
+                      </Badge>
+                      <Badge variant="outline">
+                        {pendingPickups.length} Pending
+                      </Badge>
+                    </>
+                  )}
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-96 bg-gray-100 rounded-lg relative overflow-hidden">
-                {/* Simulated Google Maps Interface */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-green-50">
-                  {/* Map Controls */}
-                  <div className="absolute top-4 right-4 space-y-2">
-                    <Button size="sm" variant="outline" className="bg-white">
-                      +
-                    </Button>
-                    <Button size="sm" variant="outline" className="bg-white">
-                      -
-                    </Button>
-                  </div>
-
-                  {/* Collector Markers */}
-                  {liveData.activeCollectors.map((collector, index) => (
-                    <div
-                      key={collector.id}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                      style={{
-                        left: `${20 + index * 25}%`,
-                        top: `${30 + index * 15}%`,
-                      }}
-                      onClick={() => trackCollector(collector)}
-                    >
-                      <div className="relative">
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${
-                            collector.status === "available"
-                              ? "bg-green-500"
-                              : "bg-blue-500"
-                          }`}
-                        ></div>
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap">
-                          {collector.name}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pickup Markers */}
-                  {liveData.pendingPickups.map((pickup, index) => (
-                    <div
-                      key={pickup.id}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                      style={{
-                        left: `${60 + index * 15}%`,
-                        top: `${40 + index * 20}%`,
-                      }}
-                      onClick={() => openAssignDialog(pickup)}
-                    >
-                      <div className="relative">
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${
-                            pickup.priority === "high"
-                              ? "bg-red-500"
-                              : pickup.priority === "medium"
-                              ? "bg-yellow-500"
-                              : "bg-orange-500"
-                          }`}
-                        ></div>
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap">
-                          {pickup.industryName}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Center indicator */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  </div>
-
-                  {/* Map info overlay */}
-                  <div className="absolute bottom-4 left-4 bg-white p-2 rounded shadow">
-                    <p className="text-xs text-gray-600">
-                      Center: {mapCenter.lat.toFixed(4)},{" "}
-                      {mapCenter.lng.toFixed(4)}
-                    </p>
-                    <p className="text-xs text-gray-600">Zoom: {mapZoom}</p>
+              {loading ? (
+                <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Loading map data...</p>
                   </div>
                 </div>
-
-                {/* Legend */}
-                <div className="absolute bottom-4 right-4 bg-white p-3 rounded shadow">
-                  <h4 className="text-xs font-medium mb-2">Legend</h4>
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-xs">Available Collector</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs">Busy Collector</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-xs">High Priority Pickup</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                      <span className="text-xs">Medium Priority</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <AdminMapComponent
+                  collectors={collectors}
+                  pickups={pendingPickups}
+                  onCollectorClick={trackCollector}
+                  onPickupClick={openAssignDialog}
+                  center={mapCenter}
+                  zoom={mapZoom}
+                />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -376,66 +422,77 @@ export default function AdminMapPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {liveData.activeCollectors.map((collector) => (
-                <div key={collector.id} className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">{collector.name}</h4>
-                    <Badge
-                      variant={
-                        collector.status === "on-way" ? "default" : "secondary"
-                      }
-                    >
-                      {collector.status.replace("-", " ")}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="h-3 w-3" />
-                      <span>
-                        {collector.location.lat.toFixed(4)},{" "}
-                        {collector.location.lng.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Truck className="h-3 w-3" />
-                      <span>
-                        {collector.currentLoad}kg / {collector.truckCapacity}kg
-                      </span>
-                    </div>
-                    {collector.assignedPickup && (
-                      <div className="flex items-center space-x-1">
-                        <Package className="h-3 w-3" />
-                        <span>En route to {collector.assignedPickup}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Capacity bar */}
-                  <div className="mt-2">
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div
-                        className="bg-blue-600 h-1.5 rounded-full"
-                        style={{
-                          width: `${
-                            (collector.currentLoad / collector.truckCapacity) *
-                            100
-                          }%`,
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-2"
-                    onClick={() => trackCollector(collector)}
-                  >
-                    <Navigation className="h-3 w-3 mr-1" />
-                    Track
-                  </Button>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading collectors...</span>
                 </div>
-              ))}
+              ) : (
+                collectors.map((collector) => (
+                  <div key={collector.id} className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">{collector.name}</h4>
+                      <Badge
+                        variant={
+                          collector.status === "on-way"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {collector.status.replace("-", " ")}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div className="flex items-center space-x-1">
+                        <MapPin className="h-3 w-3" />
+                        <span>
+                          {collector.location.lat.toFixed(4)},{" "}
+                          {collector.location.lng.toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Truck className="h-3 w-3" />
+                        <span>
+                          {collector.currentLoad}kg / {collector.truckCapacity}
+                          kg
+                        </span>
+                      </div>
+                      {collector.assignedPickup && (
+                        <div className="flex items-center space-x-1">
+                          <Package className="h-3 w-3" />
+                          <span>En route to {collector.assignedPickup}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Capacity bar */}
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${
+                              (collector.currentLoad /
+                                collector.truckCapacity) *
+                              100
+                            }%`,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => trackCollector(collector)}
+                    >
+                      <Navigation className="h-3 w-3 mr-1" />
+                      Track
+                    </Button>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -448,45 +505,54 @@ export default function AdminMapPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {liveData.pendingPickups.map((pickup) => (
-                <div key={pickup.id} className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-sm">
-                      {pickup.industryName}
-                    </h4>
-                    <Badge
-                      variant={
-                        pickup.priority === "high" ? "destructive" : "secondary"
-                      }
-                    >
-                      {pickup.priority}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div className="flex items-center space-x-1">
-                      <Package className="h-3 w-3" />
-                      <span>
-                        {pickup.wasteType} - {pickup.weight}kg
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="h-3 w-3" />
-                      <span>
-                        {pickup.location.lat.toFixed(4)},{" "}
-                        {pickup.location.lng.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-2"
-                    onClick={() => openAssignDialog(pickup)}
-                  >
-                    Assign Collector
-                  </Button>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading pickups...</span>
                 </div>
-              ))}
+              ) : (
+                pendingPickups.map((pickup) => (
+                  <div key={pickup.id} className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm">
+                        {pickup.industryName}
+                      </h4>
+                      <Badge
+                        variant={
+                          pickup.priority === "high"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                      >
+                        {pickup.priority}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div className="flex items-center space-x-1">
+                        <Package className="h-3 w-3" />
+                        <span>
+                          {pickup.wasteType} - {pickup.weight}kg
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <MapPin className="h-3 w-3" />
+                        <span>
+                          {pickup.location.lat.toFixed(4)},{" "}
+                          {pickup.location.lng.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => openAssignDialog(pickup)}
+                    >
+                      Assign Collector
+                    </Button>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -659,7 +725,7 @@ export default function AdminMapPage() {
                     <SelectValue placeholder="Choose available collector" />
                   </SelectTrigger>
                   <SelectContent>
-                    {liveData.activeCollectors
+                    {collectors
                       .filter((c) => c.status === "available")
                       .map((collector) => (
                         <SelectItem key={collector.id} value={collector.id}>
