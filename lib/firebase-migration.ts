@@ -3,7 +3,6 @@ import { db } from "@/lib/firebase";
 import {
   mockUsers,
   mockProducts,
-  mockOrders,
   mockPickupRequests,
   mockNotifications,
 } from "@/lib/mock-data";
@@ -56,7 +55,9 @@ export class FirebaseMigration {
   static async migrateOrders() {
     console.log("Migrating orders...");
     try {
-      const promises = mockOrders.map((order) =>
+      // Replace with your actual orders data
+      const orders: any[] = [];
+      const promises = orders.map((order) =>
         addDoc(collection(getDb(), "orders"), {
           ...order,
           createdAt: Timestamp.now(),

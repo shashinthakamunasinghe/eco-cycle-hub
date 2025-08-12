@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mockOrders } from "@/lib/mock-data";
+import { orderService } from "@/lib/firebase-services";
 
 // Define interfaces for type safety
 interface OrderItem {
@@ -43,24 +43,6 @@ interface Order {
   deliveredAt?: Date;
 }
 
-interface CustomerOrder {
-  id: string;
-  items: {
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    image?: string;
-  }[];
-  status: string;
-  paymentId?: string;
-  createdAt: string;
-  subtotal?: number;
-  shipping?: number;
-  tax?: number;
-  total?: number;
-}
-
 import {
   Package,
   User,
@@ -70,9 +52,56 @@ import {
   Eye,
   Truck,
   Home,
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Helper function to safely format dates from Firebase Timestamp or Date objects
+const formatDate = (date: any): string => {
+  if (!date) return "N/A";
+
+  // Handle Firebase Timestamp objects
+  if (date && typeof date.toDate === "function") {
+    return date.toDate().toLocaleDateString();
+  }
+
+  // Handle regular Date objects
+  if (date instanceof Date) {
+    return date.toLocaleDateString();
+  }
+
+  // Handle date strings
+  if (typeof date === "string") {
+    return new Date(date).toLocaleDateString();
+  }
+
+  // Fallback
+  return "Invalid Date";
+};
+
+// Helper function to safely format time from Firebase Timestamp or Date objects
+const formatTime = (date: any): string => {
+  if (!date) return "N/A";
+
+  // Handle Firebase Timestamp objects
+  if (date && typeof date.toDate === "function") {
+    return date.toDate().toLocaleTimeString();
+  }
+
+  // Handle regular Date objects
+  if (date instanceof Date) {
+    return date.toLocaleTimeString();
+  }
+
+  // Handle date strings
+  if (typeof date === "string") {
+    return new Date(date).toLocaleTimeString();
+  }
+
+  // Fallback
+  return "Invalid Time";
+};
 
 export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -80,117 +109,66 @@ export default function AdminOrdersPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Refresh orders when localStorage changes
+  // Function to manually refresh orders
+  const refreshOrders = async () => {
+    setIsLoading(true);
+    try {
+      console.log("Manually refreshing orders from Firebase...");
+      const firebaseOrders = await orderService.getAllOrders();
+      console.log("Refreshed orders from Firebase:", firebaseOrders.length);
+      setOrders(firebaseOrders);
+
+      toast({
+        title: "Orders refreshed",
+        description: `Loaded ${firebaseOrders.length} orders from Firebase.`,
+      });
+    } catch (error) {
+      console.error("Error refreshing orders:", error);
+      toast({
+        title: "Error refreshing orders",
+        description: "Could not refresh orders from database.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   useEffect(() => {
-    const loadOrders = () => {
-      if (typeof window !== "undefined") {
-        // Get customer orders from localStorage
-        const customerOrders = JSON.parse(
-          localStorage.getItem("customerOrders") || "[]"
-        ) as CustomerOrder[];
+    const loadOrders = async () => {
+      try {
+        setIsLoading(true);
+        console.log("Loading orders from Firebase...");
 
-        // Filter out invalid orders (empty items or zero value)
-        const validCustomerOrders = customerOrders.filter(
-          (order) =>
-            order.items &&
-            order.items.length > 0 &&
-            order.total &&
-            order.total > 0
-        );
+        // Fetch orders ONLY from Firebase
+        const firebaseOrders = await orderService.getAllOrders();
+        console.log("Fetched orders from Firebase:", firebaseOrders.length);
 
-        // Format customer orders to match the admin view requirements
-        const formattedCustomerOrders: Order[] = validCustomerOrders.map(
-          (order: CustomerOrder) => ({
-            id: order.id,
-            customerId: order.paymentId?.substring(0, 6) || "customer",
-            customerName: "Customer", // We don't have customer name in localStorage
-            items: order.items.map((item) => ({
-              productId: item.id || "",
-              productName: item.name || "",
-              quantity: item.quantity || 0,
-              price: item.price || 0,
-            })),
-            subtotal: order.subtotal || 0,
-            shipping: order.shipping || 0,
-            tax: order.tax || 0,
-            total: order.total || 0, // Use the actual total from the order
-            status: order.status || "processing",
-            shippingAddress: "Customer Address", // Placeholder as we don't have address
-            createdAt: new Date(order.createdAt || Date.now()),
-          })
-        );
+        // Set orders directly from Firebase (no localStorage, no mock data)
+        setOrders(firebaseOrders);
+      } catch (error) {
+        console.error("Error fetching orders from Firebase:", error);
 
-        // Combine with mock data - keeping only the original mockOrders
-        const mockOrdersFiltered = mockOrders.filter(
-          (mock) =>
-            !formattedCustomerOrders.some(
-              (customerOrder: Order) => customerOrder.id === mock.id
-            )
-        );
+        // If Firebase fails, show empty state instead of fallback data
+        setOrders([]);
 
-        setOrders([...formattedCustomerOrders, ...mockOrdersFiltered]);
+        toast({
+          title: "Error loading orders",
+          description: "Could not load orders from database. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    // Load orders on mount
     loadOrders();
+  }, [toast]);
 
-    // Listen for storage events to refresh orders when they change
-    window.addEventListener("storage", loadOrders);
-
-    return () => {
-      window.removeEventListener("storage", loadOrders);
-    };
-  }, []);
-
-  // Load customer orders from localStorage and combine with mock data
-  const [orders, setOrders] = useState<Order[]>(() => {
-    // Only run in browser environment
-    if (typeof window !== "undefined") {
-      // Get customer orders from localStorage
-      const customerOrders = JSON.parse(
-        localStorage.getItem("customerOrders") || "[]"
-      ) as CustomerOrder[];
-
-      // Filter out invalid orders (empty items or zero value)
-      const validCustomerOrders = customerOrders.filter(
-        (order) =>
-          order.items &&
-          order.items.length > 0 &&
-          order.total &&
-          order.total > 0
-      );
-
-      // Format customer orders to match the admin view requirements
-      const formattedCustomerOrders: Order[] = validCustomerOrders.map(
-        (order: CustomerOrder) => ({
-          id: order.id,
-          customerId: order.paymentId?.substring(0, 6) || "customer",
-          customerName: "Customer", // We don't have customer name in localStorage
-          items: order.items.map((item) => ({
-            productId: item.id,
-            productName: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          subtotal: order.subtotal || 0,
-          shipping: order.shipping || 0,
-          tax: order.tax || 0,
-          total: order.total || 0, // Use the full total including shipping and tax
-          status: order.status || "processing",
-          shippingAddress: "Customer Address", // Placeholder as we don't have address
-          createdAt: new Date(order.createdAt || Date.now()),
-        })
-      );
-
-      // Combine with mock data
-      return [...formattedCustomerOrders, ...mockOrders];
-    }
-    // Fallback to mock data for SSR
-    return mockOrders;
-  });
+  // Orders state - loaded exclusively from Firebase
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const updateOrderStatus = (orderId: string, newStatus: string) => {
     setOrders(
@@ -282,6 +260,17 @@ export default function AdminOrdersPage() {
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="secondary">{filteredOrders.length} orders</Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshOrders}
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -312,107 +301,118 @@ export default function AdminOrdersPage() {
         </Select>
       </div>
 
-      {/* Orders List */}
-      <div className="space-y-4">
-        {filteredOrders.map((order) => (
-          <Card key={order.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <h3 className="text-lg font-semibold">Order #{order.id}</h3>
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </div>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading orders from Firebase...</p>
+        </div>
+      )}
 
-                  <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
-                        <span>{order.customerName}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Package className="h-4 w-4" />
-                        <span>{order.items.length} item(s)</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4" />
-                        <span className="font-semibold">
-                          ${(order.total || 0).toFixed(2)}
-                        </span>
-                      </div>
+      {/* Orders List */}
+      {!isLoading && (
+        <div className="space-y-4">
+          {filteredOrders.map((order) => (
+            <Card key={order.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <h3 className="text-lg font-semibold">
+                        Order #{order.id}
+                      </h3>
+                      <Badge className={getStatusColor(order.status)}>
+                        {order.status}
+                      </Badge>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          Ordered: {order.createdAt.toLocaleDateString()}
-                        </span>
-                      </div>
-                      {order.deliveredAt && (
+
+                    <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>
-                            Delivered:{" "}
-                            {order.deliveredAt
-                              ? order.deliveredAt.toLocaleDateString()
-                              : "Not delivered yet"}
+                          <User className="h-4 w-4" />
+                          <span>{order.customerName}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Package className="h-4 w-4" />
+                          <span>{order.items.length} item(s)</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <DollarSign className="h-4 w-4" />
+                          <span className="font-semibold">
+                            ${(order.total || 0).toFixed(2)}
                           </span>
                         </div>
-                      )}
-                      <div className="text-xs text-gray-500">
-                        <span>Ship to: {order.shippingAddress}</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Ordered: {formatDate(order.createdAt)}</span>
+                        </div>
+                        {order.deliveredAt && (
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              Delivered:{" "}
+                              {order.deliveredAt
+                                ? formatDate(order.deliveredAt)
+                                : "Not delivered yet"}
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          <span>Ship to: {order.shippingAddress}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t">
+                      <h4 className="text-sm font-medium mb-2">Items:</h4>
+                      <div className="space-y-1">
+                        {order.items.map((item: OrderItem, index: number) => (
+                          <div key={index} className="text-sm text-gray-600">
+                            {item.quantity}x {item.productName} - $
+                            {(item.price * item.quantity).toFixed(2)}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t">
-                    <h4 className="text-sm font-medium mb-2">Items:</h4>
-                    <div className="space-y-1">
-                      {order.items.map((item: OrderItem, index: number) => (
-                        <div key={index} className="text-sm text-gray-600">
-                          {item.quantity}x {item.productName} - $
-                          {(item.price * item.quantity).toFixed(2)}
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex flex-col space-y-2 ml-4">
+                    {order.status === "processing" && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateOrderStatus(order.id, "shipped")}
+                      >
+                        Mark as Shipped
+                      </Button>
+                    )}
+                    {order.status === "shipped" && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateOrderStatus(order.id, "delivered")}
+                      >
+                        Mark as Delivered
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => viewOrderDetails(order)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-                <div className="flex flex-col space-y-2 ml-4">
-                  {order.status === "processing" && (
-                    <Button
-                      size="sm"
-                      onClick={() => updateOrderStatus(order.id, "shipped")}
-                    >
-                      Mark as Shipped
-                    </Button>
-                  )}
-                  {order.status === "shipped" && (
-                    <Button
-                      size="sm"
-                      onClick={() => updateOrderStatus(order.id, "delivered")}
-                    >
-                      Mark as Delivered
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => viewOrderDetails(order)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredOrders.length === 0 && (
+      {/* Empty State */}
+      {!isLoading && filteredOrders.length === 0 && (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500">
@@ -442,8 +442,8 @@ export default function AdminOrdersPage() {
                       Order #{currentOrder.id}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Placed on {currentOrder.createdAt.toLocaleDateString()} at{" "}
-                      {currentOrder.createdAt.toLocaleTimeString()}
+                      Placed on {formatDate(currentOrder.createdAt)} at{" "}
+                      {formatTime(currentOrder.createdAt)}
                     </p>
                   </div>
                   <Badge className={getStatusColor(currentOrder.status)}>
@@ -546,7 +546,7 @@ export default function AdminOrdersPage() {
                         <div className="h-2 w-2 rounded-full bg-green-500"></div>
                         <p className="text-sm">
                           <span className="font-medium">Order Placed</span> -{" "}
-                          {currentOrder.createdAt.toLocaleDateString()}
+                          {formatDate(currentOrder.createdAt)}
                         </p>
                       </div>
                       {currentOrder.status !== "processing" && (
@@ -564,7 +564,7 @@ export default function AdminOrdersPage() {
                           <p className="text-sm">
                             <span className="font-medium">Delivered</span> -{" "}
                             {currentOrder.deliveredAt
-                              ? currentOrder.deliveredAt.toLocaleDateString()
+                              ? formatDate(currentOrder.deliveredAt)
                               : "Not delivered yet"}
                           </p>
                         </div>
@@ -666,8 +666,7 @@ export default function AdminOrdersPage() {
                           Paid
                         </Badge>
                         <p className="text-sm text-gray-500 mt-1">
-                          Processed on{" "}
-                          {currentOrder.createdAt.toLocaleDateString()}
+                          Processed on {formatDate(currentOrder.createdAt)}
                         </p>
                       </div>
                     </div>
