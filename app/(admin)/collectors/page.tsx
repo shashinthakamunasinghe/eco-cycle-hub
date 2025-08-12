@@ -105,13 +105,10 @@ export default function AdminCollectorsPage() {
       setLoading(true);
       console.log("🔄 Loading collectors with real-time data...");
       
-      // Get collector profiles which have the most up-to-date availability data
-      const collectorProfiles = await collectorService.getAllCollectorProfiles();
-      console.log("📊 Collector profiles loaded:", collectorProfiles.length);
-      
-      // Also get user data for additional information
-      const userData = await collectorService.getAllCollectors();
-      console.log("👥 User data loaded:", userData.length);
+      // Get only valid collectors with complete profiles
+      const { collectors: userData, profiles: collectorProfiles } = await collectorService.getValidCollectorsWithProfiles();
+      console.log("� Valid collector profiles loaded:", collectorProfiles.length);
+      console.log("👥 Valid user data loaded:", userData.length);
       
       // Merge collector profiles with user data
       const mergedCollectors = collectorProfiles.map((profile) => {
@@ -127,9 +124,11 @@ export default function AdminCollectorsPage() {
         };
       }) as CollectorWithUser[];
       
+      console.log("✅ Valid collectors found:", mergedCollectors.length);
       console.log("✅ Merged collector data:", mergedCollectors.map(c => ({
         id: c.id, 
         name: c.name, 
+        email: c.email,
         isAvailable: c.isAvailable,
         lastActivity: c.lastActivity
       })));
@@ -396,21 +395,32 @@ export default function AdminCollectorsPage() {
 
     try {
       setLoading(true);
+      console.log("🗑️ Starting delete process for collector:", collectorToDelete.id);
+      
       await collectorService.deleteCollector(collectorToDelete.id);
+      
+      console.log("✅ Delete successful, updating local state");
       setCollectors(collectors.filter((c) => c.id !== collectorToDelete.id));
       setIsDeleteDialogOpen(false);
       setCollectorToDelete(null);
 
       toast({
         title: "Collector deleted",
-        description: `${collectorToDelete.name} has been permanently deleted from the system.`,
+        description: `${collectorToDelete.name} has been permanently deleted from the system. All assigned pickup requests have been reset to pending.`,
         variant: "destructive",
       });
     } catch (error) {
       console.error("❌ Error deleting collector:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      const errorCode = (error as any)?.code || "unknown";
+      console.error("❌ Error details:", {
+        message: errorMessage,
+        code: errorCode,
+        error: error
+      });
       toast({
         title: "Error deleting collector",
-        description: "Failed to delete collector. Please try again.",
+        description: `Failed to delete collector: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -431,9 +441,18 @@ export default function AdminCollectorsPage() {
   };
 
   const filteredCollectors = collectors.filter(
-    (collector) =>
-      collector.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      collector.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (collector) => {
+      // First ensure collector has required data
+      if (!collector.name || !collector.email || !collector.id) {
+        return false;
+      }
+      
+      // Then apply search filter
+      return (
+        collector.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        collector.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
   );
 
   const formatDate = (dateString: string) => {
@@ -649,6 +668,14 @@ export default function AdminCollectorsPage() {
           className="pl-10"
         />
       </div>
+
+      {/* Status message */}
+      {!loading && (
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredCollectors.length} of {collectors.length} collectors from database
+          {searchTerm && ` matching "${searchTerm}"`}
+        </div>
+      )}
 
       {/* Collectors Table */}
       <Card>

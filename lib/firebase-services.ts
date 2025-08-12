@@ -13,6 +13,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  Firestore,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -538,6 +539,39 @@ export const collectorService = {
     return await userService.getUsersByRole("collector");
   },
 
+  async getValidCollectorsWithProfiles(): Promise<{ collectors: User[], profiles: CollectorProfile[] }> {
+    // Get all collector users and profiles in parallel
+    const [collectorUsers, collectorProfiles] = await Promise.all([
+      userService.getUsersByRole("collector"),
+      this.getAllCollectorProfiles()
+    ]);
+
+    // Filter to only include collectors that have both user record and profile
+    const validCollectorIds = new Set();
+    const validUsers: User[] = [];
+    const validProfiles: CollectorProfile[] = [];
+
+    // First pass: identify collectors with both records
+    collectorUsers.forEach(user => {
+      const hasProfile = collectorProfiles.some(profile => 
+        profile.id === user.id || profile.email === user.email
+      );
+      if (hasProfile && user.name && user.email) {
+        validCollectorIds.add(user.id);
+        validUsers.push(user);
+      }
+    });
+
+    // Second pass: get matching profiles
+    collectorProfiles.forEach(profile => {
+      if (validCollectorIds.has(profile.id) && profile.name && profile.email) {
+        validProfiles.push(profile);
+      }
+    });
+
+    return { collectors: validUsers, profiles: validProfiles };
+  },
+
   async getCollector(id: string): Promise<User | null> {
     const collector = await userService.getUser(id);
     return collector?.role === "collector" ? collector : null;
@@ -635,11 +669,42 @@ export const collectorService = {
     const collector = await this.getCollector(id);
     if (!collector) throw new Error("Collector not found");
 
-    // Delete the collector document from Firestore
-    const docRef = doc(getDb(), "users", id);
-    await deleteDoc(docRef);
+    // Use a batch to delete from both collections atomically
+    const batch = writeBatch(getDb());
+    
+    // Get all pickup requests assigned to this collector
+    const pickupQuery = query(
+      collection(getDb(), "pickupRequests"),
+      where("collectorId", "==", id)
+    );
+    const pickupSnapshot = await getDocs(pickupQuery);
+    
+    // Update pickup requests to remove collector assignment
+    pickupSnapshot.docs.forEach((pickup) => {
+      const pickupData = pickup.data();
+      // Only update if the pickup is not completed or cancelled
+      if (!["completed", "cancelled"].includes(pickupData.status)) {
+        const pickupRef = doc(getDb(), "pickupRequests", pickup.id);
+        batch.update(pickupRef, {
+          collectorId: null,
+          status: "pending", // Reset to pending so it can be reassigned
+          updatedAt: Timestamp.now(),
+        });
+      }
+    });
+    
+    // Delete the collector document from users collection
+    const userDocRef = doc(getDb(), "users", id);
+    batch.delete(userDocRef);
+    
+    // Delete the collector profile from collectorProfiles collection
+    const profileDocRef = doc(getDb(), "collectorProfiles", id);
+    batch.delete(profileDocRef);
+    
+    // Execute the batch
+    await batch.commit();
 
-    console.log(`✅ Collector ${id} deleted successfully from Firestore`);
+    console.log(`✅ Collector ${id} deleted successfully from both users and collectorProfiles collections, and related pickup requests updated`);
   },
 
   // Collector Profile operations (separate collection)
