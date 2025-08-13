@@ -106,6 +106,7 @@ function AnimatedCounter({ end, duration = 2000, isLoading, prefix = "", suffix 
 export default function AdminDashboard() {
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Key to trigger re-animation
@@ -116,19 +117,21 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const [statsResponse, availableCollectorsResponse, pendingPickupsResponse, monthlyStatsResponse] = await Promise.all([
+        const [statsResponse, availableCollectorsResponse, pendingPickupsResponse, monthlyStatsResponse, recentActivityResponse] = await Promise.all([
           fetch('/api/admin/stats'),
           fetch('/api/admin/collectors/available'),
           fetch('/api/admin/pickup-requests/pending/count'),
-          fetch('/api/admin/monthly-stats')
+          fetch('/api/admin/monthly-stats'),
+          fetch('/api/admin/recent-activity')
         ]);
         
-        if (statsResponse.ok && availableCollectorsResponse.ok && pendingPickupsResponse.ok && monthlyStatsResponse.ok) {
-          const [statsData, availableCollectorsData, pendingPickupsData, monthlyStatsData] = await Promise.all([
+        if (statsResponse.ok && availableCollectorsResponse.ok && pendingPickupsResponse.ok && monthlyStatsResponse.ok && recentActivityResponse.ok) {
+          const [statsData, availableCollectorsData, pendingPickupsData, monthlyStatsData, recentActivityData] = await Promise.all([
             statsResponse.json(),
             availableCollectorsResponse.json(),
             pendingPickupsResponse.json(),
-            monthlyStatsResponse.json()
+            monthlyStatsResponse.json(),
+            recentActivityResponse.json()
           ]);
           
           setAdminStats({
@@ -138,11 +141,13 @@ export default function AdminDashboard() {
           });
           
           setMonthlyStats(monthlyStatsData);
+          setRecentActivity(recentActivityData);
         } else {
           const failedResponse = !statsResponse.ok ? statsResponse : 
                                 !availableCollectorsResponse.ok ? availableCollectorsResponse : 
                                 !pendingPickupsResponse.ok ? pendingPickupsResponse :
-                                monthlyStatsResponse;
+                                !monthlyStatsResponse.ok ? monthlyStatsResponse :
+                                recentActivityResponse;
           const errorText = await failedResponse.text();
           setError(`Failed to fetch admin stats: ${failedResponse.status} ${errorText}`);
           console.error('Failed to fetch admin stats:', failedResponse.status, errorText);
@@ -172,30 +177,6 @@ export default function AdminDashboard() {
     monthlyRevenue: monthlyStats?.monthlyRevenue || 0,
     wasteCollected: monthlyStats?.monthlyWasteCollected || 0,
   }
-
-  const recentActivity = [
-    {
-      id: "1",
-      type: "pickup",
-      message: "New pickup request from Green Industries Ltd",
-      time: "5 minutes ago",
-      status: "pending",
-    },
-    {
-      id: "2",
-      type: "order",
-      message: "Order #1234 completed and shipped",
-      time: "15 minutes ago",
-      status: "completed",
-    },
-    {
-      id: "3",
-      type: "collector",
-      message: "Collector John Smith went offline",
-      time: "30 minutes ago",
-      status: "warning",
-    },
-  ]
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -403,18 +384,38 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                    {getActivityIcon(activity.type)}
+              {loading ? (
+                // Loading state
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-center space-x-4 animate-pulse">
+                    <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 bg-gray-200 rounded mb-1"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                    <div className="w-16 h-6 bg-gray-200 rounded"></div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{activity.message}</p>
-                    <p className="text-sm text-gray-500">{activity.time}</p>
+                ))
+              ) : recentActivity.length > 0 ? (
+                // Actual activity data
+                recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-center space-x-4">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{activity.message}</p>
+                      <p className="text-sm text-gray-500">{activity.time}</p>
+                    </div>
+                    <Badge className={getStatusColor(activity.status)}>{activity.status}</Badge>
                   </div>
-                  <Badge className={getStatusColor(activity.status)}>{activity.status}</Badge>
+                ))
+              ) : (
+                // No activity data
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-sm">No recent activity found</p>
                 </div>
-              ))}
+              )}
             </div>
             <div className="mt-4">
               <Button variant="outline" className="w-full" asChild>
