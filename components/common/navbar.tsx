@@ -263,9 +263,9 @@ export function Navbar() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="relative h-8 w-8 rounded-full"
+                        className="relative h-12 w-12 rounded-full"
                       >
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-12 w-12">
                           <AvatarImage
                             src={user.avatar || "/placeholder.svg"}
                             alt={user.name}
@@ -373,9 +373,9 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-8 w-8 rounded-full"
+                  className="relative h-12 w-12 rounded-full"
                 >
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-12 w-12">
                     <AvatarImage
                       src={user?.avatar || "/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"}
                       alt={user?.name || "User"}
