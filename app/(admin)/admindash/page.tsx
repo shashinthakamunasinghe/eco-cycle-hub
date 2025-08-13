@@ -15,6 +15,7 @@ interface AdminStats {
     collector: number;
     customer: number;
   };
+  availableCollectors?: number;
 }
 
 // Animated Counter Component
@@ -106,14 +107,25 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/admin/stats');
-        if (response.ok) {
-          const data = await response.json();
-          setAdminStats(data);
+        const [statsResponse, availableCollectorsResponse] = await Promise.all([
+          fetch('/api/admin/stats'),
+          fetch('/api/admin/collectors/available')
+        ]);
+        
+        if (statsResponse.ok && availableCollectorsResponse.ok) {
+          const [statsData, availableCollectorsData] = await Promise.all([
+            statsResponse.json(),
+            availableCollectorsResponse.json()
+          ]);
+          
+          setAdminStats({
+            ...statsData,
+            availableCollectors: availableCollectorsData.availableCollectors
+          });
         } else {
-          const errorText = await response.text();
-          setError(`Failed to fetch admin stats: ${response.status} ${errorText}`);
-          console.error('Failed to fetch admin stats:', response.status, errorText);
+          const errorText = await (statsResponse.ok ? availableCollectorsResponse : statsResponse).text();
+          setError(`Failed to fetch admin stats: ${statsResponse.status} ${errorText}`);
+          console.error('Failed to fetch admin stats:', statsResponse.status, errorText);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -134,7 +146,7 @@ export default function AdminDashboard() {
   // Mock data for other stats (you can expand the API later)
   const stats = {
     totalUsers: adminStats?.totalUsers || 0,
-    activeCollectors: 23,
+    activeCollectors: adminStats?.availableCollectors || 0,
     pendingPickups: 8,
     totalOrders: 156,
     monthlyRevenue: 12450,
@@ -247,7 +259,7 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Collectors</CardTitle>
+            <CardTitle className="text-sm font-medium">Available Collectors</CardTitle>
             <Truck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -259,7 +271,7 @@ export default function AdminDashboard() {
               isLoading={loading}
               className="text-2xl font-bold text-green-600"
             />
-            <p className="text-xs text-muted-foreground">Currently online</p>
+            <p className="text-xs text-muted-foreground">Ready for pickup assignments</p>
           </CardContent>
         </Card>
 

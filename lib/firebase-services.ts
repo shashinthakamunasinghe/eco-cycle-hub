@@ -266,6 +266,28 @@ export const userService = {
     }
   },
 
+  async getAvailableCollectorsCount(): Promise<number> {
+    try {
+      const q = query(
+        collection(getDb(), "users"), 
+        where("role", "==", "collector"),
+        where("isAvailable", "==", true)
+      );
+      const snapshot = await getCountFromServer(q);
+      return snapshot.data().count;
+    } catch (error) {
+      console.error("Error getting available collectors count:", error);
+      // Fallback to manual count
+      const q = query(
+        collection(getDb(), "users"), 
+        where("role", "==", "collector"),
+        where("isAvailable", "==", true)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.size;
+    }
+  },
+
   async getUsersByRole(role: User["role"]): Promise<User[]> {
     const q = query(collection(getDb(), "users"), where("role", "==", role));
     const querySnapshot = await getDocs(q);
