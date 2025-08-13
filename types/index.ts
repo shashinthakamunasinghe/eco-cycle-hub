@@ -6,6 +6,8 @@ export interface User {
   avatar?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  zipCode?: string;
   location?: {
     lat: number;
     lng: number;
