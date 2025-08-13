@@ -414,6 +414,13 @@ export const pickupService = {
         ? Timestamp.fromDate(request.cancelledAt)
         : null,
     });
+
+    // Create notification for pickup request sent
+    await this.createPickupNotification(
+      { ...request, id: docRef.id } as PickupRequest,
+      "pending"
+    );
+
     return docRef.id;
   },
 
@@ -463,7 +470,16 @@ export const pickupService = {
     id: string,
     status: PickupRequest["status"]
   ): Promise<void> {
+    // Get the pickup request first to access industry info
     const docRef = doc(getDb(), "pickupRequests", id);
+    const pickupDoc = await getDoc(docRef);
+    
+    if (!pickupDoc.exists()) {
+      throw new Error("Pickup request not found");
+    }
+    
+    const pickupData = pickupDoc.data() as PickupRequest;
+    
     const updateData: Record<string, string | Timestamp> = { status };
 
     if (status === "completed") {
@@ -473,11 +489,147 @@ export const pickupService = {
     }
 
     await updateDoc(docRef, updateData);
+
+    // Create notification for industry user
+    if (pickupData.industryId) {
+      await this.createPickupNotification(pickupData, status);
+    }
+  },
+
+  async assignCollectorWithNotification(
+    id: string,
+    collectorId: string,
+    collectorName: string
+  ): Promise<void> {
+    // Get the pickup request first
+    const docRef = doc(getDb(), "pickupRequests", id);
+    const pickupDoc = await getDoc(docRef);
+    
+    if (!pickupDoc.exists()) {
+      throw new Error("Pickup request not found");
+    }
+    
+    const pickupData = pickupDoc.data() as PickupRequest;
+    
+    await updateDoc(docRef, {
+      collectorId,
+      collectorName,
+      status: "assigned",
+      scheduledAt: Timestamp.now(),
+    });
+
+    // Create notification for industry user
+    if (pickupData.industryId) {
+      await notificationService.createNotification({
+        userId: pickupData.industryId,
+        title: "Pickup Request Collected",
+        message: `Your pickup request for ${pickupData.wasteType} (${pickupData.weight}kg) has been assigned to ${collectorName}. Collection will be scheduled soon.`,
+        type: "pickup" as const,
+        read: false,
+        createdAt: new Date(),
+      });
+    }
+  },
+
+  async createPickupNotification(
+    pickup: PickupRequest,
+    status: string
+  ): Promise<void> {
+    let title = "";
+    let message = "";
+    let type: "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending" = "info";
+
+    const requestInfo = `${pickup.wasteType} (${pickup.weight}kg)`;
+    const pickupId = pickup.id.substring(0, 8); // Short ID for display
+    const locationInfo = pickup.location?.address || "your location";
+
+    switch (status) {
+      case "pending":
+        title = "Pickup Request Sent";
+        message = `Your pickup request for ${requestInfo} has been submitted successfully. Request ID: ${pickupId}. Awaiting assignment.`;
+        type = "pending";
+        break;
+      case "assigned":
+        title = "Pickup Request Collected";
+        message = `Your pickup request for ${requestInfo} has been assigned to ${pickup.collectorName || "a collector"}. Request ID: ${pickupId}.`;
+        type = "pickup";
+        break;
+      case "on-way":
+        title = "Collector On The Way";
+        message = `${pickup.collectorName || "The collector"} is on the way to ${locationInfo} for ${requestInfo} pickup. Request ID: ${pickupId}.`;
+        type = "pickup";
+        break;
+      case "completed":
+        title = "Pickup Completed";
+        message = `Your waste pickup has been completed successfully. ${pickup.weight}kg of ${pickup.wasteType} collected. Request ID: ${pickupId}.`;
+        type = "success";
+        break;
+      case "cancelled":
+        title = "Pickup Request Rejected";
+        message = `Your pickup request for ${requestInfo} has been cancelled or rejected. Request ID: ${pickupId}.`;
+        type = "error";
+        break;
+      default:
+        return;
+    }
+
+    await notificationService.createNotification({
+      userId: pickup.industryId,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: new Date(),
+    });
   },
 
   async deletePickupRequest(id: string): Promise<void> {
     const docRef = doc(getDb(), "pickupRequests", id);
     await deleteDoc(docRef);
+  },
+
+  // Sync notifications with pickup history
+  async syncPickupNotifications(industryId: string): Promise<void> {
+    try {
+      const pickupRequests = await this.getPickupRequestsByIndustry(industryId);
+      const existingNotifications = await notificationService.getUserNotifications(industryId);
+      
+      for (const pickup of pickupRequests) {
+        // Check if notification already exists for this specific pickup request and status
+        const notificationKey = `${pickup.id}-${pickup.status}`;
+        const hasNotification = existingNotifications.some(notification => 
+          notification.message.includes(pickup.id) || 
+          (notification.message.includes(pickup.wasteType) && 
+           notification.message.includes(pickup.weight.toString()) &&
+           this.getNotificationTypeFromStatus(pickup.status) === notification.type)
+        );
+
+        if (!hasNotification) {
+          // Create notification based on current status
+          await this.createPickupNotification(pickup, pickup.status);
+        }
+      }
+    } catch (error) {
+      console.error("Error syncing pickup notifications:", error);
+    }
+  },
+
+  // Helper function to map pickup status to notification type
+  getNotificationTypeFromStatus(status: string): "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending" {
+    switch (status) {
+      case "pending":
+        return "pending";
+      case "assigned":
+        return "pickup";
+      case "on-way":
+        return "pickup";
+      case "completed":
+        return "success";
+      case "cancelled":
+        return "error";
+      default:
+        return "info";
+    }
   },
 };
 
@@ -487,12 +639,23 @@ export const notificationService = {
     const q = query(
       collection(getDb(), "notifications"),
       where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
       limit(50)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(
-      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
+    const notifications = querySnapshot.docs.map(
+      (doc) => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate() || new Date(),
+        } as Notification;
+      }
+    );
+    
+    // Sort by createdAt in JavaScript to avoid composite index requirement
+    return notifications.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   },
 
@@ -503,6 +666,12 @@ export const notificationService = {
       ...notification,
       createdAt: Timestamp.now(),
     });
+    
+    // Trigger notification count update
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("notificationUpdated"));
+    }
+    
     return docRef.id;
   },
 
@@ -512,6 +681,11 @@ export const notificationService = {
       read: true,
       updatedAt: Timestamp.now(),
     });
+    
+    // Trigger notification count update
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("notificationUpdated"));
+    }
   },
 
   async markAllAsRead(userId: string): Promise<void> {
@@ -530,6 +704,26 @@ export const notificationService = {
     );
 
     await Promise.all(updatePromises);
+    
+    // Trigger notification count update
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("notificationUpdated"));
+    }
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+    const docRef = doc(getDb(), "notifications", id);
+    await deleteDoc(docRef);
+  },
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const q = query(
+      collection(getDb(), "notifications"),
+      where("userId", "==", userId),
+      where("read", "==", false)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
   },
 };
 
@@ -766,5 +960,58 @@ export const collectorService = {
     console.log(
       `✅ Collector profile ${id} deleted successfully from Firestore`
     );
+  },
+};
+
+// Industry operations
+export const industryService = {
+  async getIndustryProfile(industryId: string): Promise<any> {
+    const docRef = doc(db, "industryProfiles", industryId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data(),
+      };
+    }
+    return null;
+  },
+
+  async getIndustryLocation(industryId: string): Promise<{
+    location: { lat: number; lng: number } | null;
+    locationAddress: string | null;
+    autoLocation: boolean;
+  }> {
+    const profile = await this.getIndustryProfile(industryId);
+    
+    if (profile && profile.location) {
+      return {
+        location: profile.location,
+        locationAddress: profile.locationAddress || null,
+        autoLocation: true,
+      };
+    }
+    
+    return {
+      location: null,
+      locationAddress: null,
+      autoLocation: false,
+    };
+  },
+
+  async updateIndustryLocation(
+    industryId: string,
+    location: { lat: number; lng: number },
+    locationAddress: string
+  ): Promise<void> {
+    const docRef = doc(db, "industryProfiles", industryId);
+    await setDoc(docRef, {
+      location,
+      locationAddress,
+      locationUpdatedAt: new Date(),
+      updatedAt: new Date(),
+      userId: industryId
+    }, { merge: true });
   },
 };

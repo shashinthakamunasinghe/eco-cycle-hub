@@ -136,7 +136,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
+  type: "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending";
   read: boolean;
   createdAt: Date;
 }
