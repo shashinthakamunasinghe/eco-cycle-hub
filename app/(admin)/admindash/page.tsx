@@ -19,6 +19,13 @@ interface AdminStats {
   pendingPickups?: number;
 }
 
+interface MonthlyStats {
+  monthlyOrderCount: number;
+  monthlyRevenue: number;
+  monthlyWasteCollected: number;
+  currentMonth: string;
+}
+
 // Animated Counter Component
 interface AnimatedCounterProps {
   end: number;
@@ -98,6 +105,7 @@ function AnimatedCounter({ end, duration = 2000, isLoading, prefix = "", suffix 
 
 export default function AdminDashboard() {
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Key to trigger re-animation
@@ -108,17 +116,19 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const [statsResponse, availableCollectorsResponse, pendingPickupsResponse] = await Promise.all([
+        const [statsResponse, availableCollectorsResponse, pendingPickupsResponse, monthlyStatsResponse] = await Promise.all([
           fetch('/api/admin/stats'),
           fetch('/api/admin/collectors/available'),
-          fetch('/api/admin/pickup-requests/pending/count')
+          fetch('/api/admin/pickup-requests/pending/count'),
+          fetch('/api/admin/monthly-stats')
         ]);
         
-        if (statsResponse.ok && availableCollectorsResponse.ok && pendingPickupsResponse.ok) {
-          const [statsData, availableCollectorsData, pendingPickupsData] = await Promise.all([
+        if (statsResponse.ok && availableCollectorsResponse.ok && pendingPickupsResponse.ok && monthlyStatsResponse.ok) {
+          const [statsData, availableCollectorsData, pendingPickupsData, monthlyStatsData] = await Promise.all([
             statsResponse.json(),
             availableCollectorsResponse.json(),
-            pendingPickupsResponse.json()
+            pendingPickupsResponse.json(),
+            monthlyStatsResponse.json()
           ]);
           
           setAdminStats({
@@ -126,10 +136,13 @@ export default function AdminDashboard() {
             availableCollectors: availableCollectorsData.availableCollectors,
             pendingPickups: pendingPickupsData.pendingPickups
           });
+          
+          setMonthlyStats(monthlyStatsData);
         } else {
           const failedResponse = !statsResponse.ok ? statsResponse : 
                                 !availableCollectorsResponse.ok ? availableCollectorsResponse : 
-                                pendingPickupsResponse;
+                                !pendingPickupsResponse.ok ? pendingPickupsResponse :
+                                monthlyStatsResponse;
           const errorText = await failedResponse.text();
           setError(`Failed to fetch admin stats: ${failedResponse.status} ${errorText}`);
           console.error('Failed to fetch admin stats:', failedResponse.status, errorText);
@@ -155,9 +168,9 @@ export default function AdminDashboard() {
     totalUsers: adminStats?.totalUsers || 0,
     activeCollectors: adminStats?.availableCollectors || 0,
     pendingPickups: adminStats?.pendingPickups || 0,
-    totalOrders: 156,
-    monthlyRevenue: 12450,
-    wasteCollected: 15600, // kg
+    totalOrders: monthlyStats?.monthlyOrderCount || 0,
+    monthlyRevenue: monthlyStats?.monthlyRevenue || 0,
+    wasteCollected: monthlyStats?.monthlyWasteCollected || 0,
   }
 
   const recentActivity = [
@@ -314,7 +327,15 @@ export default function AdminDashboard() {
               isLoading={loading}
               className="text-2xl font-bold text-blue-600"
             />
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">
+              {loading ? (
+                <span className="animate-pulse">Loading monthly orders...</span>
+              ) : monthlyStats ? (
+                `${monthlyStats.currentMonth} orders`
+              ) : (
+                "Monthly order count"
+              )}
+            </p>
           </CardContent>
         </Card>
 
@@ -333,7 +354,15 @@ export default function AdminDashboard() {
               prefix="$"
               className="text-2xl font-bold text-purple-600"
             />
-            <p className="text-xs text-muted-foreground">Monthly revenue</p>
+            <p className="text-xs text-muted-foreground">
+              {loading ? (
+                <span className="animate-pulse">Loading monthly revenue...</span>
+              ) : monthlyStats ? (
+                `${monthlyStats.currentMonth} revenue`
+              ) : (
+                "Monthly revenue"
+              )}
+            </p>
           </CardContent>
         </Card>
 
@@ -352,7 +381,15 @@ export default function AdminDashboard() {
               suffix=" kg"
               className="text-2xl font-bold text-orange-600"
             />
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">
+              {loading ? (
+                <span className="animate-pulse">Loading monthly waste data...</span>
+              ) : monthlyStats ? (
+                `${monthlyStats.currentMonth} collected`
+              ) : (
+                "Monthly waste collected"
+              )}
+            </p>
           </CardContent>
         </Card>
       </div>
