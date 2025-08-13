@@ -80,6 +80,7 @@ export default function AdminCollectorsPage() {
   const [collectorToDelete, setCollectorToDelete] =
     useState<CollectorWithUser | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
   const [collectors, setCollectors] = useState<CollectorWithUser[]>([]);
   const [pickups, setPickups] = useState<any[]>([]);
 

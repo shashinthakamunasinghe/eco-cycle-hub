@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collectorService } from '@/lib/firebase-services';
+import { userService } from '@/lib/firebase-services';
 
 export async function GET(request: NextRequest) {
   try {
-    const availableCollectors = await collectorService.getAvailableCollectorsCount();
+    const availableCollectors = await userService.getAvailableCollectorsCount();
     
     return NextResponse.json({ 
       availableCollectors,
