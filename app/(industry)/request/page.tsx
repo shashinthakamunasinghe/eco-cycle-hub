@@ -190,52 +190,6 @@ export default function RequestPickupPage() {
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          
-          // Update form data with current coordinates
-          setFormData(prev => ({
-            ...prev,
-            location: { lat, lng }
-          }));
-          setUsingProfileLocation(false);
-          
-          // Mock reverse geocoding for current location
-          const mockAddresses = [
-            "123 Industrial Avenue, Colombo 03, Sri Lanka",
-            "456 Factory Street, Kandy, Sri Lanka",
-            "789 Manufacturing Road, Galle, Sri Lanka",
-            "321 Plant Avenue, Negombo, Sri Lanka",
-          ];
-          const mockAddress =
-            mockAddresses[Math.floor(Math.random() * mockAddresses.length)];
-          handleInputChange("address", mockAddress);
-          toast({
-            title: "Current location detected",
-            description: "Your current location has been automatically filled.",
-          });
-        },
-        () => {
-          toast({
-            title: "Location error",
-            description: "Unable to get your location. Please enter manually.",
-            variant: "destructive",
-          });
-        }
-      );
-    } else {
-      toast({
-        title: "Location not supported",
-        description: "Geolocation is not supported by this browser.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
@@ -322,24 +276,15 @@ export default function RequestPickupPage() {
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={getCurrentLocation}
-                  title="Use current location"
-                >
-                  <MapPin className="h-4 w-4" />
-                </Button>
               </div>
               <p className="text-sm text-gray-500 mt-1">
                 {profileLocation.hasLocation ? (
                   usingProfileLocation ? (
                     <span className="text-green-600 font-medium">
-                      ✓ Using your profile location. Use buttons to change if needed.
+                      ✓ Using your profile location.
                     </span>
                   ) : (
-                    "Use profile location (link icon) or current location (map icon)"
+                    "Use profile location (link icon) or enter address manually"
                   )
                 ) : (
                   "Set your location in company profile first, then use link icon"
