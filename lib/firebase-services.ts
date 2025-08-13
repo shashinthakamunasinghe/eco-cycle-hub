@@ -768,3 +768,56 @@ export const collectorService = {
     );
   },
 };
+
+// Industry operations
+export const industryService = {
+  async getIndustryProfile(industryId: string): Promise<any> {
+    const docRef = doc(db, "industryProfiles", industryId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data(),
+      };
+    }
+    return null;
+  },
+
+  async getIndustryLocation(industryId: string): Promise<{
+    location: { lat: number; lng: number } | null;
+    locationAddress: string | null;
+    autoLocation: boolean;
+  }> {
+    const profile = await this.getIndustryProfile(industryId);
+    
+    if (profile && profile.location) {
+      return {
+        location: profile.location,
+        locationAddress: profile.locationAddress || null,
+        autoLocation: true,
+      };
+    }
+    
+    return {
+      location: null,
+      locationAddress: null,
+      autoLocation: false,
+    };
+  },
+
+  async updateIndustryLocation(
+    industryId: string,
+    location: { lat: number; lng: number },
+    locationAddress: string
+  ): Promise<void> {
+    const docRef = doc(db, "industryProfiles", industryId);
+    await setDoc(docRef, {
+      location,
+      locationAddress,
+      locationUpdatedAt: new Date(),
+      updatedAt: new Date(),
+      userId: industryId
+    }, { merge: true });
+  },
+};
