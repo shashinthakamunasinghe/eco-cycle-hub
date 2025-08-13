@@ -546,6 +546,15 @@ export const pickupService = {
     const docRef = doc(getDb(), "pickupRequests", id);
     await deleteDoc(docRef);
   },
+
+  async getPendingPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "pending")
+    );
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+  },
 };
 
 // Notification operations

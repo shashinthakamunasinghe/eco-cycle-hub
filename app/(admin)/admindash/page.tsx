@@ -16,6 +16,7 @@ interface AdminStats {
     customer: number;
   };
   availableCollectors?: number;
+  pendingPickups?: number;
 }
 
 // Animated Counter Component
@@ -107,25 +108,31 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const [statsResponse, availableCollectorsResponse] = await Promise.all([
+        const [statsResponse, availableCollectorsResponse, pendingPickupsResponse] = await Promise.all([
           fetch('/api/admin/stats'),
-          fetch('/api/admin/collectors/available')
+          fetch('/api/admin/collectors/available'),
+          fetch('/api/admin/pickup-requests/pending/count')
         ]);
         
-        if (statsResponse.ok && availableCollectorsResponse.ok) {
-          const [statsData, availableCollectorsData] = await Promise.all([
+        if (statsResponse.ok && availableCollectorsResponse.ok && pendingPickupsResponse.ok) {
+          const [statsData, availableCollectorsData, pendingPickupsData] = await Promise.all([
             statsResponse.json(),
-            availableCollectorsResponse.json()
+            availableCollectorsResponse.json(),
+            pendingPickupsResponse.json()
           ]);
           
           setAdminStats({
             ...statsData,
-            availableCollectors: availableCollectorsData.availableCollectors
+            availableCollectors: availableCollectorsData.availableCollectors,
+            pendingPickups: pendingPickupsData.pendingPickups
           });
         } else {
-          const errorText = await (statsResponse.ok ? availableCollectorsResponse : statsResponse).text();
-          setError(`Failed to fetch admin stats: ${statsResponse.status} ${errorText}`);
-          console.error('Failed to fetch admin stats:', statsResponse.status, errorText);
+          const failedResponse = !statsResponse.ok ? statsResponse : 
+                                !availableCollectorsResponse.ok ? availableCollectorsResponse : 
+                                pendingPickupsResponse;
+          const errorText = await failedResponse.text();
+          setError(`Failed to fetch admin stats: ${failedResponse.status} ${errorText}`);
+          console.error('Failed to fetch admin stats:', failedResponse.status, errorText);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -147,7 +154,7 @@ export default function AdminDashboard() {
   const stats = {
     totalUsers: adminStats?.totalUsers || 0,
     activeCollectors: adminStats?.availableCollectors || 0,
-    pendingPickups: 8,
+    pendingPickups: adminStats?.pendingPickups || 0,
     totalOrders: 156,
     monthlyRevenue: 12450,
     wasteCollected: 15600, // kg
@@ -426,8 +433,10 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
               <div>
-                <p className="text-sm font-medium">8 pickup requests pending assignment</p>
-                <p className="text-xs text-gray-600">Some requests have been waiting for over 2 hours</p>
+                <p className="text-sm font-medium">{stats.pendingPickups} pickup requests pending assignment</p>
+                <p className="text-xs text-gray-600">
+                  {stats.pendingPickups > 0 ? 'Some requests may need immediate attention' : 'All pickup requests are assigned'}
+                </p>
               </div>
               <Button size="sm" asChild>
                 <Link href="/industry-pickups">Assign Now</Link>
