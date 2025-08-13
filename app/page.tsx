@@ -398,9 +398,11 @@ export default function HomePage() {
             <div className="grid md:grid-cols-4 gap-8">
               <div>
                 <div className="flex items-center space-x-2 mb-4">
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <Recycle className="text-white h-5 w-5" />
-                  </div>
+                  <img 
+                    src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                    alt="EcoCycle Hub Logo" 
+                    className="w-14 h-14 rounded-full object-cover"
+                  />
                   <span className="text-xl font-bold">EcoCycle Hub</span>
                 </div>
                 <p className="text-gray-400 mb-4">

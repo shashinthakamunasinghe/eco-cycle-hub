@@ -165,9 +165,11 @@ export function Navbar() {
             {/* Center - Logo */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <Recycle className="text-white h-5 w-5" />
-                </div>
+                <img 
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                  alt="EcoCycle Hub Logo" 
+                  className="w-14 h-14 rounded-full object-cover"
+                />
                 <span className="text-xl font-bold text-gray-900">
                   EcoCycle Hub
                 </span>
@@ -215,9 +217,11 @@ export function Navbar() {
             {/* Center - Logo and Label */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <Recycle className="text-white h-5 w-5" />
-                </div>
+                <img 
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                  alt="EcoCycle Hub Logo" 
+                  className="w-14 h-14 rounded-full object-cover"
+                />
                 <span className="text-xl font-bold text-gray-900">
                   EcoCycle Hub
                 </span>
@@ -335,9 +339,11 @@ export function Navbar() {
           {/* Left side - Logo and Label */}
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                <Recycle className="text-white h-5 w-5" />
-              </div>
+              <img 
+                src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                alt="EcoCycle Hub Logo" 
+                className="w-12 h-12 rounded-full object-cover"
+              />
               <span className="text-xl font-bold text-gray-900">
                 EcoCycle Hub
               </span>
@@ -371,7 +377,7 @@ export function Navbar() {
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={user?.avatar || "/placeholder.svg"}
+                      src={user?.avatar || "/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"}
                       alt={user?.name || "User"}
                     />
                     <AvatarFallback>
