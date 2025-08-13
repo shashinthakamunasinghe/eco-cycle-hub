@@ -578,31 +578,99 @@ export default function CollectorMapPage() {
 
             <Button
               variant="outline"
-              onClick={() => {
+              onClick={async () => {
                 if (navigator.geolocation) {
+                  toast({
+                    title: "Refreshing GPS...",
+                    description: "Getting fresh location from satellites",
+                  });
+
                   navigator.geolocation.getCurrentPosition(
                     (position) => {
-                      const newLocation = {
+                      const accuracy = position.coords.accuracy;
+                      console.log("🔄 Manual GPS refresh:", {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
-                      };
-                      setCurrentLocation(newLocation);
-                      toast({
-                        title: "Location Refreshed",
-                        description: `Updated to: ${newLocation.lat.toFixed(
-                          4
-                        )}, ${newLocation.lng.toFixed(4)}`,
+                        accuracy: accuracy,
+                        timestamp: new Date(
+                          position.timestamp
+                        ).toLocaleTimeString(),
                       });
+
+                      // Apply same accuracy requirements as main GPS tracking
+                      if (accuracy <= 100) {
+                        const newLocation = {
+                          lat: position.coords.latitude,
+                          lng: position.coords.longitude,
+                        };
+                        setCurrentLocation(newLocation);
+                        setGpsStatus({
+                          accuracy,
+                          isAccurate: true,
+                          lastUpdate: new Date(),
+                        });
+
+                        toast({
+                          title: "✅ GPS Refreshed Successfully!",
+                          description: `High-accuracy location: ${newLocation.lat.toFixed(
+                            4
+                          )}, ${newLocation.lng.toFixed(4)} (${accuracy.toFixed(
+                            1
+                          )}m)`,
+                        });
+                      } else {
+                        setGpsStatus({
+                          accuracy,
+                          isAccurate: false,
+                          lastUpdate: new Date(),
+                        });
+
+                        console.warn(
+                          "🚫 Manual refresh - GPS too inaccurate:",
+                          accuracy,
+                          "m"
+                        );
+                        toast({
+                          title: "GPS Signal Too Weak",
+                          description: `Current accuracy: ${(
+                            accuracy / 1000
+                          ).toFixed(
+                            1
+                          )}km. Move to an open outdoor area for better GPS signal.`,
+                          variant: "default",
+                        });
+                      }
                     },
                     (error) => {
+                      console.error("❌ Manual GPS refresh failed:", error);
+                      let errorMessage = "Unable to refresh GPS location.";
+
+                      switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                          errorMessage =
+                            "GPS permission denied. Please enable location access in browser settings.";
+                          break;
+                        case error.POSITION_UNAVAILABLE:
+                          errorMessage =
+                            "GPS satellites unavailable. Move to an open outdoor area.";
+                          break;
+                        case error.TIMEOUT:
+                          errorMessage =
+                            "GPS timeout. Ensure location services are enabled and try again.";
+                          break;
+                      }
+
                       toast({
-                        title: "Location Error",
-                        description:
-                          "Unable to refresh location. Please check GPS settings.",
+                        title: "GPS Refresh Failed",
+                        description: errorMessage,
                         variant: "destructive",
                       });
                     },
-                    { enableHighAccuracy: true, timeout: 10000 }
+                    {
+                      enableHighAccuracy: true, // Force GPS satellites
+                      timeout: 20000, // Give more time for GPS
+                      maximumAge: 0, // Always get fresh location
+                    }
                   );
                 } else {
                   toast({
@@ -632,10 +700,10 @@ export default function CollectorMapPage() {
                       Current Location: {currentLocation.lat.toFixed(4)},{" "}
                       {currentLocation.lng.toFixed(4)}
                     </p>
-                    <p className="text-xs text-green-600 mt-2">
+                    {/* <p className="text-xs text-green-600 mt-2">
                       Navigation will start from your current GPS location for
                       accurate routing
-                    </p>
+                    </p> */}
                   </div>
                 </div>
               </CardContent>
@@ -685,6 +753,7 @@ export default function CollectorMapPage() {
                       currentLocation={currentLocation}
                       onNavigateToPickup={navigateToLocation}
                       onPickupStatusUpdate={updatePickupStatus}
+                      enableLiveTracking={true}
                     />
                   )}
                 </CardContent>
@@ -745,77 +814,6 @@ export default function CollectorMapPage() {
                           >
                             <Navigation className="h-4 w-4 mr-2" />
                             Navigate
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              const { lat, lng } = pickup.coordinates;
-
-                              console.log("📋 Pickup List Navigation:");
-                              console.log("- Pickup destination:", {
-                                lat,
-                                lng,
-                              });
-                              console.log(
-                                "- Pickup industry:",
-                                pickup.industryName
-                              );
-                              console.log("- Pickup address:", pickup.address);
-                              console.log(
-                                "- Current collector GPS:",
-                                currentLocation
-                              );
-
-                              // Ensure we have a valid location before navigation
-                              const validLocation =
-                                await ensureLocationAvailable();
-
-                              if (validLocation) {
-                                console.log(
-                                  "🗺️ Creating route FROM collector GPS TO pickup location:"
-                                );
-                                console.log(
-                                  "- Start (collector GPS):",
-                                  validLocation
-                                );
-                                console.log("- End (pickup location):", {
-                                  lat,
-                                  lng,
-                                });
-
-                                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${validLocation.lat},${validLocation.lng}&destination=${lat},${lng}&travelmode=driving`;
-
-                                console.log(
-                                  "🌍 Google Maps URL:",
-                                  googleMapsUrl
-                                );
-                                window.open(googleMapsUrl, "_blank");
-
-                                toast({
-                                  title: "Google Maps Opened",
-                                  description: `Navigation from GPS: ${validLocation.lat.toFixed(
-                                    4
-                                  )}, ${validLocation.lng.toFixed(4)} → ${
-                                    pickup.industryName
-                                  }`,
-                                });
-                              } else {
-                                // Fallback - open destination only
-                                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-                                window.open(googleMapsUrl, "_blank");
-
-                                toast({
-                                  title: "Google Maps Opened",
-                                  description:
-                                    "GPS unavailable - Google Maps will use your device location",
-                                  variant: "default",
-                                });
-                              }
-                            }}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-1" />
-                            Maps
                           </Button>
                           {pickup.status === "assigned" && (
                             <Button
@@ -983,10 +981,11 @@ export default function CollectorMapPage() {
                       <CollectorMapComponent
                         pickups={[selectedNavPickup]}
                         currentLocation={currentLocation}
-                        onNavigateToPickup={() => {}}
+                        onNavigateToPickup={navigateToLocation}
                         onPickupStatusUpdate={updatePickupStatus}
                         navigationMode={true}
                         autoShowRoute={true}
+                        enableLiveTracking={true}
                       />
                     </div>
                   </CardContent>
@@ -1055,17 +1054,6 @@ export default function CollectorMapPage() {
                       </p>
                     </div>
 
-                    {selectedNavPickup.notes && (
-                      <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
-                        <p className="text-sm font-medium text-yellow-800">
-                          Special Notes:
-                        </p>
-                        <p className="text-xs text-yellow-700 mt-1">
-                          {selectedNavPickup.notes}
-                        </p>
-                      </div>
-                    )}
-
                     <div className="space-y-2">
                       {selectedNavPickup.status === "assigned" && (
                         <Button
@@ -1104,87 +1092,6 @@ export default function CollectorMapPage() {
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Quick Actions */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        if (navigator.geolocation) {
-                          navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                              const newLocation = {
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude,
-                              };
-                              setCurrentLocation(newLocation);
-                              toast({
-                                title: "Location Refreshed",
-                                description: `Updated to: ${newLocation.lat.toFixed(
-                                  4
-                                )}, ${newLocation.lng.toFixed(4)}`,
-                              });
-                            },
-                            (error) => {
-                              toast({
-                                title: "Location Error",
-                                description: "Unable to get current location",
-                                variant: "destructive",
-                              });
-                            },
-                            { enableHighAccuracy: true, timeout: 10000 }
-                          );
-                        }
-                      }}
-                    >
-                      <Navigation className="h-4 w-4 mr-2" />
-                      Refresh My Location
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        if (currentLocation) {
-                          // Center on current location
-                        }
-                      }}
-                    >
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Center on My Location
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        // Call contact
-                        toast({
-                          title: "Contact Feature",
-                          description: "Contact integration coming soon! 📞",
-                        });
-                      }}
-                    >
-                      📞 Call Customer
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        toast({
-                          title: "Emergency Feature",
-                          description:
-                            "Emergency contact feature coming soon! 🚨",
-                        });
-                      }}
-                    >
-                      � Emergency Contact
-                    </Button>
                   </CardContent>
                 </Card>
               </div>

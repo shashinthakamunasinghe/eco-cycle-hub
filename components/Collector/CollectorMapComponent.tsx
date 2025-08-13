@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { Button } from "@/components/ui/button";
-import { Navigation, MapPin } from "lucide-react";
+import { Navigation, MapPin, Radio } from "lucide-react";
 
 interface PickupRequest {
   id: string;
@@ -23,6 +23,7 @@ interface CollectorMapComponentProps {
   ) => void;
   navigationMode?: boolean;
   autoShowRoute?: boolean;
+  enableLiveTracking?: boolean;
 }
 
 export function CollectorMapComponent({
@@ -32,12 +33,20 @@ export function CollectorMapComponent({
   onPickupStatusUpdate,
   navigationMode = false,
   autoShowRoute = false,
+  enableLiveTracking = false,
 }: CollectorMapComponentProps) {
   const [selectedPickup, setSelectedPickup] = useState<PickupRequest | null>(
     null
   );
   const [routeRenderer, setRouteRenderer] =
     useState<google.maps.DirectionsRenderer | null>(null);
+  const [isLiveTrackingActive, setIsLiveTrackingActive] = useState(false);
+  const [lastKnownLocation, setLastKnownLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [routeUpdateInterval, setRouteUpdateInterval] =
+    useState<NodeJS.Timeout | null>(null);
 
   const {
     mapRef,
@@ -56,10 +65,138 @@ export function CollectorMapComponent({
 
   const markersRef = useRef<google.maps.Marker[]>([]);
 
+  // Security check for live tracking - ensure collector has permissions
+  const hasTrackingPermission = useCallback(() => {
+    // Basic security check - in production, this would verify collector authentication
+    return enableLiveTracking && navigator.geolocation;
+  }, [enableLiveTracking]);
+
+  // Calculate distance between two coordinates to determine if route update is needed
+  const calculateDistance = useCallback(
+    (
+      pos1: { lat: number; lng: number },
+      pos2: { lat: number; lng: number }
+    ): number => {
+      const R = 6371e3; // Earth's radius in meters
+      const φ1 = (pos1.lat * Math.PI) / 180;
+      const φ2 = (pos2.lat * Math.PI) / 180;
+      const Δφ = ((pos2.lat - pos1.lat) * Math.PI) / 180;
+      const Δλ = ((pos2.lng - pos1.lng) * Math.PI) / 180;
+
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c; // Distance in meters
+    },
+    []
+  );
+
+  // Live route update function
+  const updateLiveRoute = useCallback(async () => {
+    if (
+      !isLiveTrackingActive ||
+      !selectedPickup ||
+      !currentLocation ||
+      !isLoaded
+    ) {
+      return;
+    }
+
+    // Check if location has changed significantly (more than 10 meters)
+    if (lastKnownLocation) {
+      const distance = calculateDistance(lastKnownLocation, currentLocation);
+      if (distance < 10) {
+        return; // Location hasn't changed significantly
+      }
+    }
+
+    try {
+      console.log(
+        "🚛 Live Tracking: Updating route from",
+        currentLocation,
+        "to",
+        selectedPickup.coordinates
+      );
+
+      // Clear existing route
+      if (routeRenderer) {
+        routeRenderer.setMap(null);
+      }
+
+      // Calculate new route
+      const route = await calculateRoute(
+        currentLocation,
+        selectedPickup.coordinates
+      );
+      if (route) {
+        const renderer = displayRoute(route);
+        setRouteRenderer(renderer);
+        setLastKnownLocation(currentLocation);
+
+        // Update map center to show current location
+        updateMapCenter(currentLocation, 16);
+
+        console.log("✅ Live Tracking: Route updated successfully");
+      }
+    } catch (error) {
+      console.error("❌ Live Tracking: Error updating route:", error);
+    }
+  }, [
+    isLiveTrackingActive,
+    selectedPickup,
+    currentLocation,
+    isLoaded,
+    lastKnownLocation,
+    calculateDistance,
+    routeRenderer,
+    calculateRoute,
+    displayRoute,
+    updateMapCenter,
+  ]);
+
+  // Start live tracking
+  const startLiveTracking = useCallback(() => {
+    if (!hasTrackingPermission() || !selectedPickup) {
+      console.warn(
+        "Live tracking not available: missing permissions or pickup"
+      );
+      return;
+    }
+
+    console.log("🎯 Starting live tracking to:", selectedPickup.industryName);
+    setIsLiveTrackingActive(true);
+
+    // Update route immediately
+    updateLiveRoute();
+
+    // Set up interval for route updates every 15 seconds
+    const interval = setInterval(() => {
+      updateLiveRoute();
+    }, 15000);
+
+    setRouteUpdateInterval(interval);
+  }, [hasTrackingPermission, selectedPickup, updateLiveRoute]);
+
+  // Stop live tracking
+  const stopLiveTracking = useCallback(() => {
+    console.log("⏹️ Stopping live tracking");
+    setIsLiveTrackingActive(false);
+    setLastKnownLocation(null);
+
+    if (routeUpdateInterval) {
+      clearInterval(routeUpdateInterval);
+      setRouteUpdateInterval(null);
+    }
+  }, [routeUpdateInterval]);
+
   const showRouteToPickup = async (pickup: PickupRequest) => {
     if (!currentLocation || !isLoaded) return;
 
     try {
+      console.log("🗺️ Showing route to:", pickup.industryName);
+
       // Clear existing route
       if (routeRenderer) {
         routeRenderer.setMap(null);
@@ -70,6 +207,20 @@ export function CollectorMapComponent({
         const renderer = displayRoute(route);
         setRouteRenderer(renderer);
         setSelectedPickup(pickup);
+
+        // Auto-start live tracking in navigation mode if enabled
+        if (navigationMode && enableLiveTracking && hasTrackingPermission()) {
+          setIsLiveTrackingActive(true);
+          setLastKnownLocation(currentLocation);
+
+          // Set up live tracking interval
+          const interval = setInterval(() => {
+            updateLiveRoute();
+          }, 15000);
+
+          setRouteUpdateInterval(interval);
+          console.log("🔴 Live tracking activated automatically");
+        }
       }
     } catch (error) {
       console.error("Error showing route:", error);
@@ -82,6 +233,13 @@ export function CollectorMapComponent({
       updateMapCenter(currentLocation, 15);
     }
   }, [currentLocation, isLoaded, updateMapCenter]);
+
+  // Trigger live route update when location changes significantly
+  useEffect(() => {
+    if (isLiveTrackingActive && currentLocation && selectedPickup) {
+      updateLiveRoute();
+    }
+  }, [currentLocation, isLiveTrackingActive, selectedPickup, updateLiveRoute]);
 
   // Auto-show route in navigation mode
   useEffect(() => {
@@ -215,6 +373,11 @@ export function CollectorMapComponent({
       if (routeRenderer) {
         routeRenderer.setMap(null);
       }
+      // Cleanup live tracking
+      if (routeUpdateInterval) {
+        clearInterval(routeUpdateInterval);
+        setRouteUpdateInterval(null);
+      }
     };
   }, [
     isLoaded,
@@ -228,10 +391,15 @@ export function CollectorMapComponent({
   ]);
 
   const clearRoute = () => {
+    console.log("🧹 Clearing route and stopping live tracking");
+
     if (routeRenderer) {
       routeRenderer.setMap(null);
       setRouteRenderer(null);
     }
+
+    // Stop live tracking
+    stopLiveTracking();
     setSelectedPickup(null);
   };
 
@@ -276,14 +444,55 @@ export function CollectorMapComponent({
               <p className="font-medium">
                 Route to: {selectedPickup.industryName}
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={clearRoute}
-                className="mt-1 w-full"
-              >
-                Clear Route
-              </Button>
+
+              {/* Live Tracking Status */}
+              {enableLiveTracking && hasTrackingPermission() && (
+                <div className="mt-2 p-2 bg-gray-50 rounded">
+                  <div className="flex items-center space-x-2">
+                    <Radio
+                      className={`h-3 w-3 ${
+                        isLiveTrackingActive
+                          ? "text-red-500 animate-pulse"
+                          : "text-gray-400"
+                      }`}
+                    />
+                    <span className="text-xs font-medium">
+                      {isLiveTrackingActive
+                        ? "Live Tracking ON"
+                        : "Live Tracking OFF"}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 flex space-x-1">
+                    {!isLiveTrackingActive ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={startLiveTracking}
+                        className="text-xs h-6 px-2"
+                      >
+                        Start Live
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={stopLiveTracking}
+                        className="text-xs h-6 px-2 text-red-600 border-red-300"
+                      >
+                        Stop Live
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live Tracking Info */}
+          {enableLiveTracking && !hasTrackingPermission() && (
+            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              ⚠️ Live tracking requires location permissions
             </div>
           )}
         </div>
