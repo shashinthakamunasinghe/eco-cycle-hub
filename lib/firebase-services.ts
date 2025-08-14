@@ -656,6 +656,12 @@ export const pickupService = {
   },
 
 
+
+// Replace the pickupService section around line 650-700 with this fixed version:
+
+export const pickupService = {
+  // ... (keep all your existing methods above)
+
   async getPendingPickupsCount(): Promise<number> {
     const q = query(
       collection(getDb(), "pickupRequests"),
@@ -663,8 +669,7 @@ export const pickupService = {
     );
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
-    
-    
+  }, // ✅ Added missing comma
 
   // Sync notifications with pickup history
   async syncPickupNotifications(industryId: string): Promise<void> {
@@ -708,9 +713,11 @@ export const pickupService = {
       default:
         return "info";
     }
-
-  },
+  }, // ✅ Added missing comma and closing brace
 };
+    
+
+
 
 // Notification operations
 export const notificationService = {
