@@ -13,6 +13,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  type Firestore,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -395,6 +396,33 @@ export const pickupService = {
     return pickups.sort(
       (a, b) => b.requestedAt.getTime() - a.requestedAt.getTime()
     );
+  },
+
+  async getPendingPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "pending")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getCompletedPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "completed")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getActivePickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "in", ["pending", "assigned", "in-progress"])
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
   },
 
   async createPickupRequest(
