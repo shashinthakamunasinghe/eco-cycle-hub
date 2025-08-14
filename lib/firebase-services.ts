@@ -13,8 +13,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
-  Firestore,
-  getCountFromServer,
+  type Firestore,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -222,72 +221,6 @@ export const userService = {
     });
   },
 
-  async getUserCount(): Promise<number> {
-    try {
-      const snapshot = await getCountFromServer(collection(getDb(), "users"));
-      return snapshot.data().count;
-    } catch (error) {
-      console.error("Error getting user count:", error);
-      // Fallback to counting all documents if getCountFromServer fails
-      const querySnapshot = await getDocs(collection(getDb(), "users"));
-      return querySnapshot.size;
-    }
-  },
-
-  async getUserCountByRole(): Promise<Record<string, number>> {
-    try {
-      const roles = ['admin', 'industry', 'collector', 'customer'];
-      const counts: Record<string, number> = {};
-      
-      for (const role of roles) {
-        try {
-          const q = query(collection(getDb(), "users"), where("role", "==", role));
-          const snapshot = await getCountFromServer(q);
-          counts[role] = snapshot.data().count;
-        } catch (error) {
-          console.error(`Error getting count for role ${role}:`, error);
-          // Fallback to manual count
-          const querySnapshot = await getDocs(query(collection(getDb(), "users"), where("role", "==", role)));
-          counts[role] = querySnapshot.size;
-        }
-      }
-      
-      return counts;
-    } catch (error) {
-      console.error("Error getting user counts by role:", error);
-      // Fallback to getting all users and counting manually
-      const allUsers = await this.getAllUsers();
-      return {
-        admin: allUsers.filter(user => user.role === 'admin').length,
-        industry: allUsers.filter(user => user.role === 'industry').length,
-        collector: allUsers.filter(user => user.role === 'collector').length,
-        customer: allUsers.filter(user => user.role === 'customer').length,
-      };
-    }
-  },
-
-  async getAvailableCollectorsCount(): Promise<number> {
-    try {
-      const q = query(
-        collection(getDb(), "users"), 
-        where("role", "==", "collector"),
-        where("isAvailable", "==", true)
-      );
-      const snapshot = await getCountFromServer(q);
-      return snapshot.data().count;
-    } catch (error) {
-      console.error("Error getting available collectors count:", error);
-      // Fallback to manual count
-      const q = query(
-        collection(getDb(), "users"), 
-        where("role", "==", "collector"),
-        where("isAvailable", "==", true)
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.size;
-    }
-  },
-
   async getUsersByRole(role: User["role"]): Promise<User[]> {
     const q = query(collection(getDb(), "users"), where("role", "==", role));
     const querySnapshot = await getDocs(q);
@@ -465,6 +398,33 @@ export const pickupService = {
     );
   },
 
+  async getPendingPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "pending")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getCompletedPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "completed")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getActivePickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "in", ["pending", "assigned", "in-progress"])
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
   async createPickupRequest(
     request: Omit<PickupRequest, "id">
   ): Promise<string> {
@@ -481,13 +441,6 @@ export const pickupService = {
         ? Timestamp.fromDate(request.cancelledAt)
         : null,
     });
-
-    // Create notification for pickup request sent
-    await this.createPickupNotification(
-      { ...request, id: docRef.id } as PickupRequest,
-      "pending"
-    );
-
     return docRef.id;
   },
 
@@ -537,16 +490,7 @@ export const pickupService = {
     id: string,
     status: PickupRequest["status"]
   ): Promise<void> {
-    // Get the pickup request first to access industry info
     const docRef = doc(getDb(), "pickupRequests", id);
-    const pickupDoc = await getDoc(docRef);
-    
-    if (!pickupDoc.exists()) {
-      throw new Error("Pickup request not found");
-    }
-    
-    const pickupData = pickupDoc.data() as PickupRequest;
-    
     const updateData: Record<string, string | Timestamp> = { status };
 
     if (status === "completed") {
@@ -556,168 +500,13 @@ export const pickupService = {
     }
 
     await updateDoc(docRef, updateData);
-
-    // Create notification for industry user
-    if (pickupData.industryId) {
-      await this.createPickupNotification(pickupData, status);
-    }
-  },
-
-  async assignCollectorWithNotification(
-    id: string,
-    collectorId: string,
-    collectorName: string
-  ): Promise<void> {
-    // Get the pickup request first
-    const docRef = doc(getDb(), "pickupRequests", id);
-    const pickupDoc = await getDoc(docRef);
-    
-    if (!pickupDoc.exists()) {
-      throw new Error("Pickup request not found");
-    }
-    
-    const pickupData = pickupDoc.data() as PickupRequest;
-    
-    await updateDoc(docRef, {
-      collectorId,
-      collectorName,
-      status: "assigned",
-      scheduledAt: Timestamp.now(),
-    });
-
-    // Create notification for industry user
-    if (pickupData.industryId) {
-      await notificationService.createNotification({
-        userId: pickupData.industryId,
-        title: "Pickup Request Collected",
-        message: `Your pickup request for ${pickupData.wasteType} (${pickupData.weight}kg) has been assigned to ${collectorName}. Collection will be scheduled soon.`,
-        type: "pickup" as const,
-        read: false,
-        createdAt: new Date(),
-      });
-    }
-  },
-
-  async createPickupNotification(
-    pickup: PickupRequest,
-    status: string
-  ): Promise<void> {
-    let title = "";
-    let message = "";
-    let type: "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending" = "info";
-
-    const requestInfo = `${pickup.wasteType} (${pickup.weight}kg)`;
-    const pickupId = pickup.id.substring(0, 8); // Short ID for display
-    const locationInfo = pickup.location?.address || "your location";
-
-    switch (status) {
-      case "pending":
-        title = "Pickup Request Sent";
-        message = `Your pickup request for ${requestInfo} has been submitted successfully. Request ID: ${pickupId}. Awaiting assignment.`;
-        type = "pending";
-        break;
-      case "assigned":
-        title = "Pickup Request Collected";
-        message = `Your pickup request for ${requestInfo} has been assigned to ${pickup.collectorName || "a collector"}. Request ID: ${pickupId}.`;
-        type = "pickup";
-        break;
-      case "on-way":
-        title = "Collector On The Way";
-        message = `${pickup.collectorName || "The collector"} is on the way to ${locationInfo} for ${requestInfo} pickup. Request ID: ${pickupId}.`;
-        type = "pickup";
-        break;
-      case "completed":
-        title = "Pickup Completed";
-        message = `Your waste pickup has been completed successfully. ${pickup.weight}kg of ${pickup.wasteType} collected. Request ID: ${pickupId}.`;
-        type = "success";
-        break;
-      case "cancelled":
-        title = "Pickup Request Rejected";
-        message = `Your pickup request for ${requestInfo} has been cancelled or rejected. Request ID: ${pickupId}.`;
-        type = "error";
-        break;
-      default:
-        return;
-    }
-
-    await notificationService.createNotification({
-      userId: pickup.industryId,
-      title,
-      message,
-      type,
-      read: false,
-      createdAt: new Date(),
-    });
   },
 
   async deletePickupRequest(id: string): Promise<void> {
     const docRef = doc(getDb(), "pickupRequests", id);
     await deleteDoc(docRef);
   },
-
-
-
-// Replace the pickupService section around line 650-700 with this fixed version:
-
-export const pickupService = {
-  // ... (keep all your existing methods above)
-
-  async getPendingPickupsCount(): Promise<number> {
-    const q = query(
-      collection(getDb(), "pickupRequests"),
-      where("status", "==", "pending")
-    );
-    const snapshot = await getCountFromServer(q);
-    return snapshot.data().count;
-  }, // ✅ Added missing comma
-
-  // Sync notifications with pickup history
-  async syncPickupNotifications(industryId: string): Promise<void> {
-    try {
-      const pickupRequests = await this.getPickupRequestsByIndustry(industryId);
-      const existingNotifications = await notificationService.getUserNotifications(industryId);
-      
-      for (const pickup of pickupRequests) {
-        // Check if notification already exists for this specific pickup request and status
-        const notificationKey = `${pickup.id}-${pickup.status}`;
-        const hasNotification = existingNotifications.some(notification => 
-          notification.message.includes(pickup.id) || 
-          (notification.message.includes(pickup.wasteType) && 
-           notification.message.includes(pickup.weight.toString()) &&
-           this.getNotificationTypeFromStatus(pickup.status) === notification.type)
-        );
-
-        if (!hasNotification) {
-          // Create notification based on current status
-          await this.createPickupNotification(pickup, pickup.status);
-        }
-      }
-    } catch (error) {
-      console.error("Error syncing pickup notifications:", error);
-    }
-  },
-
-  // Helper function to map pickup status to notification type
-  getNotificationTypeFromStatus(status: string): "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending" {
-    switch (status) {
-      case "pending":
-        return "pending";
-      case "assigned":
-        return "pickup";
-      case "on-way":
-        return "pickup";
-      case "completed":
-        return "success";
-      case "cancelled":
-        return "error";
-      default:
-        return "info";
-    }
-  }, // ✅ Added missing comma and closing brace
 };
-    
-
-
 
 // Notification operations
 export const notificationService = {
@@ -725,23 +514,12 @@ export const notificationService = {
     const q = query(
       collection(getDb(), "notifications"),
       where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
       limit(50)
     );
     const querySnapshot = await getDocs(q);
-    const notifications = querySnapshot.docs.map(
-      (doc) => {
-        const data = doc.data();
-        return {
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Notification;
-      }
-    );
-    
-    // Sort by createdAt in JavaScript to avoid composite index requirement
-    return notifications.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    return querySnapshot.docs.map(
+      (doc) => ({ ...doc.data(), id: doc.id } as Notification)
     );
   },
 
@@ -752,12 +530,6 @@ export const notificationService = {
       ...notification,
       createdAt: Timestamp.now(),
     });
-    
-    // Trigger notification count update
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("notificationUpdated"));
-    }
-    
     return docRef.id;
   },
 
@@ -767,11 +539,6 @@ export const notificationService = {
       read: true,
       updatedAt: Timestamp.now(),
     });
-    
-    // Trigger notification count update
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("notificationUpdated"));
-    }
   },
 
   async markAllAsRead(userId: string): Promise<void> {
@@ -790,26 +557,6 @@ export const notificationService = {
     );
 
     await Promise.all(updatePromises);
-    
-    // Trigger notification count update
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("notificationUpdated"));
-    }
-  },
-
-  async deleteNotification(id: string): Promise<void> {
-    const docRef = doc(getDb(), "notifications", id);
-    await deleteDoc(docRef);
-  },
-
-  async getUnreadCount(userId: string): Promise<number> {
-    const q = query(
-      collection(getDb(), "notifications"),
-      where("userId", "==", userId),
-      where("read", "==", false)
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.size;
   },
 };
 
@@ -817,39 +564,6 @@ export const notificationService = {
 export const collectorService = {
   async getAllCollectors(): Promise<User[]> {
     return await userService.getUsersByRole("collector");
-  },
-
-  async getValidCollectorsWithProfiles(): Promise<{ collectors: User[], profiles: CollectorProfile[] }> {
-    // Get all collector users and profiles in parallel
-    const [collectorUsers, collectorProfiles] = await Promise.all([
-      userService.getUsersByRole("collector"),
-      this.getAllCollectorProfiles()
-    ]);
-
-    // Filter to only include collectors that have both user record and profile
-    const validCollectorIds = new Set();
-    const validUsers: User[] = [];
-    const validProfiles: CollectorProfile[] = [];
-
-    // First pass: identify collectors with both records
-    collectorUsers.forEach(user => {
-      const hasProfile = collectorProfiles.some(profile => 
-        profile.id === user.id || profile.email === user.email
-      );
-      if (hasProfile && user.name && user.email) {
-        validCollectorIds.add(user.id);
-        validUsers.push(user);
-      }
-    });
-
-    // Second pass: get matching profiles
-    collectorProfiles.forEach(profile => {
-      if (validCollectorIds.has(profile.id) && profile.name && profile.email) {
-        validProfiles.push(profile);
-      }
-    });
-
-    return { collectors: validUsers, profiles: validProfiles };
   },
 
   async getCollector(id: string): Promise<User | null> {
@@ -949,42 +663,11 @@ export const collectorService = {
     const collector = await this.getCollector(id);
     if (!collector) throw new Error("Collector not found");
 
-    // Use a batch to delete from both collections atomically
-    const batch = writeBatch(getDb());
-    
-    // Get all pickup requests assigned to this collector
-    const pickupQuery = query(
-      collection(getDb(), "pickupRequests"),
-      where("collectorId", "==", id)
-    );
-    const pickupSnapshot = await getDocs(pickupQuery);
-    
-    // Update pickup requests to remove collector assignment
-    pickupSnapshot.docs.forEach((pickup) => {
-      const pickupData = pickup.data();
-      // Only update if the pickup is not completed or cancelled
-      if (!["completed", "cancelled"].includes(pickupData.status)) {
-        const pickupRef = doc(getDb(), "pickupRequests", pickup.id);
-        batch.update(pickupRef, {
-          collectorId: null,
-          status: "pending", // Reset to pending so it can be reassigned
-          updatedAt: Timestamp.now(),
-        });
-      }
-    });
-    
-    // Delete the collector document from users collection
-    const userDocRef = doc(getDb(), "users", id);
-    batch.delete(userDocRef);
-    
-    // Delete the collector profile from collectorProfiles collection
-    const profileDocRef = doc(getDb(), "collectorProfiles", id);
-    batch.delete(profileDocRef);
-    
-    // Execute the batch
-    await batch.commit();
+    // Delete the collector document from Firestore
+    const docRef = doc(getDb(), "users", id);
+    await deleteDoc(docRef);
 
-    console.log(`✅ Collector ${id} deleted successfully from both users and collectorProfiles collections, and related pickup requests updated`);
+    console.log(`✅ Collector ${id} deleted successfully from Firestore`);
   },
 
   // Collector Profile operations (separate collection)
@@ -1050,58 +733,5 @@ export const collectorService = {
     console.log(
       `✅ Collector profile ${id} deleted successfully from Firestore`
     );
-  },
-};
-
-// Industry operations
-export const industryService = {
-  async getIndustryProfile(industryId: string): Promise<any> {
-    const docRef = doc(db, "industryProfiles", industryId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...docSnap.data(),
-      };
-    }
-    return null;
-  },
-
-  async getIndustryLocation(industryId: string): Promise<{
-    location: { lat: number; lng: number } | null;
-    locationAddress: string | null;
-    autoLocation: boolean;
-  }> {
-    const profile = await this.getIndustryProfile(industryId);
-    
-    if (profile && profile.location) {
-      return {
-        location: profile.location,
-        locationAddress: profile.locationAddress || null,
-        autoLocation: true,
-      };
-    }
-    
-    return {
-      location: null,
-      locationAddress: null,
-      autoLocation: false,
-    };
-  },
-
-  async updateIndustryLocation(
-    industryId: string,
-    location: { lat: number; lng: number },
-    locationAddress: string
-  ): Promise<void> {
-    const docRef = doc(db, "industryProfiles", industryId);
-    await setDoc(docRef, {
-      location,
-      locationAddress,
-      locationUpdatedAt: new Date(),
-      updatedAt: new Date(),
-      userId: industryId
-    }, { merge: true });
   },
 };
