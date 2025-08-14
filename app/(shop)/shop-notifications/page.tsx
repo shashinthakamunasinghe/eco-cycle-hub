@@ -18,45 +18,28 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
 
-  // Load notifications from localStorage
+  // Load notifications from localStorage and update on storage changes
   useEffect(() => {
-    // Mock notifications
-    const mockNotifications: Notification[] = [
-      {
-        id: "1",
-        title: "Order Shipped",
-        message: "Your order #ORD-1234 has been shipped and is on its way!",
-        type: "order",
-        read: false,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "2",
-        title: "Special Offer",
-        message: "Get 20% off on all eco-friendly home items this week!",
-        type: "promotion",
-        read: false,
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "3",
-        title: "Product Back in Stock",
-        message: "Organic Compost Mix is now back in stock!",
-        type: "general",
-        read: true,
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "4",
-        title: "Order Delivered",
-        message: "Your order #ORD-1230 has been delivered successfully.",
-        type: "order",
-        read: true,
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ]
-    setNotifications(mockNotifications)
-  }, [])
+    function loadAndMarkAllRead() {
+      const notifs = JSON.parse(localStorage.getItem("shopNotifications") || "[]");
+      if (Array.isArray(notifs) && notifs.some(n => !n.read)) {
+        const updated = notifs.map(n => ({ ...n, read: true }));
+        localStorage.setItem("shopNotifications", JSON.stringify(updated));
+        setNotifications(updated);
+        // Dispatch a storage event for cross-tab update
+        window.dispatchEvent(new Event("storage"));
+      } else {
+        setNotifications(Array.isArray(notifs) ? notifs : []);
+      }
+    }
+    loadAndMarkAllRead();
+    window.addEventListener("storage", loadAndMarkAllRead);
+    window.addEventListener("focus", loadAndMarkAllRead);
+    return () => {
+      window.removeEventListener("storage", loadAndMarkAllRead);
+      window.removeEventListener("focus", loadAndMarkAllRead);
+    };
+  }, []);
 
   const markAsRead = (id: string) => {
     setNotifications((prev) => {

@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ShoppingBag } from "lucide-react";
+
 import { useCart } from "@/contexts/CartContext";
 import { productService, orderService } from "@/lib/firebase-services";
+import { addShopNotification } from "@/lib/shop-notification";
 
 // Define cart item interface for type safety
 interface CartItem {
@@ -176,22 +178,12 @@ export default function SuccessPage() {
           orders.unshift(order);
           localStorage.setItem("customerOrders", JSON.stringify(orders));
 
-          // Add order success notification to localStorage
-          const notifications = JSON.parse(
-            localStorage.getItem("shopNotifications") || "[]"
-          );
-          notifications.unshift({
-            id: `notif-${Date.now()}`,
+          // Add order success notification using utility
+          addShopNotification({
             title: "Order Successful",
             message: `Your order ${newOrderId} was placed successfully!`,
             type: "order",
-            read: false,
-            createdAt: new Date().toISOString(),
           });
-          localStorage.setItem(
-            "shopNotifications",
-            JSON.stringify(notifications)
-          );
         } else {
           console.log(
             "Skipped saving invalid order (empty items or zero value)"

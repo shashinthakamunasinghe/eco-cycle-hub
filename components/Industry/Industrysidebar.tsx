@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Plus, History, Bell, LogOut } from "lucide-react";
+import { LayoutDashboard, Plus, History, Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: "Dashboard", href: "/industrydash", icon: LayoutDashboard },
   { name: "Request Pickup", href: "/request", icon: Plus },
   { name: "Pickup History", href: "/history", icon: History },
+  { name: "Company Profile", href: "/industry-profile", icon: User },
   { name: "Notifications", href: "/industry-notifications", icon: Bell },
 ];
 

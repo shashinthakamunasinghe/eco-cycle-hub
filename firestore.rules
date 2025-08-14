@@ -13,6 +13,22 @@ service cloud.firestore {
       allow read: if request.auth != null && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow admins to update and delete any user
+      allow update, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Collector Profiles collection
+    match /collectorProfiles/{profileId} {
+      // Allow collectors to read and update their own profile
+      allow read, update: if request.auth != null && request.auth.uid == profileId;
+      // Allow admins to create, read, update, and delete any collector profile
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow system to create profiles during registration
+      allow create: if request.auth != null;
     }
 
     // Products collection

@@ -32,8 +32,65 @@ function ShopNotificationCount() {
   );
 }
 
+// Notification counter component for industry
+function IndustryNotificationCount() {
+  const [count, setCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const { user } = useFirebaseAuth();
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  
+  React.useEffect(() => {
+    let mounted = true;
+    
+    const updateCount = async () => {
+      if (!user?.id || user.role !== "industry") {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const unreadCount = await notificationService.getUnreadCount(user.id);
+        if (mounted) {
+          setCount(unreadCount);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching notification count:", error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    updateCount();
+    
+    // Update count every 30 seconds for real-time updates
+    const interval = setInterval(updateCount, 30000);
+    
+    // Listen for notification updates
+    const handleNotificationUpdate = () => updateCount();
+    window.addEventListener("notificationUpdated", handleNotificationUpdate);
+    window.addEventListener("focus", updateCount);
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener("notificationUpdated", handleNotificationUpdate);
+      window.removeEventListener("focus", updateCount);
+    };
+  }, [user?.id, user?.role, pathname]);
+
+  if (loading || count === 0) return null;
+  return (
+    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
 import Link from "next/link";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { notificationService } from "@/lib/firebase-services";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -165,9 +222,11 @@ export function Navbar() {
             {/* Center - Logo */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <Recycle className="text-white h-5 w-5" />
-                </div>
+                <img 
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                  alt="EcoCycle Hub Logo" 
+                  className="w-14 h-14 rounded-full object-cover"
+                />
                 <span className="text-xl font-bold text-gray-900">
                   EcoCycle Hub
                 </span>
@@ -215,9 +274,11 @@ export function Navbar() {
             {/* Center - Logo and Label */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <Recycle className="text-white h-5 w-5" />
-                </div>
+                <img 
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                  alt="EcoCycle Hub Logo" 
+                  className="w-14 h-14 rounded-full object-cover"
+                />
                 <span className="text-xl font-bold text-gray-900">
                   EcoCycle Hub
                 </span>
@@ -259,9 +320,9 @@ export function Navbar() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="relative h-8 w-8 rounded-full"
+                        className="relative h-12 w-12 rounded-full"
                       >
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-12 w-12">
                           <AvatarImage
                             src={user.avatar || "/placeholder.svg"}
                             alt={user.name}
@@ -335,9 +396,11 @@ export function Navbar() {
           {/* Left side - Logo and Label */}
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                <Recycle className="text-white h-5 w-5" />
-              </div>
+              <img 
+                src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
+                alt="EcoCycle Hub Logo" 
+                className="w-12 h-12 rounded-full object-cover"
+              />
               <span className="text-xl font-bold text-gray-900">
                 EcoCycle Hub
               </span>
@@ -359,19 +422,17 @@ export function Navbar() {
               className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                3
-              </span>
+              <IndustryNotificationCount />
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-8 w-8 rounded-full"
+                  className="relative h-12 w-12 rounded-full"
                 >
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-12 w-12">
                     <AvatarImage
-                      src={user?.avatar || "/placeholder.svg"}
+                      src={user?.avatar || "/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"}
                       alt={user?.name || "User"}
                     />
                     <AvatarFallback>

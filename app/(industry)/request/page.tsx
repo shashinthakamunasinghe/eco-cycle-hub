@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -22,9 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Package } from "lucide-react";
+import { MapPin, Package, ExternalLink } from "lucide-react";
 import { pickupService, notificationService } from "@/lib/firebase-services";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import type { PickupRequest } from "@/types";
 
 export default function RequestPickupPage() {
@@ -39,6 +41,12 @@ export default function RequestPickupPage() {
     },
   });
   const [loading, setLoading] = useState(false);
+  const [usingProfileLocation, setUsingProfileLocation] = useState(false);
+  const [profileLocation, setProfileLocation] = useState({
+    address: "Not set",
+    coordinates: null as { lat: number; lng: number } | null,
+    hasLocation: false
+  });
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useFirebaseAuth();
@@ -53,6 +61,41 @@ export default function RequestPickupPage() {
     "Mixed Waste",
   ];
 
+  // Load company profile location
+  useEffect(() => {
+    const loadProfileLocation = async () => {
+      if (!user?.id) return;
+
+      try {
+        const industryDoc = await getDoc(doc(db, "industryProfiles", user.id));
+        if (industryDoc.exists()) {
+          const data = industryDoc.data();
+          if (data.location && data.locationAddress) {
+            const profileLocationData = {
+              address: data.locationAddress,
+              coordinates: data.location,
+              hasLocation: true
+            };
+            
+            setProfileLocation(profileLocationData);
+            
+            // Automatically populate pickup address with profile location
+            setFormData(prev => ({
+              ...prev,
+              address: data.locationAddress,
+              location: data.location
+            }));
+            setUsingProfileLocation(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile location:", error);
+      }
+    };
+
+    loadProfileLocation();
+  }, [user?.id]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !user.id) {
@@ -64,6 +107,12 @@ export default function RequestPickupPage() {
       return;
     }
 
+    // Use profile location if form location is not set but profile location exists
+    let finalLocation = formData.location;
+    if ((!formData.location.lat || !formData.location.lng) && profileLocation.coordinates) {
+      finalLocation = profileLocation.coordinates;
+    }
+
     try {
       setLoading(true);
       const requestData: Omit<PickupRequest, "id"> = {
@@ -73,8 +122,8 @@ export default function RequestPickupPage() {
         weight: Number.parseInt(formData.weight),
         status: "pending",
         location: {
-          lat: formData.location.lat,
-          lng: formData.location.lng,
+          lat: finalLocation.lat,
+          lng: finalLocation.lng,
           address: formData.address,
         },
         priority: "medium", // Default priority
@@ -114,39 +163,28 @@ export default function RequestPickupPage() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear the profile location flag if user manually changes address
+    if (field === "address") {
+      setUsingProfileLocation(false);
+    }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          // Mock reverse geocoding
-          const mockAddresses = [
-            "123 Industrial Avenue, Colombo 03, Sri Lanka",
-            "456 Factory Street, Kandy, Sri Lanka",
-            "789 Manufacturing Road, Galle, Sri Lanka",
-            "321 Plant Avenue, Negombo, Sri Lanka",
-          ];
-          const mockAddress =
-            mockAddresses[Math.floor(Math.random() * mockAddresses.length)];
-          handleInputChange("address", mockAddress);
-          toast({
-            title: "Location detected",
-            description: "Your current location has been automatically filled.",
-          });
-        },
-        () => {
-          toast({
-            title: "Location error",
-            description: "Unable to get your location. Please enter manually.",
-            variant: "destructive",
-          });
-        }
-      );
+  const useProfileLocation = () => {
+    if (profileLocation.hasLocation && profileLocation.coordinates) {
+      setFormData(prev => ({
+        ...prev,
+        address: profileLocation.address,
+        location: profileLocation.coordinates!
+      }));
+      setUsingProfileLocation(true);
+      toast({
+        title: "Profile location used",
+        description: "Your company profile location has been applied.",
+      });
     } else {
       toast({
-        title: "Location not supported",
-        description: "Geolocation is not supported by this browser.",
+        title: "No profile location",
+        description: "Please set your location in the company profile first.",
         variant: "destructive",
       });
     }
@@ -212,24 +250,45 @@ export default function RequestPickupPage() {
             <div>
               <Label htmlFor="address">Pickup Address *</Label>
               <div className="flex items-center space-x-2">
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Enter pickup address"
-                  required
-                />
+                <div className="relative flex-1">
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    placeholder="Enter pickup address"
+                    required
+                    className={usingProfileLocation ? "border-green-500 bg-green-50" : ""}
+                  />
+                  {usingProfileLocation && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <span className="text-xs text-green-600 font-medium">Profile</span>
+                    </div>
+                  )}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={getCurrentLocation}
+                  onClick={useProfileLocation}
+                  title="Use profile location"
+                  disabled={!profileLocation.hasLocation}
+                  className={usingProfileLocation ? "border-green-500 text-green-600" : ""}
                 >
-                  <MapPin className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                Click the map icon to use your current location
+                {profileLocation.hasLocation ? (
+                  usingProfileLocation ? (
+                    <span className="text-green-600 font-medium">
+                      ✓ Using your profile location.
+                    </span>
+                  ) : (
+                    "Use profile location (link icon) or enter address manually"
+                  )
+                ) : (
+                  "Set your location in company profile first, then use link icon"
+                )}
               </p>
             </div>
 
@@ -278,13 +337,42 @@ export default function RequestPickupPage() {
                 Enabled
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Current location:</span>
-              <span className="text-sm">Colombo, Sri Lanka</span>
+            <div className="flex items-start justify-between">
+              <span className="text-sm text-gray-600">Profile location:</span>
+              <div className="text-right">
+                <span className="text-sm">
+                  {profileLocation.hasLocation ? profileLocation.address : "Not set"}
+                </span>
+                {profileLocation.coordinates && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {profileLocation.coordinates.lat.toFixed(6)}, {profileLocation.coordinates.lng.toFixed(6)}
+                  </div>
+                )}
+                {profileLocation.hasLocation && (
+                  <div className="text-xs text-green-600 mt-1 font-medium">
+                    {usingProfileLocation ? "✓ Used in pickup address" : "Available for pickup"}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-xs text-gray-500">
+                {profileLocation.hasLocation 
+                  ? "Your profile location is automatically used as pickup address."
+                  : "Set your profile location to auto-fill pickup address."
+                }
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/industry-profile')}
+                className="text-xs"
+              >
+                {profileLocation.hasLocation ? "Update Profile" : "Set Location"}
+              </Button>
             </div>
             <p className="text-xs text-gray-500">
-              Your location is automatically detected to help assign the nearest
-              available collector.
+              Your location helps assign the nearest available collector.
             </p>
           </div>
         </CardContent>

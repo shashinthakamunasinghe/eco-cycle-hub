@@ -134,6 +134,12 @@ export default function PickupHistoryPage() {
         cancelledAt: new Date(),
       });
 
+      // Create notification for cancellation
+      await pickupService.createPickupNotification(
+        { ...pickupToCancel, status: "cancelled" },
+        "cancelled"
+      );
+
       toast({
         title: "Pickup cancelled",
         description: `Request ${pickupToCancel.id} has been cancelled successfully.`,

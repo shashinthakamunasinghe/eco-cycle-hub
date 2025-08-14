@@ -40,8 +40,8 @@ export default function ProfilePage() {
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
-        city: "",
-        zipCode: "",
+        city: user.city || "",
+        zipCode: user.zipCode || "",
         avatar: user.avatar || "",
       });
     }

@@ -28,7 +28,7 @@ import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
-  const accountType = searchParams.get("type") || "customer";
+  const accountType = searchParams?.get("type") || "customer";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -37,6 +37,8 @@ export default function RegisterPage() {
     role: accountType,
     phone: "",
     address: "",
+    city: "",
+    zipCode: "",
   });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -55,6 +57,8 @@ export default function RegisterPage() {
         role: formData.role as "admin" | "industry" | "collector" | "customer",
         phone: formData.phone,
         address: formData.address,
+        city: formData.city,
+        zipCode: formData.zipCode,
         createdAt: new Date(),
       });
 
@@ -87,9 +91,15 @@ export default function RegisterPage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          // Mock reverse geocoding
-          const mockAddress = "123 Industrial Avenue, Colombo 03, Sri Lanka";
-          handleInputChange("address", mockAddress);
+          // Mock reverse geocoding - in a real app, you'd use a geocoding service
+          const mockStreetAddress = "123 Industrial Avenue";
+          const mockCity = "Colombo";
+          const mockZipCode = "00300";
+          
+          handleInputChange("address", mockStreetAddress);
+          handleInputChange("city", mockCity);
+          handleInputChange("zipCode", mockZipCode);
+          
           toast({
             title: "Location detected",
             description: "Your current location has been automatically filled.",
@@ -230,8 +240,9 @@ export default function RegisterPage() {
                   className="bg-white/80"
                 />
               </div>
+              
               <div>
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">Street Address</Label>
                 <div className="flex items-center space-x-2">
                   <Input
                     id="address"
@@ -240,7 +251,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       handleInputChange("address", e.target.value)
                     }
-                    placeholder="Enter your address"
+                    placeholder="Enter your street address"
                     className="bg-white/80"
                   />
                   {accountType === "industry" && (
@@ -259,6 +270,31 @@ export default function RegisterPage() {
                     Click the map icon to auto-detect location
                   </p>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
+                    placeholder="Enter your city"
+                    className="bg-white/80"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Input
+                    id="zipCode"
+                    type="text"
+                    value={formData.zipCode}
+                    onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                    placeholder="Enter your ZIP code"
+                    className="bg-white/80"
+                  />
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Creating account..." : "Create account"}
