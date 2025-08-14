@@ -6,6 +6,8 @@ export interface User {
   avatar?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  zipCode?: string;
   location?: {
     lat: number;
     lng: number;
@@ -137,7 +139,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
+  type: "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending";
   read: boolean;
   createdAt: Date;
 }
