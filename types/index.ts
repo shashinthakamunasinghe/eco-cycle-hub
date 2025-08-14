@@ -21,6 +21,7 @@ export interface User {
   truckCapacity?: number;
   currentLoad?: number;
   assignedRequests?: string[];
+  suspendedAt?: Date;
   createdAt: Date;
 }
 

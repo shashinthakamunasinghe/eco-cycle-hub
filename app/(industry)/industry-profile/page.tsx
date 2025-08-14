@@ -29,12 +29,6 @@ export default function IndustryProfilePage() {
     annualWasteVolume: "",
   })
   const [loading, setLoading] = useState(false)
-  const [locationLoading, setLocationLoading] = useState(false)
-  const [locationInfo, setLocationInfo] = useState({
-    currentLocation: "Not set",
-    autoLocation: false,
-    coordinates: null as { lat: number; lng: number } | null
-  })
   const { toast } = useToast()
 
   // Load industry profile data
@@ -60,15 +54,6 @@ export default function IndustryProfilePage() {
             certifications: data.certifications || "",
             annualWasteVolume: data.annualWasteVolume || "",
           })
-
-          // Load location information
-          if (data.location) {
-            setLocationInfo({
-              currentLocation: data.locationAddress || "Location set",
-              autoLocation: true,
-              coordinates: data.location
-            })
-          }
         }
       } catch (error) {
         console.error("Error loading industry profile:", error)
@@ -147,139 +132,50 @@ export default function IndustryProfilePage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-    try {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      if (!apiKey) {
-        console.warn("Google Maps API key not found, using coordinates as fallback")
-        return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-      }
-
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
-      )
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      
-      if (data.status === "OK" && data.results.length > 0) {
-        // Get the most appropriate address (usually the first one)
-        const address = data.results[0].formatted_address
-        return address
-      } else if (data.status === "ZERO_RESULTS") {
-        return `${lat.toFixed(6)}, ${lng.toFixed(6)} (No address found)`
-      } else {
-        console.warn("Geocoding API error:", data.status, data.error_message)
-        throw new Error(`Geocoding failed: ${data.status}`)
-      }
-    } catch (error) {
-      console.error("Reverse geocoding error:", error)
-      // Fallback to coordinates display
-      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-    }
-  }
-
   const updateLocation = async () => {
-    if (!user?.id) {
-      toast({
-        title: "Authentication Error",
-        description: "Please log in to update your location.",
-        variant: "destructive",
-      })
-      return
-    }
+    if (!user?.id) return
 
-    if (!navigator.geolocation) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const industryRef = doc(db, "industryProfiles", user.id)
+            await updateDoc(industryRef, {
+              location: {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              },
+              updatedAt: new Date()
+            })
+
+            toast({
+              title: "Location updated",
+              description: "Your location has been updated successfully.",
+            })
+          } catch (error) {
+            console.error("Error updating location:", error)
+            toast({
+              title: "Error",
+              description: "Failed to update location. Please try again.",
+              variant: "destructive",
+            })
+          }
+        },
+        (_error) => {
+          toast({
+            title: "Location error",
+            description: "Unable to get your location. Please try again.",
+            variant: "destructive",
+          })
+        },
+      )
+    } else {
       toast({
         title: "Location not supported",
         description: "Geolocation is not supported by this browser.",
         variant: "destructive",
       })
-      return
     }
-
-    setLocationLoading(true)
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const lat = position.coords.latitude
-          const lng = position.coords.longitude
-          
-          console.log(`Getting location: ${lat}, ${lng}`)
-          
-          // Get human-readable address using Google Maps Geocoding API
-          const address = await reverseGeocode(lat, lng)
-          console.log(`Resolved address: ${address}`)
-          
-          // Update Firestore with location data
-          const industryRef = doc(db, "industryProfiles", user.id)
-          await setDoc(industryRef, {
-            location: {
-              lat: lat,
-              lng: lng
-            },
-            locationAddress: address,
-            locationUpdatedAt: new Date(),
-            updatedAt: new Date(),
-            userId: user.id
-          }, { merge: true })
-
-          console.log("Location saved to Firestore successfully")
-
-          // Update local state
-          setLocationInfo({
-            currentLocation: address,
-            autoLocation: true,
-            coordinates: { lat, lng }
-          })
-
-          toast({
-            title: "Location updated successfully",
-            description: `Your location has been set to: ${address}`,
-          })
-        } catch (error) {
-          console.error("Error updating location:", error)
-          toast({
-            title: "Error",
-            description: "Failed to update location. Please try again.",
-            variant: "destructive",
-          })
-        } finally {
-          setLocationLoading(false)
-        }
-      },
-      (error) => {
-        setLocationLoading(false)
-        let errorMessage = "Unable to get your location. Please try again."
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location access denied. Please enable location permissions."
-            break
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable."
-            break
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out. Please try again."
-            break
-        }
-        
-        toast({
-          title: "Location error",
-          description: errorMessage,
-          variant: "destructive",
-        })
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000 // 5 minutes
-      }
-    )
   }
 
   const handleCancel = () => {
@@ -322,33 +218,15 @@ export default function IndustryProfilePage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Auto-location:</span>
-              <span className={`text-sm font-medium ${locationInfo.autoLocation ? 'text-green-600' : 'text-gray-500'}`}>
-                {locationInfo.autoLocation ? 'Enabled' : 'Disabled'}
-              </span>
+              <span className="text-sm font-medium text-green-600">Enabled</span>
             </div>
-            <div className="flex items-start justify-between">
+            <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Current location:</span>
-              <span className="text-sm text-right max-w-48">
-                {locationInfo.currentLocation}
-              </span>
+              <span className="text-sm">Colombo, Sri Lanka</span>
             </div>
-            {locationInfo.coordinates && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Coordinates:</span>
-                <span className="text-sm text-gray-500">
-                  {locationInfo.coordinates.lat.toFixed(6)}, {locationInfo.coordinates.lng.toFixed(6)}
-                </span>
-              </div>
-            )}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={updateLocation} 
-              className="w-full"
-              disabled={locationLoading}
-            >
+            <Button variant="outline" size="sm" onClick={updateLocation} className="w-full">
               <MapPin className="mr-2 h-4 w-4" />
-              {locationLoading ? "Updating..." : "Update Location"}
+              Update Location
             </Button>
           </CardContent>
         </Card>

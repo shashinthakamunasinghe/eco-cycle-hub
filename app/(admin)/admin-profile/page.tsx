@@ -65,7 +65,7 @@ export default function AdminProfilePage() {
             <CardDescription>Update your profile image</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="w-24 h-24">
+            <Avatar className="w-32 h-32">
               <AvatarImage src="/placeholder.svg" alt="Admin User" />
               <AvatarFallback>AU</AvatarFallback>
             </Avatar>

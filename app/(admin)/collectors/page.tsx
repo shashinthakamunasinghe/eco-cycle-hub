@@ -478,7 +478,6 @@ export default function AdminCollectorsPage() {
 
   const handleDeleteCollector = (collector: CollectorWithUser) => {
     setCollectorToDelete(collector);
-    setConfirmText(""); // Reset confirmation text
     setIsDeleteDialogOpen(true);
   };
 
@@ -508,11 +507,10 @@ export default function AdminCollectorsPage() {
       // Close dialog and reset state
       setIsDeleteDialogOpen(false);
       setCollectorToDelete(null);
-      setConfirmText("");
 
       toast({
-        title: "Collector deleted successfully",
-        description: `${collectorToDelete.name} and all associated data have been permanently removed from the system.`,
+        title: "Collector deleted",
+        description: `${collectorToDelete.name} has been permanently deleted from the system. All assigned pickup requests have been reset to pending.`,
         variant: "destructive",
       });
 
@@ -521,6 +519,13 @@ export default function AdminCollectorsPage() {
       );
     } catch (error) {
       console.error("❌ Error deleting collector:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      const errorCode = (error as any)?.code || "unknown";
+      console.error("❌ Error details:", {
+        message: errorMessage,
+        code: errorCode,
+        error: error
+      });
       toast({
         title: "Error deleting collector",
         description:
@@ -550,9 +555,18 @@ export default function AdminCollectorsPage() {
   };
 
   const filteredCollectors = collectors.filter(
-    (collector) =>
-      collector.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      collector.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (collector) => {
+      // First ensure collector has required data
+      if (!collector.name || !collector.email || !collector.id) {
+        return false;
+      }
+      
+      // Then apply search filter
+      return (
+        collector.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        collector.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
   );
 
   const formatDate = (dateString: string) => {
@@ -839,6 +853,14 @@ export default function AdminCollectorsPage() {
           className="pl-10"
         />
       </div>
+
+      {/* Status message */}
+      {!loading && (
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredCollectors.length} of {collectors.length} collectors from database
+          {searchTerm && ` matching "${searchTerm}"`}
+        </div>
+      )}
 
       {/* Collectors Table */}
       <Card>
@@ -1390,8 +1412,8 @@ export default function AdminCollectorsPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2 text-red-600">
-              <Trash2 className="h-5 w-5" />
+            <DialogTitle className="flex items-center space-x-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
               <span>Delete Collector</span>
             </DialogTitle>
           </DialogHeader>
