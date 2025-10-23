@@ -392,6 +392,15 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Contact Section for anchor scroll */}
+        <section id="contact" className="py-16 bg-white">
+          <div className="max-w-2xl mx-auto px-4 text-center">
+            <h2 className="text-3xl font-bold mb-4 text-gray-900">Contact Us</h2>
+            <p className="text-lg text-gray-600 mb-6">Have questions or want to get in touch? Reach out to our team and we’ll get back to you soon.</p>
+            {/* You can add a contact form or contact details here */}
+          </div>
+        </section>
+
         {/* Footer */}
         <footer className="bg-gray-900 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -543,16 +552,9 @@ export default function HomePage() {
               <p>&copy; 2025 EcoCycle Hub. All rights reserved.</p>
             </div>
           </div>
-        </footer>
-
-        {/* Contact Section for anchor scroll */}
-        <section id="contact" className="py-16 bg-white">
-          <div className="max-w-2xl mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-4 text-gray-900">Contact Us</h2>
-            <p className="text-lg text-gray-600 mb-6">Have questions or want to get in touch? Reach out to our team and we’ll get back to you soon.</p>
-            {/* You can add a contact form or contact details here */}
-          </div>
-        </section>
+          </footer>
+          
+        
       </div>
     </div>
   );
