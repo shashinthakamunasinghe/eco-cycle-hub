@@ -251,6 +251,31 @@ export const userService = {
 
     console.log(`✅ User ${id} deleted successfully from Firestore`);
   },
+
+  async getUserCount(): Promise<number> {
+    const querySnapshot = await getDocs(collection(getDb(), "users"));
+    return querySnapshot.size;
+  },
+
+  async getUserCountByRole(): Promise<{ [key: string]: number }> {
+    const querySnapshot = await getDocs(collection(getDb(), "users"));
+    const roleCounts: { [key: string]: number } = {
+      admin: 0,
+      customer: 0,
+      collector: 0,
+      industry: 0,
+    };
+
+    querySnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const role = data.role;
+      if (role && roleCounts.hasOwnProperty(role)) {
+        roleCounts[role]++;
+      }
+    });
+
+    return roleCounts;
+  },
 };
 
 // Order operations
@@ -724,6 +749,16 @@ export const collectorService = {
         updatedAt: data.updatedAt?.toDate(),
       } as unknown as User;
     });
+  },
+
+  async getAvailableCollectorsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "users"),
+      where("role", "==", "collector"),
+      where("isAvailable", "==", true)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
   },
 
   async updateCollectorAvailability(
