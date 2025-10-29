@@ -43,7 +43,7 @@ export function AdminSidebar() {
   };
 
   return (
-    <div className="fixed left-0 top-16 bottom-0 w-64 bg-white shadow-sm border-r overflow-y-auto">
+    <div className="fixed left-0 top-16 bottom-0 w-64 pt-6 bg-white shadow-sm border-r overflow-y-auto">
       <nav className="px-3 py-6 h-full flex flex-col">
         <div className="flex-1">
           {navigation.map((item) => {
