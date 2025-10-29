@@ -1,21 +1,59 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Users, Truck, Package, ShoppingCart, TrendingUp, AlertTriangle, Clock, MapPin } from "lucide-react"
-import Link from "next/link"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Users,
+  Truck,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  MapPin,
+} from "lucide-react";
+import Link from "next/link";
+
+import { fetchAdminStats } from "@/lib/admin-services";
+import { useState, useEffect } from "react";
 
 export default function AdminDashboard() {
-  // Mock data
-  const stats = {
-    totalUsers: 1247,
-    activeCollectors: 23,
-    pendingPickups: 8,
-    totalOrders: 156,
-    monthlyRevenue: 12450,
-    wasteCollected: 15600, // kg
-  }
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeCollectors: 0,
+    pendingPickups: 0,
+    totalOrders: 0,
+    monthlyRevenue: 0,
+    wasteCollected: 0,
+  });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setLoading(true);
+        const adminStats = await fetchAdminStats();
+        setStats(adminStats);
+        setError("");
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch statistics"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, []);
 
   const recentActivity = [
     {
@@ -39,39 +77,57 @@ export default function AdminDashboard() {
       time: "30 minutes ago",
       status: "warning",
     },
-  ]
+  ];
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "pickup":
-        return <Truck className="h-4 w-4" />
+        return <Truck className="h-4 w-4" />;
       case "order":
-        return <ShoppingCart className="h-4 w-4" />
+        return <ShoppingCart className="h-4 w-4" />;
       case "collector":
-        return <Users className="h-4 w-4" />
+        return <Users className="h-4 w-4" />;
       default:
-        return <Package className="h-4 w-4" />
+        return <Package className="h-4 w-4" />;
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "completed":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "warning":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      const adminStats = await fetchAdminStats();
+      setStats(adminStats);
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch statistics"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 max-w-7xl pt-6 mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <div className="flex space-x-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+            {loading ? "Loading..." : "Refresh Stats"}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/admin-map">View Map</Link>
           </Button>
@@ -80,6 +136,17 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -99,22 +166,30 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Collectors</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Collectors
+            </CardTitle>
             <Truck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.activeCollectors}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {stats.activeCollectors}
+            </div>
             <p className="text-xs text-muted-foreground">Currently online</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Pickups</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Pickups
+            </CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pendingPickups}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {stats.pendingPickups}
+            </div>
             <p className="text-xs text-muted-foreground">Awaiting assignment</p>
           </CardContent>
         </Card>
@@ -125,7 +200,9 @@ export default function AdminDashboard() {
             <ShoppingCart className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalOrders}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {stats.totalOrders}
+            </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
@@ -136,18 +213,24 @@ export default function AdminDashboard() {
             <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">${stats.monthlyRevenue}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              ${stats.monthlyRevenue}
+            </div>
             <p className="text-xs text-muted-foreground">Monthly revenue</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Waste Collected</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Waste Collected
+            </CardTitle>
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.wasteCollected} kg</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {stats.wasteCollected} kg
+            </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
@@ -158,7 +241,9 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest system activities and notifications</CardDescription>
+            <CardDescription>
+              Latest system activities and notifications
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -168,10 +253,14 @@ export default function AdminDashboard() {
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{activity.message}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {activity.message}
+                    </p>
                     <p className="text-sm text-gray-500">{activity.time}</p>
                   </div>
-                  <Badge className={getStatusColor(activity.status)}>{activity.status}</Badge>
+                  <Badge className={getStatusColor(activity.status)}>
+                    {activity.status}
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -229,8 +318,12 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
               <div>
-                <p className="text-sm font-medium">8 pickup requests pending assignment</p>
-                <p className="text-xs text-gray-600">Some requests have been waiting for over 2 hours</p>
+                <p className="text-sm font-medium">
+                  8 pickup requests pending assignment
+                </p>
+                <p className="text-xs text-gray-600">
+                  Some requests have been waiting for over 2 hours
+                </p>
               </div>
               <Button size="sm" asChild>
                 <Link href="/industry-pickups">Assign Now</Link>
@@ -238,8 +331,12 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
               <div>
-                <p className="text-sm font-medium">3 collectors offline for extended period</p>
-                <p className="text-xs text-gray-600">May need to contact these collectors</p>
+                <p className="text-sm font-medium">
+                  3 collectors offline for extended period
+                </p>
+                <p className="text-xs text-gray-600">
+                  May need to contact these collectors
+                </p>
               </div>
               <Button size="sm" variant="outline" asChild>
                 <Link href="/collectors">View Details</Link>
@@ -249,5 +346,5 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
