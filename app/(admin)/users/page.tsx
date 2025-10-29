@@ -112,17 +112,50 @@ export default function AdminUsersPage() {
     setIsConfirmSuspendOpen(true);
   };
 
-  const confirmSuspendUser = () => {
+  const confirmSuspendUser = async () => {
     if (!userToSuspend) return;
 
-    setUsersList(usersList.filter((u) => u.id !== userToSuspend.id));
-    setIsConfirmSuspendOpen(false);
+    try {
+      setLoading(true);
+      const isCurrentlySuspended = userToSuspend.isAvailable === false;
+      const action = isCurrentlySuspended ? "reactivating" : "suspending";
+      
+      console.log(`🔄 ${action} user:`, userToSuspend.id);
+      
+      // Update user status in Firestore
+      const updateData: Partial<UserType> = isCurrentlySuspended 
+        ? { isAvailable: true }
+        : { isAvailable: false, suspendedAt: new Date() };
+      
+      await userService.updateUser(userToSuspend.id, updateData);
+      
+      // Update local state to reflect the change
+      setUsersList(usersList.map(user => 
+        user.id === userToSuspend.id 
+          ? { ...user, ...updateData }
+          : user
+      ));
+      
+      setIsConfirmSuspendOpen(false);
+      setUserToSuspend(null);
 
-    toast({
-      title: "User suspended",
-      description: `${userToSuspend.name} has been suspended and removed from the system.`,
-      variant: "destructive",
-    });
+      toast({
+        title: isCurrentlySuspended ? "User reactivated" : "User suspended",
+        description: isCurrentlySuspended 
+          ? `${userToSuspend.name} has been reactivated and can now access the system.`
+          : `${userToSuspend.name} has been suspended. Their account is now inactive.`,
+        variant: isCurrentlySuspended ? "default" : "destructive",
+      });
+    } catch (error) {
+      console.error(`❌ Error ${userToSuspend.isAvailable === false ? "reactivating" : "suspending"} user:`, error);
+      toast({
+        title: `Error ${userToSuspend.isAvailable === false ? "reactivating" : "suspending"} user`,
+        description: `Failed to ${userToSuspend.isAvailable === false ? "reactivate" : "suspend"} user. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteUser = (user: UserType) => {
@@ -350,6 +383,11 @@ export default function AdminUsersPage() {
                       <Badge className={getRoleColor(user.role)}>
                         {user.role}
                       </Badge>
+                      {user.isAvailable === false && (
+                        <Badge variant="secondary" className="bg-red-100 text-red-800">
+                          Suspended
+                        </Badge>
+                      )}
                     </div>
                     <div className="space-y-1 text-sm text-gray-600">
                       <div className="flex items-center space-x-2">
@@ -385,11 +423,11 @@ export default function AdminUsersPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant={user.isAvailable === false ? "default" : "destructive"}
                     onClick={() => suspendUser(user)}
                   >
                     <Ban className="h-4 w-4 mr-1" />
-                    Suspend
+                    {user.isAvailable === false ? "Reactivate" : "Suspend"}
                   </Button>
                   <Button
                     size="sm"
@@ -469,7 +507,9 @@ export default function AdminUsersPage() {
                       <span className="text-sm">Role: {currentUser.role}</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm">Status: Active</span>
+                      <span className="text-sm">
+                        Status: {currentUser.isAvailable === false ? "Suspended" : "Active"}
+                      </span>
                     </div>
                     {currentUser.location && (
                       <div className="flex items-center space-x-2">
@@ -521,13 +561,13 @@ export default function AdminUsersPage() {
                   Close
                 </Button>
                 <Button
-                  variant="destructive"
+                  variant={currentUser.isAvailable === false ? "default" : "destructive"}
                   onClick={() => {
                     setIsViewDialogOpen(false);
                     suspendUser(currentUser);
                   }}
                 >
-                  Suspend User
+                  {currentUser.isAvailable === false ? "Reactivate User" : "Suspend User"}
                 </Button>
               </div>
             </div>
@@ -542,24 +582,48 @@ export default function AdminUsersPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirm Suspend User</DialogTitle>
+            <DialogTitle>
+              {userToSuspend?.isAvailable === false ? "Confirm Reactivate User" : "Confirm Suspend User"}
+            </DialogTitle>
           </DialogHeader>
           {userToSuspend && (
             <div className="py-4">
               <p className="mb-4">
-                Are you sure you want to suspend{" "}
-                <span className="font-semibold">{userToSuspend.name}</span>?
-                This action will remove them from the system.
+                {userToSuspend.isAvailable === false ? (
+                  <>
+                    Are you sure you want to reactivate{" "}
+                    <span className="font-semibold">{userToSuspend.name}</span>?
+                    This will restore their access to the system.
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to suspend{" "}
+                    <span className="font-semibold">{userToSuspend.name}</span>?
+                    This will deactivate their account and prevent them from accessing the system.
+                  </>
+                )}
               </p>
               <div className="flex justify-end space-x-2">
                 <Button
                   variant="outline"
                   onClick={() => setIsConfirmSuspendOpen(false)}
+                  disabled={loading}
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={confirmSuspendUser}>
-                  Suspend User
+                <Button 
+                  variant={userToSuspend.isAvailable === false ? "default" : "destructive"} 
+                  onClick={confirmSuspendUser} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {userToSuspend.isAvailable === false ? "Reactivating..." : "Suspending..."}
+                    </>
+                  ) : (
+                    userToSuspend.isAvailable === false ? "Reactivate User" : "Suspend User"
+                  )}
                 </Button>
               </div>
             </div>
