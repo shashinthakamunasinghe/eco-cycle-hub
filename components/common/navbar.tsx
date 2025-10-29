@@ -1,15 +1,21 @@
-
 "use client";
 
 // Notification counter component for shop
 import React from "react";
 function ShopNotificationCount() {
   const [count, setCount] = React.useState(0);
-  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
   React.useEffect(() => {
     function updateCount() {
-      const notifications = JSON.parse(localStorage.getItem("shopNotifications") || "[]");
-      setCount(Array.isArray(notifications) ? notifications.filter((n:any) => !n.read).length : 0);
+      const notifications = JSON.parse(
+        localStorage.getItem("shopNotifications") || "[]"
+      );
+      setCount(
+        Array.isArray(notifications)
+          ? notifications.filter((n: any) => !n.read).length
+          : 0
+      );
     }
     updateCount();
     window.addEventListener("storage", updateCount);
@@ -27,7 +33,7 @@ function ShopNotificationCount() {
   if (count === 0) return null;
   return (
     <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-      {count > 99 ? '99+' : count}
+      {count > 99 ? "99+" : count}
     </span>
   );
 }
@@ -37,17 +43,18 @@ function IndustryNotificationCount() {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const { user } = useFirebaseAuth();
-  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
-  
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
+
   React.useEffect(() => {
     let mounted = true;
-    
+
     const updateCount = async () => {
       if (!user?.id || user.role !== "industry") {
         setLoading(false);
         return;
       }
-      
+
       try {
         const unreadCount = await notificationService.getUnreadCount(user.id);
         if (mounted) {
@@ -63,19 +70,22 @@ function IndustryNotificationCount() {
     };
 
     updateCount();
-    
+
     // Update count every 30 seconds for real-time updates
     const interval = setInterval(updateCount, 30000);
-    
+
     // Listen for notification updates
     const handleNotificationUpdate = () => updateCount();
     window.addEventListener("notificationUpdated", handleNotificationUpdate);
     window.addEventListener("focus", updateCount);
-    
+
     return () => {
       mounted = false;
       clearInterval(interval);
-      window.removeEventListener("notificationUpdated", handleNotificationUpdate);
+      window.removeEventListener(
+        "notificationUpdated",
+        handleNotificationUpdate
+      );
       window.removeEventListener("focus", updateCount);
     };
   }, [user?.id, user?.role, pathname]);
@@ -83,7 +93,7 @@ function IndustryNotificationCount() {
   if (loading || count === 0) return null;
   return (
     <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-      {count > 99 ? '99+' : count}
+      {count > 99 ? "99+" : count}
     </span>
   );
 }
@@ -115,21 +125,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-
-
-
-
 // Cart counter component
 function CartItemCount() {
   const { cartCount } = useCart();
-  
+
   if (cartCount === 0) {
     return null;
   }
-  
+
   return (
     <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
-      {cartCount > 99 ? '99+' : cartCount}
+      {cartCount > 99 ? "99+" : cartCount}
     </span>
   );
 }
@@ -222,9 +228,9 @@ export function Navbar() {
             {/* Center - Logo */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <img 
-                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
-                  alt="EcoCycle Hub Logo" 
+                <img
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"
+                  alt="EcoCycle Hub Logo"
                   className="w-14 h-14 rounded-full object-cover"
                 />
                 <span className="text-xl font-bold text-gray-900">
@@ -262,21 +268,35 @@ export function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Left side */}
             <div className="flex items-center">
-                <Link
-                href={pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "/products" : "/"}
+              <Link
+                href={
+                  pathname.startsWith("/cart") ||
+                  pathname.startsWith("/orders") ||
+                  pathname.startsWith("/shop-notifications") ||
+                  pathname.startsWith("/customer-profile")
+                    ? "/products"
+                    : "/"
+                }
                 className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>{pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/shop-notifications") || pathname.startsWith("/customer-profile") ? "Back to Products" : "Back Home"}</span>
+                <span>
+                  {pathname.startsWith("/cart") ||
+                  pathname.startsWith("/orders") ||
+                  pathname.startsWith("/shop-notifications") ||
+                  pathname.startsWith("/customer-profile")
+                    ? "Back to Products"
+                    : "Back Home"}
+                </span>
               </Link>
             </div>
 
             {/* Center - Logo and Label */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2">
               <Link href="/" className="flex items-center space-x-2">
-                <img 
-                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
-                  alt="EcoCycle Hub Logo" 
+                <img
+                  src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"
+                  alt="EcoCycle Hub Logo"
                   className="w-14 h-14 rounded-full object-cover"
                 />
                 <span className="text-xl font-bold text-gray-900">
@@ -295,21 +315,21 @@ export function Navbar() {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
-                  <Link 
+                  <Link
                     href="/cart"
                     className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
                   >
                     <ShoppingCart className="h-5 w-5" />
                     <CartItemCount />
                   </Link>
-                  <Link 
+                  <Link
                     href="/orders"
                     className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 flex items-center"
                   >
                     <Package className="h-4 w-4 mr-2" />
                     Orders
                   </Link>
-                  <Link 
+                  <Link
                     href="/shop-notifications"
                     className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
                   >
@@ -367,13 +387,13 @@ export function Navbar() {
                 </>
               ) : (
                 <>
-                  <Link 
+                  <Link
                     href="/register?type=customer"
                     className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
                   >
                     Register
                   </Link>
-                  <Link 
+                  <Link
                     href="/login"
                     className="font-semibold px-4 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200"
                   >
@@ -396,28 +416,37 @@ export function Navbar() {
           {/* Left side - Logo and Label */}
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
-              <img 
-                src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png" 
-                alt="EcoCycle Hub Logo" 
+              <img
+                src="/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"
+                alt="EcoCycle Hub Logo"
                 className="w-12 h-12 rounded-full object-cover"
               />
               <span className="text-xl font-bold text-gray-900">
                 EcoCycle Hub
               </span>
             </Link>
-            {dashboardLabel && (
+            {user?.role === "admin" ? (
               <Badge
                 variant="outline"
-                className="bg-green-50 text-green-700 border-green-200"
+                className="bg-green-50 text-green-700 border-green-200 font-semibold"
               >
-                {dashboardLabel}
+                Admin Dashboard
               </Badge>
+            ) : (
+              dashboardLabel && (
+                <Badge
+                  variant="outline"
+                  className="bg-green-50 text-green-700 border-green-200"
+                >
+                  {dashboardLabel}
+                </Badge>
+              )
             )}
           </div>
 
           {/* Right side - Notifications and Profile */}
           <div className="flex items-center space-x-4">
-            <Link 
+            <Link
               href={getNotificationLink()}
               className="font-semibold px-3 py-2 rounded-full bg-gradient-to-r from-green-900 to-emerald-800 text-white shadow hover:scale-105 hover:from-green-800 hover:to-emerald-700 transition-all duration-200 relative flex items-center justify-center"
             >
@@ -432,7 +461,10 @@ export function Navbar() {
                 >
                   <Avatar className="h-12 w-12">
                     <AvatarImage
-                      src={user?.avatar || "/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"}
+                      src={
+                        user?.avatar ||
+                        "/ChatGPT Image Aug 12, 2025, 06_15_31 PM.png"
+                      }
                       alt={user?.name || "User"}
                     />
                     <AvatarFallback>
@@ -478,6 +510,7 @@ export function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
-  );
+         
+    </nav>
+  );
 }
