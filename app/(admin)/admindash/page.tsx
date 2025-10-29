@@ -36,23 +36,23 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        setLoading(true);
-        const adminStats = await fetchAdminStats();
-        setStats(adminStats);
-        setError("");
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch statistics"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const adminStats = await fetchAdminStats();
+      setStats(adminStats);
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch statistics"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadStats();
+  useEffect(() => {
+    fetchStats();
   }, []);
 
   const recentActivity = [
