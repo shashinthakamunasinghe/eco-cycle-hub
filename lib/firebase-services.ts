@@ -13,8 +13,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
-  Firestore,
-  getCountFromServer,
+  type Firestore,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
@@ -223,72 +222,6 @@ export const userService = {
     });
   },
 
-  async getUserCount(): Promise<number> {
-    try {
-      const snapshot = await getCountFromServer(collection(getDb(), "users"));
-      return snapshot.data().count;
-    } catch (error) {
-      console.error("Error getting user count:", error);
-      // Fallback to counting all documents if getCountFromServer fails
-      const querySnapshot = await getDocs(collection(getDb(), "users"));
-      return querySnapshot.size;
-    }
-  },
-
-  async getUserCountByRole(): Promise<Record<string, number>> {
-    try {
-      const roles = ['admin', 'industry', 'collector', 'customer'];
-      const counts: Record<string, number> = {};
-      
-      for (const role of roles) {
-        try {
-          const q = query(collection(getDb(), "users"), where("role", "==", role));
-          const snapshot = await getCountFromServer(q);
-          counts[role] = snapshot.data().count;
-        } catch (error) {
-          console.error(`Error getting count for role ${role}:`, error);
-          // Fallback to manual count
-          const querySnapshot = await getDocs(query(collection(getDb(), "users"), where("role", "==", role)));
-          counts[role] = querySnapshot.size;
-        }
-      }
-      
-      return counts;
-    } catch (error) {
-      console.error("Error getting user counts by role:", error);
-      // Fallback to getting all users and counting manually
-      const allUsers = await this.getAllUsers();
-      return {
-        admin: allUsers.filter(user => user.role === 'admin').length,
-        industry: allUsers.filter(user => user.role === 'industry').length,
-        collector: allUsers.filter(user => user.role === 'collector').length,
-        customer: allUsers.filter(user => user.role === 'customer').length,
-      };
-    }
-  },
-
-  async getAvailableCollectorsCount(): Promise<number> {
-    try {
-      const q = query(
-        collection(getDb(), "users"), 
-        where("role", "==", "collector"),
-        where("isAvailable", "==", true)
-      );
-      const snapshot = await getCountFromServer(q);
-      return snapshot.data().count;
-    } catch (error) {
-      console.error("Error getting available collectors count:", error);
-      // Fallback to manual count
-      const q = query(
-        collection(getDb(), "users"), 
-        where("role", "==", "collector"),
-        where("isAvailable", "==", true)
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.size;
-    }
-  },
-
   async getUsersByRole(role: User["role"]): Promise<User[]> {
     const q = query(collection(getDb(), "users"), where("role", "==", role));
     const querySnapshot = await getDocs(q);
@@ -466,6 +399,33 @@ export const pickupService = {
     );
   },
 
+  async getPendingPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "pending")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getCompletedPickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "==", "completed")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
+  async getActivePickupsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "pickupRequests"),
+      where("status", "in", ["pending", "assigned", "in-progress"])
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  },
+
   async createPickupRequest(
     request: Omit<PickupRequest, "id">
   ): Promise<string> {
@@ -546,15 +506,6 @@ export const pickupService = {
   async deletePickupRequest(id: string): Promise<void> {
     const docRef = doc(getDb(), "pickupRequests", id);
     await deleteDoc(docRef);
-  },
-
-  async getPendingPickupsCount(): Promise<number> {
-    const q = query(
-      collection(getDb(), "pickupRequests"),
-      where("status", "==", "pending")
-    );
-    const snapshot = await getCountFromServer(q);
-    return snapshot.data().count;
   },
 };
 
@@ -752,39 +703,6 @@ export const collectorService = {
     return await userService.getUsersByRole("collector");
   },
 
-  async getValidCollectorsWithProfiles(): Promise<{ collectors: User[], profiles: CollectorProfile[] }> {
-    // Get all collector users and profiles in parallel
-    const [collectorUsers, collectorProfiles] = await Promise.all([
-      userService.getUsersByRole("collector"),
-      this.getAllCollectorProfiles()
-    ]);
-
-    // Filter to only include collectors that have both user record and profile
-    const validCollectorIds = new Set();
-    const validUsers: User[] = [];
-    const validProfiles: CollectorProfile[] = [];
-
-    // First pass: identify collectors with both records
-    collectorUsers.forEach(user => {
-      const hasProfile = collectorProfiles.some(profile => 
-        profile.id === user.id || profile.email === user.email
-      );
-      if (hasProfile && user.name && user.email) {
-        validCollectorIds.add(user.id);
-        validUsers.push(user);
-      }
-    });
-
-    // Second pass: get matching profiles
-    collectorProfiles.forEach(profile => {
-      if (validCollectorIds.has(profile.id) && profile.name && profile.email) {
-        validProfiles.push(profile);
-      }
-    });
-
-    return { collectors: validUsers, profiles: validProfiles };
-  },
-
   async getCollector(id: string): Promise<User | null> {
     const collector = await userService.getUser(id);
     return collector?.role === "collector" ? collector : null;
@@ -882,42 +800,11 @@ export const collectorService = {
     const collector = await this.getCollector(id);
     if (!collector) throw new Error("Collector not found");
 
-    // Use a batch to delete from both collections atomically
-    const batch = writeBatch(getDb());
-    
-    // Get all pickup requests assigned to this collector
-    const pickupQuery = query(
-      collection(getDb(), "pickupRequests"),
-      where("collectorId", "==", id)
-    );
-    const pickupSnapshot = await getDocs(pickupQuery);
-    
-    // Update pickup requests to remove collector assignment
-    pickupSnapshot.docs.forEach((pickup) => {
-      const pickupData = pickup.data();
-      // Only update if the pickup is not completed or cancelled
-      if (!["completed", "cancelled"].includes(pickupData.status)) {
-        const pickupRef = doc(getDb(), "pickupRequests", pickup.id);
-        batch.update(pickupRef, {
-          collectorId: null,
-          status: "pending", // Reset to pending so it can be reassigned
-          updatedAt: Timestamp.now(),
-        });
-      }
-    });
-    
-    // Delete the collector document from users collection
-    const userDocRef = doc(getDb(), "users", id);
-    batch.delete(userDocRef);
-    
-    // Delete the collector profile from collectorProfiles collection
-    const profileDocRef = doc(getDb(), "collectorProfiles", id);
-    batch.delete(profileDocRef);
-    
-    // Execute the batch
-    await batch.commit();
+    // Delete the collector document from Firestore
+    const docRef = doc(getDb(), "users", id);
+    await deleteDoc(docRef);
 
-    console.log(`✅ Collector ${id} deleted successfully from both users and collectorProfiles collections, and related pickup requests updated`);
+    console.log(`✅ Collector ${id} deleted successfully from Firestore`);
   },
 
   // Collector Profile operations (separate collection)

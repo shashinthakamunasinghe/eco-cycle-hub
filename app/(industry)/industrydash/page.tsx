@@ -23,14 +23,17 @@ import {
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { pickupService } from "@/lib/firebase-services";
+import { pickupService, industryService } from "@/lib/firebase-services";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { getCurrentLocationWithAddress } from "@/lib/location-utils";
 import type { PickupRequest } from "@/types";
 
 export default function IndustryDashboard() {
   const { toast } = useToast();
   const { user } = useFirebaseAuth();
-  const [location, setLocation] = useState("Colombo, Sri Lanka");
+  const [location, setLocation] = useState("Loading...");
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [recentRequests, setRecentRequests] = useState<PickupRequest[]>([]);
   const [stats, setStats] = useState({
     totalRequests: 0,
@@ -76,11 +79,50 @@ export default function IndustryDashboard() {
     }
   }, [user?.id, toast]);
 
+  // Load location from industry profile
+  const loadLocation = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const locationInfo = await industryService.getIndustryLocation(user.id);
+      
+      if (locationInfo.location && locationInfo.locationAddress) {
+        setLocation(locationInfo.locationAddress);
+        setLocationEnabled(locationInfo.autoLocation);
+      } else {
+        setLocation("Location not set");
+        setLocationEnabled(false);
+      }
+    } catch (error) {
+      console.error("Error loading location:", error);
+      setLocation("Unable to load location");
+      setLocationEnabled(false);
+    }
+  }, [user?.id]);
+
+  // Refresh location data (useful after profile updates)
+  const refreshLocation = useCallback(async () => {
+    await loadLocation();
+  }, [loadLocation]);
+
   useEffect(() => {
     if (user?.id) {
       loadRequests();
+      loadLocation();
     }
-  }, [user?.id, loadRequests]);
+  }, [user?.id, loadRequests, loadLocation]);
+
+  // Refresh location when window gains focus (useful when returning from profile page)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        refreshLocation();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.id, refreshLocation]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -99,35 +141,46 @@ export default function IndustryDashboard() {
     }
   };
 
-  const updateLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          // Mock reverse geocoding with random locations
-          const locations = [
-            "Colombo 03, Sri Lanka",
-            "Kandy, Sri Lanka",
-            "Galle, Sri Lanka",
-            "Negombo, Sri Lanka",
-            "Matara, Sri Lanka",
-          ];
-          const newLocation =
-            locations[Math.floor(Math.random() * locations.length)];
-          setLocation(newLocation);
+  const updateLocation = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in to update your location.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-          toast({
-            title: "Location updated",
-            description: `Your location has been updated to ${newLocation}`,
-          });
-        },
-        () => {
-          toast({
-            title: "Location error",
-            description: "Unable to get your location. Using default location.",
-            variant: "destructive",
-          });
-        }
+    setLocationLoading(true);
+
+    try {
+      // Get current location with address using Google Maps API
+      const locationData = await getCurrentLocationWithAddress();
+      
+      // Update the industry profile in Firestore
+      await industryService.updateIndustryLocation(
+        user.id,
+        locationData.coordinates,
+        locationData.address
       );
+
+      // Update local state
+      setLocation(locationData.address);
+      setLocationEnabled(true);
+
+      toast({
+        title: "Location updated successfully",
+        description: `Your location has been updated to: ${locationData.address}`,
+      });
+    } catch (error) {
+      console.error("Error updating location:", error);
+      toast({
+        title: "Location Update Failed",
+        description: error instanceof Error ? error.message : "Unable to update location. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -294,15 +347,31 @@ export default function IndustryDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2 mb-4">
-              <MapPin className="h-5 w-5 text-green-600" />
-              <span className="text-sm">Auto-location enabled</span>
+              <MapPin className={`h-5 w-5 ${locationEnabled ? 'text-green-600' : 'text-gray-400'}`} />
+              <span className="text-sm">
+                {locationEnabled ? 'Auto-location enabled' : 'Location not set'}
+              </span>
             </div>
             <p className="text-sm text-gray-600 mb-4">
               Current location: {location}
             </p>
-            <Button variant="outline" size="sm" onClick={updateLocation}>
-              Update Location
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={updateLocation}
+                disabled={locationLoading}
+              >
+                {locationLoading ? "Updating..." : "Update Location"}
+              </Button>
+              {!locationEnabled && (
+                <Button variant="link" size="sm" asChild>
+                  <Link href="/industry-profile">
+                    Set in Profile
+                  </Link>
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
