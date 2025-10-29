@@ -23,6 +23,7 @@ import type {
   Order,
   PickupRequest,
   Notification,
+  AdminNotification,
   CollectorProfile,
 } from "@/types";
 
@@ -249,6 +250,31 @@ export const userService = {
     await deleteDoc(docRef);
 
     console.log(`✅ User ${id} deleted successfully from Firestore`);
+  },
+
+  async getUserCount(): Promise<number> {
+    const querySnapshot = await getDocs(collection(getDb(), "users"));
+    return querySnapshot.size;
+  },
+
+  async getUserCountByRole(): Promise<{ [key: string]: number }> {
+    const querySnapshot = await getDocs(collection(getDb(), "users"));
+    const roleCounts: { [key: string]: number } = {
+      admin: 0,
+      customer: 0,
+      collector: 0,
+      industry: 0,
+    };
+
+    querySnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const role = data.role;
+      if (role && roleCounts.hasOwnProperty(role)) {
+        roleCounts[role]++;
+      }
+    });
+
+    return roleCounts;
   },
 };
 
@@ -560,6 +586,142 @@ export const notificationService = {
   },
 };
 
+// Admin Notification operations
+export const adminNotificationService = {
+  async getAllNotifications(): Promise<AdminNotification[]> {
+    const q = query(
+      collection(getDb(), "adminNotifications"),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        sentAt: data.sentAt?.toDate(),
+        scheduledAt: data.scheduledAt?.toDate(),
+      } as AdminNotification;
+    });
+  },
+
+  async createNotification(
+    notification: Omit<AdminNotification, "id" | "createdAt">
+  ): Promise<string> {
+    const docRef = await addDoc(collection(getDb(), "adminNotifications"), {
+      ...notification,
+      createdAt: Timestamp.now(),
+      ...(notification.status === "sent" && { sentAt: Timestamp.now() }),
+    });
+
+    // If sending to users, create individual notifications
+    if (notification.status === "sent") {
+      await this.broadcastNotification(docRef.id, notification);
+    }
+
+    return docRef.id;
+  },
+
+  async updateNotification(
+    id: string,
+    updates: Partial<AdminNotification>
+  ): Promise<void> {
+    const docRef = doc(getDb(), "adminNotifications", id);
+    const updateData = {
+      ...updates,
+      ...(updates.status === "sent" && { sentAt: Timestamp.now() }),
+    };
+    await updateDoc(docRef, updateData);
+
+    // If status changed to sent, broadcast
+    if (updates.status === "sent") {
+      const notification = await this.getNotification(id);
+      if (notification) {
+        await this.broadcastNotification(id, notification);
+      }
+    }
+  },
+
+  async getNotification(id: string): Promise<AdminNotification | null> {
+    const docRef = doc(getDb(), "adminNotifications", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      sentAt: data.sentAt?.toDate(),
+      scheduledAt: data.scheduledAt?.toDate(),
+    } as AdminNotification;
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+    const docRef = doc(getDb(), "adminNotifications", id);
+    await deleteDoc(docRef);
+  },
+
+  async broadcastNotification(
+    adminNotificationId: string,
+    notification: Omit<AdminNotification, "id" | "createdAt">
+  ): Promise<void> {
+    let targetUsers: User[] = [];
+
+    // Get target users based on recipients
+    switch (notification.recipients) {
+      case "all":
+        targetUsers = await userService.getAllUsers();
+        break;
+      case "admins":
+        targetUsers = await userService.getUsersByRole("admin");
+        break;
+      case "industries":
+        targetUsers = await userService.getUsersByRole("industry");
+        break;
+      case "collectors":
+        targetUsers = await userService.getUsersByRole("collector");
+        break;
+      case "customers":
+        targetUsers = await userService.getUsersByRole("customer");
+        break;
+    }
+
+    // Create individual notifications for each target user
+    const notificationPromises = targetUsers.map((user) =>
+      notificationService.createNotification({
+        userId: user.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        read: false,
+        createdAt: new Date(),
+      })
+    );
+
+    await Promise.all(notificationPromises);
+  },
+
+  async getNotificationStats(): Promise<{
+    total: number;
+    sent: number;
+    drafts: number;
+    thisWeek: number;
+    alerts: number;
+  }> {
+    const notifications = await this.getAllNotifications();
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    return {
+      total: notifications.length,
+      sent: notifications.filter((n) => n.status === "sent").length,
+      drafts: notifications.filter((n) => n.status === "draft").length,
+      thisWeek: notifications.filter((n) => new Date(n.createdAt) > weekAgo).length,
+      alerts: notifications.filter((n) => n.type === "warning" || n.type === "error").length,
+    };
+  },
+};
+
 // Collector operations
 export const collectorService = {
   async getAllCollectors(): Promise<User[]> {
@@ -587,6 +749,16 @@ export const collectorService = {
         updatedAt: data.updatedAt?.toDate(),
       } as unknown as User;
     });
+  },
+
+  async getAvailableCollectorsCount(): Promise<number> {
+    const q = query(
+      collection(getDb(), "users"),
+      where("role", "==", "collector"),
+      where("isAvailable", "==", true)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
   },
 
   async updateCollectorAvailability(
