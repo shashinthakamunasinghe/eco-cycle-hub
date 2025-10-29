@@ -16,10 +16,10 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     const usersSnapshot = await getDocs(collection(db, "users"));
     const totalUsers = usersSnapshot.size;
 
-    // Get active collectors
+    // Get active collectors (those who are available)
     const collectorsQuery = query(
-      collection(db, "collectors"),
-      where("status", "==", "active")
+      collection(db, "collectorProfiles"),
+      where("isAvailable", "==", true)
     );
     const collectorsSnapshot = await getDocs(collectorsQuery);
     const activeCollectors = collectorsSnapshot.size;
