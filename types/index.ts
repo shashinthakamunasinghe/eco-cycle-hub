@@ -21,7 +21,6 @@ export interface User {
   truckCapacity?: number;
   currentLoad?: number;
   assignedRequests?: string[];
-  suspendedAt?: Date;
   createdAt: Date;
 }
 
@@ -142,17 +141,4 @@ export interface Notification {
   type: "info" | "success" | "warning" | "error" | "pickup" | "collector" | "pending";
   read: boolean;
   createdAt: Date;
-}
-
-export interface AdminNotification {
-  id: string;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  recipients: "all" | "admins" | "industries" | "collectors" | "customers";
-  status: "draft" | "sent" | "scheduled";
-  createdAt: Date;
-  sentAt?: Date;
-  scheduledAt?: Date;
-  createdBy: string; // Admin user ID
 }
